@@ -87,9 +87,7 @@ export default function DeviceManagementPage () {
     try {
       const params = new URLSearchParams()
       if (search) {
-        params.append('name', search)
-        params.append('model', search)
-        params.append('serialNumber', search)
+        params.append('keyword', search)
       }
       if (customerId) params.append('customerId', customerId)
       if (status) params.append('status', status)
