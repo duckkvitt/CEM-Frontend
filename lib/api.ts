@@ -1,4 +1,9 @@
-export const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? 'https://localhost:8080'
-export const AUTH_SERVICE_URL = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ?? 'https://localhost:8081'
-export const CUSTOMER_SERVICE_URL = process.env.NEXT_PUBLIC_CUSTOMER_SERVICE_URL ?? 'https://localhost:8082'
-export const DEVICE_SERVICE_URL = process.env.NEXT_PUBLIC_DEVICE_SERVICE_URL ?? 'https://localhost:8083'
+export const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? 'http://localhost:8080'
+
+// Ensure we have exactly one `/api` prefix (handle cases where env var already includes it)
+const API_BASE = GATEWAY_URL.endsWith('/api') ? GATEWAY_URL : `${GATEWAY_URL}/api`
+
+// Base path for each micro-service routed through the API Gateway
+export const AUTH_SERVICE_URL = `${API_BASE}/auth`
+export const CUSTOMER_SERVICE_URL = `${API_BASE}/customer`
+export const DEVICE_SERVICE_URL = `${API_BASE}/device`

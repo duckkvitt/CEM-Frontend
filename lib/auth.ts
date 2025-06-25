@@ -3,6 +3,8 @@
 // Utility helpers to retrieve auth information from browser storage
 // and provide common helpers for role‐based UI rendering.
 
+import { AUTH_SERVICE_URL } from '@/lib/api'
+
 export type UserRole = 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'MODERATOR' | string
 
 export interface CurrentUser {
@@ -66,4 +68,33 @@ export function getCurrentUserRole (): UserRole | null {
 export function isAdmin (): boolean {
   const role = getCurrentUserRole()
   return role === 'ADMIN' || role === 'SUPER_ADMIN'
+}
+
+/**
+ * Logout the current user by notifying the backend (best-effort) and
+ * then clearing all locally stored authentication information.
+ */
+export async function logout (): Promise<void> {
+  const accessToken = getAccessToken()
+  try {
+    if (accessToken) {
+      await fetch(`${AUTH_SERVICE_URL}/v1/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      })
+    }
+  } catch {
+    // Ignore network/API errors. We still proceed to clear local state.
+  } finally {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('currentUser')
+      sessionStorage.removeItem('accessToken')
+      sessionStorage.removeItem('refreshToken')
+      sessionStorage.removeItem('currentUser')
+    }
+  }
 } 

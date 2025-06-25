@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { isAdmin } from '@/lib/auth'
+import { isAdmin, getCurrentUserRole } from '@/lib/auth'
 import { useEffect, useState } from 'react'
 import {
   LayoutDashboard,
@@ -24,22 +24,31 @@ interface NavItem {
 export default function Sidebar () {
   const pathname = usePathname()
   const [admin, setAdmin] = useState(false)
+  const [role, setRole] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   // Ensure initial render matches server markup; update admin flag after hydration.
   useEffect(() => {
     setAdmin(isAdmin())
+    setRole(getCurrentUserRole())
+    setMounted(true)
   }, [])
 
   const primary: NavItem[] = [
     { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={18} /> },
-    { name: 'Customer Management', href: '/customers', icon: <UsersRound size={18} /> },
+    ...(!mounted ? [] : (admin || ['STAFF','MANAGER','SUPPORT_TEAM','TECH_LEAD','TECHNICIAN'].includes(role ? role.toString() : ''))
+      ? [
+          { name: 'Customer Management', href: '/customers', icon: <UsersRound size={18} /> },
+          { name: 'Device Management', href: '/devices', icon: <Database size={18} /> },
+        ]
+      : []),
     { name: 'Maintenance', href: '/maintenance', icon: <Database size={18} /> },
     { name: 'Notifications', href: '/notifications', icon: <Bell size={18} /> },
   ]
 
   const others: NavItem[] = [
     { name: 'Settings', href: '/settings', icon: <Settings size={18} /> },
-    ...(admin ? [{ name: 'User Management', href: '/users', icon: <UserCog size={18} /> }] : []),
+    ...(!mounted ? [] : (admin ? [{ name: 'User Management', href: '/users', icon: <UserCog size={18} /> }] : [])),
     { name: 'Help', href: '/help', icon: <HelpCircle size={18} /> },
     { name: 'Bot', href: '/bot', icon: <HelpCircle size={18} /> },
   ]
