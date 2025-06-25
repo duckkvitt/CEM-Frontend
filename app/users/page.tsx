@@ -56,7 +56,7 @@ export default function UserManagementPage () {
 
   const fetchRoles = async () => {
     try {
-      const res = await fetch(`${AUTH_SERVICE_URL}/auth/v1/auth/admin/roles`, {
+      const res = await fetch(`${AUTH_SERVICE_URL}/v1/auth/admin/roles`, {
         headers: { Authorization: `Bearer ${getAccessToken()}` },
         cache: 'no-store'
       })
@@ -76,7 +76,7 @@ export default function UserManagementPage () {
       if (roleId) params.append('roleId', roleId)
       params.append('page', page.toString())
       params.append('size', size.toString())
-      const url = `${AUTH_SERVICE_URL}/auth/v1/auth/admin/users?${params.toString()}`
+      const url = `${AUTH_SERVICE_URL}/v1/auth/admin/users?${params.toString()}`
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${getAccessToken()}` },
         cache: 'no-store'
@@ -96,7 +96,7 @@ export default function UserManagementPage () {
   const deactivateUser = async (id: number) => {
     if (!confirm('Are you sure you want to deactivate this user?')) return
     try {
-      const res = await fetch(`${AUTH_SERVICE_URL}/auth/v1/auth/admin/users/${id}/deactivate`, {
+      const res = await fetch(`${AUTH_SERVICE_URL}/v1/auth/admin/users/${id}/deactivate`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${getAccessToken()}` }
       })

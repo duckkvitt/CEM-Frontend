@@ -40,7 +40,7 @@ export default function CreateUserPage () {
   useEffect(() => {
     const fetchRoles = async () => {
       try {
-        const res = await fetch(`${AUTH_SERVICE_URL}/auth/v1/auth/admin/roles`, {
+        const res = await fetch(`${AUTH_SERVICE_URL}/v1/auth/admin/roles`, {
           headers: { Authorization: `Bearer ${getAccessToken()}` },
           cache: 'no-store'
         })
@@ -54,10 +54,12 @@ export default function CreateUserPage () {
   }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type, checked } = e.target
+    const { name, value, type } = e.target as HTMLInputElement | HTMLSelectElement
+    const isCheckbox = type === 'checkbox'
+    const newValue = isCheckbox ? (e.target as HTMLInputElement).checked : value
     setForm(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: newValue
     }))
   }
 
@@ -67,7 +69,7 @@ export default function CreateUserPage () {
     setError(null)
     setSuccess(null)
     try {
-      const res = await fetch(`${AUTH_SERVICE_URL}/auth/v1/auth/admin/create-user`, {
+      const res = await fetch(`${AUTH_SERVICE_URL}/v1/auth/admin/create-user`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
