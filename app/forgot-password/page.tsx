@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
     setError(null)
     try {
       const res = await fetch(
-        `${AUTH_SERVICE_URL}/auth/v1/auth/forgot-password`,
+        `${AUTH_SERVICE_URL}/v1/auth/forgot-password`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
