@@ -10,7 +10,7 @@ interface Props {
   children: React.ReactNode
 }
 
-const PUBLIC_ROUTES = ['/login', '/forgot-password']
+const PUBLIC_ROUTES = ['/login', '/forgot-password', '/reset-password']
 
 export default function AppShell ({ children }: Props) {
   const pathname = usePathname()
