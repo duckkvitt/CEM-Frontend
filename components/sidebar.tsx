@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { isAdmin } from '@/lib/auth'
+import { useEffect, useState } from 'react'
 import {
   LayoutDashboard,
   UsersRound,
@@ -22,7 +23,12 @@ interface NavItem {
 
 export default function Sidebar () {
   const pathname = usePathname()
-  const admin = isAdmin()
+  const [admin, setAdmin] = useState(false)
+
+  // Ensure initial render matches server markup; update admin flag after hydration.
+  useEffect(() => {
+    setAdmin(isAdmin())
+  }, [])
 
   const primary: NavItem[] = [
     { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={18} /> },
