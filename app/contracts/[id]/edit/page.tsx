@@ -1,19 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Save, FileText, Upload, X } from 'lucide-react'
 import { getContractDetails, updateContract, ContractResponse, UpdateContractRequest } from '@/lib/contract-service'
 import { getCurrentUserRole } from '@/lib/auth'
+import { uploadContractFile as uploadContractFileApi } from '@/lib/contract-service'
 
 interface Props {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default function EditContractPage({ params }: Props) {
+  const resolvedParams = use(params)
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -31,11 +33,16 @@ export default function EditContractPage({ params }: Props) {
     contractDetails: []
   })
   
+  // File upload state
+  const [contractFile, setContractFile] = useState<File | null>(null)
+  const [fileError, setFileError] = useState<string | null>(null)
+  // const [uploadingFile, setUploadingFile] = useState(false)
+  
   // Fetch contract details on mount
   useEffect(() => {
     async function fetchContract() {
       try {
-        const contractId = parseInt(params.id)
+        const contractId = parseInt(resolvedParams.id)
         const data = await getContractDetails(contractId)
         
         // Check if contract is editable
@@ -67,7 +74,7 @@ export default function EditContractPage({ params }: Props) {
     
     fetchContract()
     setUserRole(getCurrentUserRole())
-  }, [params.id])
+  }, [resolvedParams.id])
   
   // Handle form input changes
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
@@ -109,6 +116,28 @@ export default function EditContractPage({ params }: Props) {
     ) || 0
   }
   
+  // Handle file change
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    setFileError(null)
+    if (!files || files.length === 0) {
+      setContractFile(null)
+      return
+    }
+    const file = files[0]
+    if (file.type !== 'application/pdf') {
+      setFileError('Only PDF files are allowed')
+      setContractFile(null)
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setFileError('File size must be less than 5MB')
+      setContractFile(null)
+      return
+    }
+    setContractFile(file)
+  }
+  
   // Handle form submission
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -123,9 +152,16 @@ export default function EditContractPage({ params }: Props) {
       // Update total value before submitting
       const totalValue = calculateTotalValue()
       
+      // Upload new file if selected
+      let newFilePath: string | undefined = undefined
+      if (contractFile) {
+        newFilePath = await uploadContractFile() || undefined
+      }
+
       await updateContract(contract.id, {
         ...formData,
-        totalValue
+        totalValue,
+        ...(newFilePath ? { filePath: newFilePath } : {})
       })
       
       // Navigate back to contract detail page
@@ -139,6 +175,22 @@ export default function EditContractPage({ params }: Props) {
   
   // Check if user has permission to edit
   const canEdit = userRole === 'MANAGER' || userRole === 'STAFF'
+  
+  async function uploadContractFile(): Promise<string | null> {
+    if (!contractFile) return null
+    // setUploadingFile(true)
+    try {
+      const result = await uploadContractFileApi(contractFile)
+      return result
+    } catch (err) {
+      console.error('Upload error', err)
+      const message = err instanceof Error ? err.message : 'Failed to upload file'
+      setFileError(message)
+      throw new Error(message)
+    } finally {
+      // setUploadingFile(false)
+    }
+  }
   
   if (loading) {
     return (
@@ -258,6 +310,46 @@ export default function EditContractPage({ params }: Props) {
                   }).format(calculateTotalValue())}
                 </span>
               </div>
+            </div>
+            
+            {/* File upload */}
+            <div className="col-span-1 md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Contract Document (PDF)</label>
+              <div className="border-2 border-dashed rounded-md p-4">
+                {contractFile ? (
+                  <div className="flex items-center gap-2 w-full">
+                    <FileText size={24} className="text-primary" />
+                    <div className="flex-1 truncate">
+                      <p className="font-medium">{contractFile.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(contractFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setContractFile(null)}
+                      className="p-1 text-red-500 hover:bg-red-50 rounded-full"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center cursor-pointer">
+                    <Upload size={32} className="text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-500 mb-1">Click to upload new PDF</p>
+                    <p className="text-xs text-gray-400">PDF (max 5MB)</p>
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+              {fileError && (
+                <p className="text-sm text-red-500 mt-1">{fileError}</p>
+              )}
             </div>
           </div>
         </div>

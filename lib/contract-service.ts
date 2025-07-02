@@ -30,6 +30,7 @@ export interface UpdateContractRequest {
   startDate?: string
   endDate?: string
   contractDetails?: ContractDetail[]
+  filePath?: string
 }
 
 export interface SignContractRequest {
@@ -254,9 +255,19 @@ export async function uploadContractFile(
 
 // Download contract file
 export function getContractFileUrl(fileName: string): string {
-  const token = getAccessToken();
-  // Add token as query parameter for authenticated download
-  return `${CONTRACT_SERVICE_URL.replace('/contracts', '')}/files/download/${fileName}?token=${token}`;
+  // Get signed download URL from backend
+  return `${CONTRACT_SERVICE_URL.replace('/contracts', '')}/files/download-url/${fileName}`;
+}
+
+// Get direct download URL for contract file via backend (Google Drive redirect)
+export async function getSignedDownloadUrl(fileName: string): Promise<string> {
+  try {
+    const token = getAccessToken() ?? ''
+    return `${CONTRACT_SERVICE_URL.replace('/contracts', '')}/files/download-direct/${fileName}?token=${token}`;
+  } catch (error) {
+    console.error('Error getting signed download URL:', error);
+    throw error;
+  }
 }
 
 // Get contract file info

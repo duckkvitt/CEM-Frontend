@@ -1,20 +1,21 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Save, Upload, Check } from 'lucide-react'
+import { ArrowLeft, Check } from 'lucide-react'
 import { getContractDetails, signContract, ContractResponse, SignContractRequest } from '@/lib/contract-service'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getCurrentUserRole } from '@/lib/auth'
 
 interface Props {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default function SignContractPage({ params }: Props) {
+  const resolvedParams = use(params)
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [signing, setSigning] = useState(false)
@@ -34,7 +35,7 @@ export default function SignContractPage({ params }: Props) {
   useEffect(() => {
     async function fetchContract() {
       try {
-        const contractId = parseInt(params.id)
+        const contractId = parseInt(resolvedParams.id)
         const data = await getContractDetails(contractId)
         
         // Check if contract is unsigned
@@ -55,7 +56,7 @@ export default function SignContractPage({ params }: Props) {
     
     fetchContract()
     setUserRole(getCurrentUserRole())
-  }, [params.id])
+  }, [resolvedParams.id])
   
   // Handle form input changes
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {

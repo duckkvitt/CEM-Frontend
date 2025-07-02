@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { X, Plus, Trash2, Upload, FileText } from 'lucide-react'
 import { createContract, CreateContractRequest, ContractDetail } from '@/lib/contract-service'
 import { getAccessToken } from '@/lib/auth'
-import { uploadToCloudinary } from '@/lib/cloudinary'
+import { uploadContractFile as uploadContractFileApi } from '@/lib/contract-service'
 
 interface Customer {
   id: number
@@ -121,9 +121,24 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
   function handleDetailChange(index: number, field: string, value: string | number) {
     setFormData(prev => {
       const updatedDetails = [...(prev.contractDetails || [])]
+      
+      // Handle numeric fields properly to avoid NaN
+      let processedValue = value
+      if (field === 'quantity' || field === 'unitPrice' || field === 'warrantyMonths') {
+        if (typeof value === 'string') {
+          // If empty string, set to 0 or appropriate default
+          if (value === '' || value === null || value === undefined) {
+            processedValue = field === 'quantity' ? 1 : 0
+          } else {
+            const parsed = parseInt(value)
+            processedValue = isNaN(parsed) ? (field === 'quantity' ? 1 : 0) : parsed
+          }
+        }
+      }
+      
       updatedDetails[index] = {
         ...updatedDetails[index],
-        [field]: value
+        [field]: processedValue
       }
       
       // If device is selected, auto-populate the service name with device name
@@ -189,9 +204,8 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
     
     setUploadingFile(true);
     try {
-      const result = await uploadToCloudinary(contractFile);
-      // Trả về public_id để lưu vào database
-      return result.public_id;
+      const result = await uploadContractFileApi(contractFile);
+      return result;
     } catch (err) {
       console.error('Error uploading file:', err);
       // Hiển thị lỗi cụ thể từ Cloudinary
@@ -473,7 +487,7 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                           type="number"
                           min="1"
                           value={detail.quantity}
-                          onChange={(e) => handleDetailChange(index, 'quantity', parseInt(e.target.value))}
+                          onChange={(e) => handleDetailChange(index, 'quantity', e.target.value)}
                           className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary"
                           required
                         />
@@ -486,7 +500,7 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                           min="0"
                           step="1000"
                           value={detail.unitPrice}
-                          onChange={(e) => handleDetailChange(index, 'unitPrice', parseInt(e.target.value))}
+                          onChange={(e) => handleDetailChange(index, 'unitPrice', e.target.value)}
                           className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary"
                           required
                         />
@@ -498,7 +512,7 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                           type="number"
                           min="0"
                           value={detail.warrantyMonths || 0}
-                          onChange={(e) => handleDetailChange(index, 'warrantyMonths', parseInt(e.target.value))}
+                          onChange={(e) => handleDetailChange(index, 'warrantyMonths', e.target.value)}
                           className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary"
                         />
                       </div>
