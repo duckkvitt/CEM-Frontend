@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { PlusCircle, Eye, Edit, Check, X, FileText, Trash2, RefreshCw } from 'lucide-react'
+import { Search, Plus, Filter, Eye, Edit, Trash2 } from 'lucide-react'
 import { 
   getUnsignedContracts, 
   getSignedContracts, 
@@ -149,7 +148,7 @@ export default function ContractsPage() {
             onClick={() => setIsCreateModalOpen(true)}
             className="flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
-            <PlusCircle size={16} />
+            <Plus size={16} />
             Create Contract
           </button>
         )}

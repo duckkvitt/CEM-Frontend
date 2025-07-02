@@ -1,20 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Edit, ArrowLeft, Download, Trash2, RefreshCw, Check } from 'lucide-react'
-import { getContractDetails, hideContract, ContractResponse, getContractFileUrl } from '@/lib/contract-service'
+import { Edit, ArrowLeft, Download, Trash2, Check } from 'lucide-react'
+import { getContractDetails, hideContract, ContractResponse, getSignedDownloadUrl } from '@/lib/contract-service'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils'
 import { getCurrentUserRole } from '@/lib/auth'
 
 interface Props {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default function ContractDetailPage({ params }: Props) {
+  const resolvedParams = use(params)
   const router = useRouter()
   const [contract, setContract] = useState<ContractResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -26,7 +27,7 @@ export default function ContractDetailPage({ params }: Props) {
     async function fetchContract() {
       try {
         setLoading(true)
-        const data = await getContractDetails(parseInt(params.id))
+        const data = await getContractDetails(parseInt(resolvedParams.id))
         setContract(data)
         setLoading(false)
       } catch (err) {
@@ -38,7 +39,7 @@ export default function ContractDetailPage({ params }: Props) {
 
     fetchContract()
     setUserRole(getCurrentUserRole())
-  }, [params.id])
+  }, [resolvedParams.id])
 
   // Handle hide contract
   async function handleHideContract() {
@@ -54,11 +55,16 @@ export default function ContractDetailPage({ params }: Props) {
   }
 
   // Handle download file
-  function handleDownloadFile() {
-    if (contract?.filePath) {
-      window.open(getContractFileUrl(contract.filePath), '_blank')
+  const handleDownloadFile = async (fileName: string) => {
+    try {
+      const downloadUrl = getSignedDownloadUrl(fileName);
+      // Open download URL in new tab - it will redirect to Cloudinary
+      window.open(await downloadUrl, '_blank');
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert('Failed to download file');
     }
-  }
+  };
 
   // Check if user is Manager
   const isManager = userRole === 'MANAGER'
@@ -135,7 +141,7 @@ export default function ContractDetailPage({ params }: Props) {
 
           {contract.filePath && (
             <button
-              onClick={handleDownloadFile}
+              onClick={() => handleDownloadFile(contract.filePath)}
               className="flex items-center gap-1 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
               <Download size={16} />
@@ -282,7 +288,7 @@ export default function ContractDetailPage({ params }: Props) {
               <div className="mt-1">
                 {contract.filePath ? (
                   <button
-                    onClick={handleDownloadFile}
+                    onClick={() => handleDownloadFile(contract.filePath)}
                     className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
                   >
                     <Download size={14} /> Download
