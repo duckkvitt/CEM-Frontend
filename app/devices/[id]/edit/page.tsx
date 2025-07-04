@@ -14,7 +14,6 @@ interface Device {
   name: string
   model?: string
   serialNumber?: string
-  customerId?: number
   warrantyExpiry?: string
   status: string
 }
@@ -35,7 +34,6 @@ export default function EditDevicePage () {
   const deviceId = params?.id as string | undefined
   const role = getCurrentUserRole()
   const [device, setDevice] = useState<Device | null>(null)
-  const [customers, setCustomers] = useState<{ id: number; name: string }[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -47,21 +45,6 @@ export default function EditDevicePage () {
       router.replace('/dashboard')
     }
   }, [role])
-
-  // load customers list once
-  useEffect(() => {
-    const loadCustomers = async () => {
-      try {
-        const res = await fetch(`${CUSTOMER_SERVICE_URL}/v1/customers?size=1000`, {
-          headers: { Authorization: `Bearer ${getAccessToken()}` },
-          cache: 'no-store'
-        })
-        const json = await res.json() as { success: boolean; data: { content: { id: number; name: string }[] } }
-        if (json.success) setCustomers(json.data.content)
-      } catch {}
-    }
-    loadCustomers()
-  }, [])
 
   const fetchDevice = async () => {
     if (!deviceId) return
@@ -105,7 +88,6 @@ export default function EditDevicePage () {
         name: device.name,
         model: device.model || undefined,
         serialNumber: device.serialNumber || undefined,
-        customerId: device.customerId || undefined,
         warrantyExpiry: device.warrantyExpiry || undefined,
         status: device.status || undefined
       }
@@ -131,68 +113,47 @@ export default function EditDevicePage () {
 
   if (loading || !device) {
     return (
-      <div className='flex min-h-screen w-full'>
-        <Sidebar />
-        <main className='ml-60 flex-1 bg-background p-6 flex items-center justify-center'>
-          {loading ? 'Loading…' : error || 'Device not found'}
-        </main>
+      <div className='flex items-center justify-center min-h-[60vh]'>
+        {loading ? 'Loading…' : error || 'Device not found'}
       </div>
     )
   }
 
   return (
-    <div className='flex min-h-screen w-full'>
-      <Sidebar />
-      <main className='ml-60 flex-1 bg-background p-6 max-w-xl'>
-        <div className='flex items-center gap-4 mb-6'>
-          <Button variant='ghost' onClick={() => router.back()}>&larr; Back</Button>
-          <h1 className='text-2xl font-semibold'>Edit Device</h1>
+    <div>
+      <div className='flex items-center gap-4 mb-6'>
+        <Button variant='ghost' onClick={() => router.back()}>&larr; Back</Button>
+        <h1 className='text-2xl font-semibold'>Edit Device</h1>
+      </div>
+      <form onSubmit={handleSubmit} className='space-y-4'>
+        <div>
+          <Label htmlFor='name'>Name</Label>
+          <Input id='name' name='name' required value={device.name} onChange={handleChange} />
         </div>
-        <form onSubmit={handleSubmit} className='space-y-4'>
-          <div>
-            <Label htmlFor='name'>Name</Label>
-            <Input id='name' name='name' required value={device.name} onChange={handleChange} />
-          </div>
-          <div>
-            <Label htmlFor='model'>Model</Label>
-            <Input id='model' name='model' value={device.model || ''} onChange={handleChange} />
-          </div>
-          <div>
-            <Label htmlFor='serialNumber'>Serial Number</Label>
-            <Input id='serialNumber' name='serialNumber' value={device.serialNumber || ''} onChange={handleChange} />
-          </div>
-          <div>
-            <Label htmlFor='customerId'>Customer</Label>
-            <select
-              id='customerId'
-              name='customerId'
-              value={device.customerId ?? ''}
-              onChange={handleChange}
-              className='border rounded-md h-10 px-3 w-full'
-            >
-              <option value=''>-- Select customer --</option>
-              {customers.map(c => (
-                <option key={c.id} value={c.id}>{c.name} (#{c.id})</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <Label htmlFor='warrantyExpiry'>Warranty Expiry</Label>
-            <Input id='warrantyExpiry' name='warrantyExpiry' type='date' value={device.warrantyExpiry ?? ''} onChange={handleChange} />
-          </div>
-          <div>
-            <Label htmlFor='status'>Status</Label>
-            <select id='status' name='status' value={device.status} onChange={handleChange} className='border rounded-md h-10 px-3'>
-              {STATUS_OPTIONS.map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-          </div>
-          {error && <p className='text-destructive text-sm'>{error}</p>}
-          {success && <p className='text-green-600 text-sm'>{success}</p>}
-          <Button type='submit' disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</Button>
-        </form>
-      </main>
+        <div>
+          <Label htmlFor='model'>Model</Label>
+          <Input id='model' name='model' value={device.model || ''} onChange={handleChange} />
+        </div>
+        <div>
+          <Label htmlFor='serialNumber'>Serial Number</Label>
+          <Input id='serialNumber' name='serialNumber' value={device.serialNumber || ''} onChange={handleChange} />
+        </div>
+        <div>
+          <Label htmlFor='warrantyExpiry'>Warranty Expiry</Label>
+          <Input id='warrantyExpiry' name='warrantyExpiry' type='date' value={device.warrantyExpiry ?? ''} onChange={handleChange} />
+        </div>
+        <div>
+          <Label htmlFor='status'>Status</Label>
+          <select id='status' name='status' value={device.status} onChange={handleChange} className='border rounded-md h-10 px-3'>
+            {STATUS_OPTIONS.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+        {error && <p className='text-destructive text-sm'>{error}</p>}
+        {success && <p className='text-green-600 text-sm'>{success}</p>}
+        <Button type='submit' disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</Button>
+      </form>
     </div>
   )
 } 
