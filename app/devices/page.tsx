@@ -43,8 +43,7 @@ const STATUS_OPTIONS = ['', 'ACTIVE', 'INACTIVE', 'MAINTENANCE', 'BROKEN', 'DISC
 export default function DeviceManagementPage () {
   const [devices, setDevices] = useState<Device[]>([])
   const [search, setSearch] = useState('')
-  const [customerId, setCustomerId] = useState('')
-  const [customers, setCustomers] = useState<{ id: number; name: string }[]>([])
+  // Xóa customerId và customers
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(0)
   const [size, setSize] = useState(20)
@@ -54,32 +53,17 @@ export default function DeviceManagementPage () {
   const [role, setRole] = useState<string | null>(null)
   const router = useRouter()
 
-  // Hydrate role after mount
   useEffect(() => {
     setRole(getCurrentUserRole())
   }, [])
 
-  // Redirect unauthorized roles
   useEffect(() => {
     if (role && !['STAFF', 'MANAGER', 'SUPPORT_TEAM', 'TECH_LEAD', 'TECHNICIAN'].includes(role)) {
       router.replace('/dashboard')
     }
   }, [role])
 
-  // load customers for dropdown
-  useEffect(() => {
-    const loadCustomers = async () => {
-      try {
-        const res = await fetch(`${CUSTOMER_SERVICE_URL}/v1/customers?size=1000`, {
-          headers: { Authorization: `Bearer ${getAccessToken()}` },
-          cache: 'no-store'
-        })
-        const json = await res.json() as { success: boolean; data: { content: { id: number; name: string }[] } }
-        if (json.success) setCustomers(json.data.content)
-      } catch {}
-    }
-    loadCustomers()
-  }, [])
+  // Xóa useEffect loadCustomers
 
   const fetchDevices = async () => {
     setLoading(true)
@@ -89,7 +73,7 @@ export default function DeviceManagementPage () {
       if (search) {
         params.append('keyword', search)
       }
-      if (customerId) params.append('customerId', customerId)
+      // Xóa filter customerId
       if (status) params.append('status', status)
       params.append('page', page.toString())
       params.append('size', size.toString())
@@ -137,100 +121,85 @@ export default function DeviceManagementPage () {
     }
   }
 
+  // Sửa layout: bỏ flex, Sidebar, ml-60, chỉ để content trong 1 div
   return (
-    <div className='flex min-h-screen w-full'>
-      <Sidebar />
-      <main className='ml-60 flex-1 bg-background p-6'>
-        <div className='flex items-center justify-between mb-4'>
-          <h1 className='text-2xl font-semibold'>Device Management</h1>
-          {role === 'STAFF' && (
-            <Link href='/devices/create'>
-              <Button>Add Device</Button>
-            </Link>
-          )}
+    <div>
+      <div className='flex items-center justify-between mb-4'>
+        <h1 className='text-2xl font-semibold'>Device Management</h1>
+        {role === 'STAFF' && (
+          <Link href='/devices/create'>
+            <Button>Add Device</Button>
+          </Link>
+        )}
+      </div>
+      <form onSubmit={handleFilter} className='flex flex-wrap gap-4 mb-6 items-end'>
+        <div className='flex flex-col gap-1'>
+          <Label htmlFor='search'>Search</Label>
+          <Input id='search' value={search} onChange={e => setSearch(e.target.value)} placeholder='Name, model or serial' />
         </div>
-        <form onSubmit={handleFilter} className='flex flex-wrap gap-4 mb-6 items-end'>
-          <div className='flex flex-col gap-1'>
-            <Label htmlFor='search'>Search</Label>
-            <Input id='search' value={search} onChange={e => setSearch(e.target.value)} placeholder='Name, model or serial' />
-          </div>
-          <div className='flex flex-col gap-1'>
-            <Label htmlFor='customerId'>Customer</Label>
-            <select
-              id='customerId'
-              value={customerId}
-              onChange={e => setCustomerId(e.target.value)}
-              className='border rounded-md h-10 px-3 w-48'
-            >
-              <option value=''>All</option>
-              {customers.map(c => (
-                <option key={c.id} value={c.id}>{c.name} (#{c.id})</option>
-              ))}
-            </select>
-          </div>
-          <div className='flex flex-col gap-1'>
-            <Label htmlFor='status'>Status</Label>
-            <select
-              id='status'
-              value={status}
-              onChange={e => setStatus(e.target.value)}
-              className='border rounded-md h-10 px-3'
-            >
-              <option value=''>All</option>
-              {STATUS_OPTIONS.filter(opt => opt).map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-          </div>
-          <Button type='submit'>Filter</Button>
-        </form>
-        {error && <p className='text-destructive mb-4'>{error}</p>}
-        <div className='overflow-x-auto rounded-lg border'>
-          <table className='w-full text-sm'>
-            <thead className='bg-muted/50'>
-              <tr>
-                <th className='px-4 py-2 text-left'>ID</th>
-                <th className='px-4 py-2 text-left'>Name</th>
-                <th className='px-4 py-2 text-left'>Model</th>
-                <th className='px-4 py-2 text-left'>Serial #</th>
-                <th className='px-4 py-2 text-left'>Status</th>
-                <th className='px-4 py-2 text-left'>Actions</th>
+        {/* Xóa filter Customer */}
+        <div className='flex flex-col gap-1'>
+          <Label htmlFor='status'>Status</Label>
+          <select
+            id='status'
+            value={status}
+            onChange={e => setStatus(e.target.value)}
+            className='border rounded-md h-10 px-3'
+          >
+            <option value=''>All</option>
+            {STATUS_OPTIONS.filter(opt => opt).map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+        <Button type='submit'>Filter</Button>
+      </form>
+      {error && <p className='text-destructive mb-4'>{error}</p>}
+      <div className='overflow-x-auto rounded-lg border'>
+        <table className='w-full text-sm'>
+          <thead className='bg-muted/50'>
+            <tr>
+              <th className='px-4 py-2 text-left'>ID</th>
+              <th className='px-4 py-2 text-left'>Name</th>
+              <th className='px-4 py-2 text-left'>Model</th>
+              <th className='px-4 py-2 text-left'>Serial #</th>
+              <th className='px-4 py-2 text-left'>Status</th>
+              <th className='px-4 py-2 text-left'>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={6} className='px-4 py-6 text-center'>Loading...</td></tr>
+            ) : devices.length === 0 ? (
+              <tr><td colSpan={6} className='px-4 py-6 text-center'>No devices found</td></tr>
+            ) : devices.map(d => (
+              <tr key={d.id} className='border-t'>
+                <td className='px-4 py-2'>{d.id}</td>
+                <td className='px-4 py-2'>{d.name}</td>
+                <td className='px-4 py-2'>{d.model || '-'}</td>
+                <td className='px-4 py-2'>{d.serialNumber || '-'}</td>
+                <td className='px-4 py-2'>{d.status}</td>
+                <td className='px-4 py-2 flex gap-2'>
+                  <Link href={`/devices/${d.id}`} className='underline text-xs'>Details</Link>
+                  {role === 'STAFF' && (
+                    <>
+                      <Link href={`/devices/${d.id}/edit`} className='underline text-xs'>Edit</Link>
+                      <button onClick={() => deleteDevice(d.id)} className='underline text-xs text-red-600'>Delete</button>
+                    </>
+                  )}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={6} className='px-4 py-6 text-center'>Loading...</td></tr>
-              ) : devices.length === 0 ? (
-                <tr><td colSpan={6} className='px-4 py-6 text-center'>No devices found</td></tr>
-              ) : devices.map(d => (
-                <tr key={d.id} className='border-t'>
-                  <td className='px-4 py-2'>{d.id}</td>
-                  <td className='px-4 py-2'>{d.name}</td>
-                  <td className='px-4 py-2'>{d.model || '-'}</td>
-                  <td className='px-4 py-2'>{d.serialNumber || '-'}</td>
-                  <td className='px-4 py-2'>{d.status}</td>
-                  <td className='px-4 py-2 flex gap-2'>
-                    <Link href={`/devices/${d.id}`} className='underline text-xs'>Details</Link>
-                    {role === 'STAFF' && (
-                      <>
-                        <Link href={`/devices/${d.id}/edit`} className='underline text-xs'>Edit</Link>
-                        <button onClick={() => deleteDevice(d.id)} className='underline text-xs text-red-600'>Delete</button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className='flex items-center justify-between mt-4'>
+        <span>Page {page + 1} of {totalPages}</span>
+        <div className='flex gap-2'>
+          <Button variant='outline' disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))}>Previous</Button>
+          <Button variant='outline' disabled={page + 1 >= totalPages} onClick={() => setPage(p => p + 1)}>Next</Button>
         </div>
-        <div className='flex items-center justify-between mt-4'>
-          <span>Page {page + 1} of {totalPages}</span>
-          <div className='flex gap-2'>
-            <Button variant='outline' disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))}>Previous</Button>
-            <Button variant='outline' disabled={page + 1 >= totalPages} onClick={() => setPage(p => p + 1)}>Next</Button>
-          </div>
-        </div>
-      </main>
+      </div>
     </div>
   )
 } 
