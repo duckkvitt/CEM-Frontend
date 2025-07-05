@@ -1,114 +1,388 @@
 'use client'
 
-import Sidebar from '@/components/sidebar'
 import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { CUSTOMER_SERVICE_URL } from '@/lib/api'
 import { getAccessToken, getCurrentUserRole } from '@/lib/auth'
+import { cn } from '@/lib/utils'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { format } from 'date-fns'
+import { CalendarIcon, ChevronLeft, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
+
+// Schema definition using Zod
+const formSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(255),
+  email: z.string().email('Invalid email format').max(255),
+  phone: z
+    .string()
+    .min(1, 'Phone number is required')
+    .regex(/^[+]?[0-9]{10,20}$/, 'Invalid phone number format'),
+  address: z.string().max(1000).optional(),
+  companyName: z.string().min(1, 'Company name is required').max(255),
+  companyTaxCode: z.string().min(1, 'Company tax code is required').max(50),
+  companyAddress: z.string().min(1, 'Company address is required').max(1000),
+  legalRepresentative: z
+    .string()
+    .min(1, 'Legal representative is required')
+    .max(255),
+  title: z.string().min(1, 'Title is required').max(255),
+  identityNumber: z.string().min(1, 'Identity number is required').max(50),
+  identityIssueDate: z.date({
+    required_error: 'Identity issue date is required.',
+  }),
+  identityIssuePlace: z
+    .string()
+    .min(1, 'Identity issue place is required')
+    .max(255),
+  fax: z.string().max(20).optional(),
+  tags: z.string().optional(),
+})
+
+type FormValues = z.infer<typeof formSchema>
 
 interface ApiResponse<T> {
   success: boolean
   message?: string
-  data: T
-  status?: number
+  data?: T
   errors?: unknown
 }
 
-export default function CreateCustomerPage () {
+export default function CreateCustomerPage() {
   const router = useRouter()
-  const role = getCurrentUserRole()
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
-    tags: '' // comma separated input
-  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      phone: '',
+      address: '',
+      companyName: '',
+      companyTaxCode: '',
+      companyAddress: '',
+      legalRepresentative: '',
+      title: '',
+      identityNumber: '',
+      identityIssuePlace: '',
+      fax: '',
+      tags: '',
+    },
+  })
+
   useEffect(() => {
+    const role = getCurrentUserRole()
     if (role && role !== 'STAFF') {
       router.replace('/dashboard')
     }
-  }, [role])
+  }, [router])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setForm(prev => ({ ...prev, [name]: value }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const onSubmit = async (values: FormValues) => {
     setLoading(true)
     setError(null)
     setSuccess(null)
     try {
       const payload = {
-        name: form.name,
-        email: form.email,
-        phone: form.phone || undefined,
-        address: form.address || undefined,
-        tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : []
+        ...values,
+        name: values.legalRepresentative, // Use legalRepresentative as the main name
+        // Format date and handle optional fields
+        identityIssueDate: format(values.identityIssueDate, 'yyyy-MM-dd'),
+        tags: values.tags
+          ? values.tags.split(',').map(t => t.trim()).filter(Boolean)
+          : [],
+        address: values.address || undefined,
+        companyName: values.companyName || undefined,
+        companyTaxCode: values.companyTaxCode || undefined,
+        companyAddress: values.companyAddress || undefined,
+        fax: values.fax || undefined,
       }
+
       const res = await fetch(`${CUSTOMER_SERVICE_URL}/v1/customers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAccessToken()}`
+          Authorization: `Bearer ${getAccessToken()}`,
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       })
+
       const json: ApiResponse<unknown> = await res.json()
-      if (!json.success) throw new Error(json.message || 'Failed to create customer')
-      setSuccess('Customer created successfully')
-      setTimeout(() => router.push('/customers'), 1000)
+      if (!json.success) {
+        throw new Error(json.message || 'Failed to create customer')
+      }
+      setSuccess('Customer created successfully! Redirecting...')
+      setTimeout(() => router.push('/customers'), 2000)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Unexpected error'
-      setError(msg)
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className='flex min-h-screen w-full'>
-      <Sidebar />
-      <main className='ml-60 flex-1 bg-background p-6 max-w-xl'>
-        <div className='flex items-center gap-4 mb-6'>
-          <Button variant='ghost' onClick={() => router.back()}>&larr; Back</Button>
-          <h1 className='text-2xl font-semibold'>Create Customer</h1>
+    <main className="flex min-h-screen w-full flex-col items-center bg-muted/40 p-4">
+      <div className="w-full max-w-4xl">
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="outline" size="icon" onClick={() => router.back()}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-xl font-semibold">Create New Customer</h1>
         </div>
-        <form onSubmit={handleSubmit} className='space-y-4'>
-          <div>
-            <Label htmlFor='name'>Name</Label>
-            <Input id='name' name='name' required value={form.name} onChange={handleChange} />
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Thông tin Người đại diện</CardTitle>
+                <CardDescription>
+                  Thông tin cá nhân của người đại diện theo pháp luật.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="legalRepresentative"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Người đại diện (*)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nguyễn Văn A" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Chức danh (*)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Giám đốc" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="identityNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CMND/CCCD/Hộ chiếu số (*)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="0123456789" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="identityIssuePlace"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nơi cấp (*)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Cục CSQLHC về TTXH" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="identityIssueDate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Ngày cấp (*)</FormLabel>
+                       <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={'outline'}
+                              className={cn(
+                                'w-full pl-3 text-left font-normal',
+                                !field.value && 'text-muted-foreground'
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, 'PPP')
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) =>
+                              date > new Date() || date < new Date('1900-01-01')
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Số điện thoại (*)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+84123456789" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email (*)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="example@company.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Thông tin Doanh nghiệp</CardTitle>
+                <CardDescription>
+                  Thông tin pháp lý và liên lạc của doanh nghiệp (nếu có).
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                 <FormField
+                  control={form.control}
+                  name="companyName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tên Khách hàng/Doanh nghiệp (*)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Công ty TNHH ABC" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="companyTaxCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mã số doanh nghiệp (*)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="0102030405" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="companyAddress"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Địa chỉ trụ sở chính (*)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Số 1, Đường ABC, Phường XYZ, Quận 1, TP. HCM" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="fax"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fax</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+84-28-12345678" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tags</FormLabel>
+                      <FormControl>
+                        <Input placeholder="vip, new-customer" {...field} />
+                      </FormControl>
+                       <FormDescription>
+                        Phân cách bằng dấu phẩy.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+            
+            {error && <p className='text-destructive text-sm font-medium'>{error}</p>}
+            {success && <p className='text-green-600 text-sm font-medium'>{success}</p>}
+
+            <div className="flex justify-end gap-4">
+               <Button type="button" variant="outline" onClick={() => router.push('/customers')}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create Customer
+              </Button>
           </div>
-          <div>
-            <Label htmlFor='email'>Email</Label>
-            <Input id='email' name='email' type='email' required value={form.email} onChange={handleChange} />
+          </form>
+        </Form>
           </div>
-          <div>
-            <Label htmlFor='phone'>Phone</Label>
-            <Input id='phone' name='phone' value={form.phone} onChange={handleChange} />
-          </div>
-          <div>
-            <Label htmlFor='address'>Address</Label>
-            <Input id='address' name='address' value={form.address} onChange={handleChange} />
-          </div>
-          <div>
-            <Label htmlFor='tags'>Tags (comma separated)</Label>
-            <Input id='tags' name='tags' value={form.tags} onChange={handleChange} />
-          </div>
-          {error && <p className='text-destructive text-sm'>{error}</p>}
-          {success && <p className='text-green-600 text-sm'>{success}</p>}
-          <Button type='submit' disabled={loading}>{loading ? 'Creating…' : 'Create Customer'}</Button>
-        </form>
       </main>
-    </div>
   )
 } 

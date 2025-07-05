@@ -1,32 +1,70 @@
 'use client'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { CUSTOMER_SERVICE_URL } from '@/lib/api'
 import { getAccessToken, getCurrentUserRole } from '@/lib/auth'
+import {
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+  PlusCircle,
+  Search,
+} from 'lucide-react'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useEffect, useState, useMemo } from 'react'
+import { Skeleton } from '@/components/ui/skeleton'
 
+// Enhanced Customer Interface with new fields
 interface Customer {
   id: number
   name: string
   email: string
-  phone?: string
-  address?: string
+  phone: string
+  address: string | null
+  companyName: string | null
+  companyTaxCode: string | null
+  companyAddress: string | null
+  legalRepresentative: string
+  title: string
+  identityNumber: string
+  identityIssueDate: string // Assuming string from API
+  identityIssuePlace: string
+  fax: string | null
   tags: string[]
   isHidden: boolean
-  createdAt?: string
-  updatedAt?: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
 }
 
 interface ApiResponse<T> {
   success: boolean
   message?: string
   data: T
-  status?: number
-  errors?: unknown
 }
 
 interface Page<T> {
@@ -37,200 +75,251 @@ interface Page<T> {
   size: number
 }
 
+// A more visually appealing loader
+function CustomerTableSkeleton() {
+  return (
+    <div className="space-y-2 mt-4">
+      {Array.from({ length: 10 }).map((_, i) => (
+        <Skeleton key={i} className="h-12 w-full rounded-lg" />
+      ))}
+    </div>
+  )
+}
+
 export default function CustomerManagementPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
-  const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
-  const [size, setSize] = useState(20)
+  const [size, setSize] = useState(10)
   const [totalPages, setTotalPages] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [role, setRole] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+
   const router = useRouter()
 
-  // Load role on client after first render to avoid hydration mismatch
   useEffect(() => {
-    setRole(getCurrentUserRole())
-  }, [])
-
-  // Redirect unauthorized roles
-  useEffect(() => {
-    if (role && !['STAFF', 'MANAGER', 'SUPPORT_TEAM'].includes(role)) {
+    const userRole = getCurrentUserRole()
+    setRole(userRole)
+    if (userRole && !['STAFF', 'MANAGER', 'SUPPORT_TEAM'].includes(userRole)) {
       router.replace('/dashboard')
     }
-  }, [role])
+  }, [router])
 
-  const fetchCustomers = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const params = new URLSearchParams()
-      if (search) params.append('name', search)
-      params.append('page', page.toString())
-      params.append('size', size.toString())
-      const url = `${CUSTOMER_SERVICE_URL}/v1/customers?${params.toString()}`
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
-        cache: 'no-store',
-      })
-      const json: ApiResponse<Page<Customer>> = await res.json()
-      if (!json.success)
-        throw new Error(json.message || 'Failed to fetch customers')
-      setCustomers(json.data.content)
-      setTotalPages(json.data.totalPages)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Unexpected error'
-      setError(msg)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const fetchCustomers = useMemo(
+    () => async (page: number, size: number, name?: string) => {
+      if (!role) return // Don't fetch if role is not determined yet
+      setLoading(true)
+      setError(null)
+      try {
+        const params = new URLSearchParams()
+        if (name) params.append('name', name)
+        params.append('page', page.toString())
+        params.append('size', size.toString())
+        params.append('sortBy', 'createdAt')
+        params.append('sortDir', 'desc')
+
+        const url = `${CUSTOMER_SERVICE_URL}/v1/customers?${params.toString()}`
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${getAccessToken()}` },
+          cache: 'no-store',
+        })
+        const json: ApiResponse<Page<Customer>> = await res.json()
+        if (!json.success)
+          throw new Error(json.message || 'Failed to fetch customers')
+
+        setCustomers(json.data.content)
+        setTotalPages(json.data.totalPages)
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'An unexpected error occurred')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [role]
+  )
 
   useEffect(() => {
-    fetchCustomers()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, size])
+    fetchCustomers(page, size, searchTerm)
+  }, [page, size, fetchCustomers, searchTerm])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     setPage(0)
-    fetchCustomers()
+    // Fetch is triggered by searchTerm state change in useEffect
   }
-
+  
   const hideCustomer = async (id: number, hide: boolean) => {
-    const confirmMsg = hide ? 'hide' : 'restore'
-    if (!confirm(`Are you sure you want to ${confirmMsg} this customer?`))
-      return
+    const action = hide ? 'hide' : 'show';
+    if (!confirm(`Are you sure you want to ${action} this customer?`)) return;
+
     try {
-      const endpoint = `${CUSTOMER_SERVICE_URL}/v1/customers/${id}/${
-        hide ? 'hide' : 'show'
-      }`
-      const res = await fetch(endpoint, {
+      const res = await fetch(`${CUSTOMER_SERVICE_URL}/v1/customers/${id}/${action}`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${getAccessToken()}` },
-      })
-      const json: ApiResponse<Customer> = await res.json()
-      if (!json.success) throw new Error(json.message || 'Failed')
-      fetchCustomers()
+      });
+      const json: ApiResponse<Customer> = await res.json();
+      if (!json.success) throw new Error(json.message || `Failed to ${action} customer`);
+      // Refresh data
+      fetchCustomers(page, size, searchTerm);
     } catch (e) {
-      alert((e as Error).message)
+      alert((e as Error).message);
     }
+  };
+
+  if (!role) {
+    return <CustomerTableSkeleton /> // Or some other placeholder
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-semibold">Customer Management</h1>
-        {role === 'STAFF' && (
-          <Link href="/customers/create">
-            <Button>Add Customer</Button>
-          </Link>
-        )}
-      </div>
-      <form
-        onSubmit={handleSearch}
-        className="flex flex-wrap gap-4 mb-6 items-end"
-      >
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="search">Search</Label>
-          <Input
-            id="search"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Name"
-          />
-        </div>
-        <Button type="submit">Filter</Button>
-      </form>
-      {error && <p className="text-destructive mb-4">{error}</p>}
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="px-4 py-2 text-left">ID</th>
-              <th className="px-4 py-2 text-left">Name</th>
-              <th className="px-4 py-2 text-left">Email</th>
-              <th className="px-4 py-2 text-left">Tags</th>
-              <th className="px-4 py-2 text-left">Status</th>
-              <th className="px-4 py-2 text-left">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center">
-                  Loading...
-                </td>
-              </tr>
-            ) : customers.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center">
-                  No customers found
-                </td>
-              </tr>
-            ) : (
-              customers.map(c => (
-                <tr key={c.id} className="border-t">
-                  <td className="px-4 py-2">{c.id}</td>
-                  <td className="px-4 py-2">{c.name}</td>
-                  <td className="px-4 py-2">{c.email}</td>
-                  <td className="px-4 py-2">
-                    {c.tags?.length ? c.tags.join(', ') : '-'}
-                  </td>
-                  <td className="px-4 py-2">
-                    {c.isHidden ? 'HIDDEN' : 'VISIBLE'}
-                  </td>
-                  <td className="px-4 py-2 flex gap-2">
-                    <Link
-                      href={`/customers/${c.id}`}
-                      className="underline text-xs"
-                    >
-                      Details
-                    </Link>
-                    {role === 'STAFF' && (
-                      <Link
-                        href={`/customers/${c.id}/edit`}
-                        className="underline text-xs"
-                      >
-                        Edit
-                      </Link>
-                    )}
-                    {role === 'MANAGER' && (
-                      <button
-                        onClick={() => hideCustomer(c.id, !c.isHidden)}
-                        className="underline text-xs text-red-600"
-                      >
-                        {c.isHidden ? 'Restore' : 'Hide'}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-      <div className="flex items-center justify-between mt-4">
-        <span>
-          Page {page + 1} of {totalPages}
-        </span>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            disabled={page === 0}
-            onClick={() => setPage(p => Math.max(0, p - 1))}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            disabled={page + 1 >= totalPages}
-            onClick={() => setPage(p => p + 1)}
-          >
-            Next
-          </Button>
+    <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
+      <div className="flex items-center">
+        <h1 className="font-semibold text-lg md:text-2xl">Customers</h1>
+        <div className="ml-auto flex items-center gap-2">
+          {role === 'STAFF' && (
+            <Link href="/customers/create">
+              <Button size="sm" className="h-8 gap-1">
+                <PlusCircle className="h-3.5 w-3.5" />
+                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                  Add Customer
+                </span>
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
-    </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Customer Overview</CardTitle>
+          <CardDescription>
+            Browse and manage your company's customers.
+          </CardDescription>
+          <div className="relative mt-4">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search by customer name..."
+              className="w-full appearance-none bg-background pl-8 shadow-none md:w-1/3"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {error && <p className="text-destructive mb-4">{error}</p>}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Customer</TableHead>
+                <TableHead className="hidden md:table-cell">
+                  Legal Rep.
+                </TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="hidden md:table-cell">Phone</TableHead>
+                <TableHead className="hidden md:table-cell">
+                  Created at
+                </TableHead>
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                 <TableRow><TableCell colSpan={6}><CustomerTableSkeleton /></TableCell></TableRow>
+              ) : customers.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="h-24 text-center"
+                  >
+                    No customers found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                customers.map(customer => (
+                  <TableRow key={customer.id}>
+                    <TableCell>
+                      <div className="font-medium">{customer.name}</div>
+                      <div className="hidden text-sm text-muted-foreground md:inline">
+                        {customer.email}
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {customer.legalRepresentative}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={customer.isHidden ? 'outline' : 'secondary'}>
+                        {customer.isHidden ? 'Hidden' : 'Visible'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {customer.phone}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {new Date(customer.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            aria-haspopup="true"
+                            size="icon"
+                            variant="ghost"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Toggle menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <Link href={`/customers/${customer.id}`}>
+                            <DropdownMenuItem>View Details</DropdownMenuItem>
+                          </Link>
+                           {role === 'STAFF' && (
+                            <Link href={`/customers/${customer.id}/edit`}>
+                              <DropdownMenuItem>Edit</DropdownMenuItem>
+                            </Link>
+                           )}
+                          {role === 'MANAGER' && (
+                            <DropdownMenuItem onSelect={() => hideCustomer(customer.id, !customer.isHidden)}>
+                              {customer.isHidden ? 'Restore' : 'Hide'}
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+         <div className="flex items-center justify-between p-4">
+            <div className="text-sm text-muted-foreground">
+                Page {page + 1} of {totalPages}
+            </div>
+            <div className="flex gap-2">
+            <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 0}
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+            >
+                <ChevronLeft className="h-4 w-4" />
+                <span className="ml-2">Previous</span>
+            </Button>
+            <Button
+                variant="outline"
+                size="sm"
+                disabled={page + 1 >= totalPages}
+                onClick={() => setPage(p => p + 1)}
+            >
+                <span className="mr-2">Next</span>
+                <ChevronRight className="h-4 w-4" />
+            </Button>
+            </div>
+        </div>
+      </Card>
+    </main>
   )
 }
