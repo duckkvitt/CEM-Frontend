@@ -1,10 +1,9 @@
 'use client'
 
-import Sidebar from '@/components/sidebar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { DEVICE_SERVICE_URL, CUSTOMER_SERVICE_URL } from '@/lib/api'
+import { DEVICE_SERVICE_URL } from '@/lib/api'
 import { getAccessToken, getCurrentUserRole } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
@@ -27,6 +26,7 @@ export default function CreateDevicePage () {
     model: '',
     serialNumber: '',
     warrantyExpiry: '',
+    quantity: '',
     status: 'ACTIVE'
   })
   const [loading, setLoading] = useState(false)
@@ -41,7 +41,9 @@ export default function CreateDevicePage () {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
-    setForm(prev => ({ ...prev, [name]: value }))
+    const newValue = name === 'quantity' ? value.replace(/[^0-9]/g, '') : value
+    // @ts-ignore dynamic key
+    setForm(prev => ({ ...prev, [name]: newValue }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,6 +57,7 @@ export default function CreateDevicePage () {
         model: form.model || undefined,
         serialNumber: form.serialNumber || undefined,
         warrantyExpiry: form.warrantyExpiry || undefined,
+        quantity: form.quantity ? parseInt(form.quantity, 10) : undefined,
         status: form.status || undefined
       }
       const res = await fetch(`${DEVICE_SERVICE_URL}/devices`, {
@@ -81,7 +84,7 @@ export default function CreateDevicePage () {
     <div>
       <div className='flex items-center gap-4 mb-6'>
         <Button variant='ghost' onClick={() => router.back()}>&larr; Back</Button>
-        <h1 className='text-2xl font-semibold'>Create Device</h1>
+        <h1 className='text-2xl font-semibold'>Add New Device to Inventory</h1>
       </div>
       <form onSubmit={handleSubmit} className='space-y-4'>
         <div>
@@ -99,6 +102,10 @@ export default function CreateDevicePage () {
         <div>
           <Label htmlFor='warrantyExpiry'>Warranty Expiry</Label>
           <Input id='warrantyExpiry' name='warrantyExpiry' type='date' value={form.warrantyExpiry} onChange={handleChange} />
+        </div>
+        <div>
+          <Label htmlFor='quantity'>Quantity</Label>
+          <Input id='quantity' name='quantity' type='number' min='0' value={form.quantity} onChange={handleChange} />
         </div>
         <div>
           <Label htmlFor='status'>Status</Label>

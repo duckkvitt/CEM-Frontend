@@ -18,35 +18,30 @@ export default function AppShell ({ children }: Props) {
 
   const isPublicRoute = PUBLIC_ROUTES.includes(pathname || '')
 
-  // Redirect logic based on authentication state
   useEffect(() => {
     const token = getAccessToken()
-
-    // If not logged in and trying to access a protected page -> redirect to login
     if (!token && !isPublicRoute) {
       router.replace('/login')
       return
     }
-
-    // If logged in and trying to access login/forgot-password -> redirect to dashboard
     if (token && isPublicRoute) {
       router.replace('/dashboard')
     }
   }, [pathname, isPublicRoute, router])
 
-  // If current route is public, render children without shell
   if (isPublicRoute) {
-    return <>{children}</>
+    return <main className="min-h-screen">{children}</main>
   }
 
-  // Render full application shell for authenticated routes
   return (
-    <div className="flex min-h-screen w-full">
+    <div className="flex min-h-screen w-full bg-background">
       <Sidebar />
-      <main className="ml-60 flex-1 bg-background">
+      <div className="ml-64 flex-1 flex flex-col"> {/* Đã điều chỉnh lề cho sidebar rộng hơn */}
         <Header />
-        <section className="p-6">{children}</section>
-      </main>
+        <main className="flex-1 p-6 lg:p-8"> {/* Thêm nhiều padding hơn */}
+          {children}
+        </main>
+      </div>
     </div>
   )
 } 

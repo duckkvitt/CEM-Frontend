@@ -1,6 +1,5 @@
 'use client'
 
-import Sidebar from '@/components/sidebar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -38,7 +37,7 @@ interface Page<T> {
   size: number
 }
 
-export default function CustomerManagementPage () {
+export default function CustomerManagementPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
@@ -72,10 +71,11 @@ export default function CustomerManagementPage () {
       const url = `${CUSTOMER_SERVICE_URL}/v1/customers?${params.toString()}`
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${getAccessToken()}` },
-        cache: 'no-store'
+        cache: 'no-store',
       })
       const json: ApiResponse<Page<Customer>> = await res.json()
-      if (!json.success) throw new Error(json.message || 'Failed to fetch customers')
+      if (!json.success)
+        throw new Error(json.message || 'Failed to fetch customers')
       setCustomers(json.data.content)
       setTotalPages(json.data.totalPages)
     } catch (err: unknown) {
@@ -99,12 +99,15 @@ export default function CustomerManagementPage () {
 
   const hideCustomer = async (id: number, hide: boolean) => {
     const confirmMsg = hide ? 'hide' : 'restore'
-    if (!confirm(`Are you sure you want to ${confirmMsg} this customer?`)) return
+    if (!confirm(`Are you sure you want to ${confirmMsg} this customer?`))
+      return
     try {
-      const endpoint = `${CUSTOMER_SERVICE_URL}/v1/customers/${id}/${hide ? 'hide' : 'show'}`
+      const endpoint = `${CUSTOMER_SERVICE_URL}/v1/customers/${id}/${
+        hide ? 'hide' : 'show'
+      }`
       const res = await fetch(endpoint, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${getAccessToken()}` }
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
       })
       const json: ApiResponse<Customer> = await res.json()
       if (!json.success) throw new Error(json.message || 'Failed')
@@ -115,76 +118,119 @@ export default function CustomerManagementPage () {
   }
 
   return (
-    <div className='flex min-h-screen w-full'>
-      <Sidebar />
-      <main className='ml-60 flex-1 bg-background p-6'>
-        <div className='flex items-center justify-between mb-4'>
-          <h1 className='text-2xl font-semibold'>Customer Management</h1>
-          {role === 'STAFF' && (
-            <Link href='/customers/create'>
-              <Button>Add Customer</Button>
-            </Link>
-          )}
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-semibold">Customer Management</h1>
+        {role === 'STAFF' && (
+          <Link href="/customers/create">
+            <Button>Add Customer</Button>
+          </Link>
+        )}
+      </div>
+      <form
+        onSubmit={handleSearch}
+        className="flex flex-wrap gap-4 mb-6 items-end"
+      >
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="search">Search</Label>
+          <Input
+            id="search"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Name"
+          />
         </div>
-        <form onSubmit={handleSearch} className='flex flex-wrap gap-4 mb-6 items-end'>
-          <div className='flex flex-col gap-1'>
-            <Label htmlFor='search'>Search</Label>
-            <Input id='search' value={search} onChange={e => setSearch(e.target.value)} placeholder='Name' />
-          </div>
-          <Button type='submit'>Filter</Button>
-        </form>
-        {error && <p className='text-destructive mb-4'>{error}</p>}
-        <div className='overflow-x-auto rounded-lg border'>
-          <table className='w-full text-sm'>
-            <thead className='bg-muted/50'>
+        <Button type="submit">Filter</Button>
+      </form>
+      {error && <p className="text-destructive mb-4">{error}</p>}
+      <div className="overflow-x-auto rounded-lg border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50">
+            <tr>
+              <th className="px-4 py-2 text-left">ID</th>
+              <th className="px-4 py-2 text-left">Name</th>
+              <th className="px-4 py-2 text-left">Email</th>
+              <th className="px-4 py-2 text-left">Tags</th>
+              <th className="px-4 py-2 text-left">Status</th>
+              <th className="px-4 py-2 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
               <tr>
-                <th className='px-4 py-2 text-left'>ID</th>
-                <th className='px-4 py-2 text-left'>Name</th>
-                <th className='px-4 py-2 text-left'>Email</th>
-                <th className='px-4 py-2 text-left'>Tags</th>
-                <th className='px-4 py-2 text-left'>Status</th>
-                <th className='px-4 py-2 text-left'>Actions</th>
+                <td colSpan={6} className="px-4 py-6 text-center">
+                  Loading...
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={6} className='px-4 py-6 text-center'>Loading...</td></tr>
-              ) : customers.length === 0 ? (
-                <tr><td colSpan={6} className='px-4 py-6 text-center'>No customers found</td></tr>
-              ) : customers.map(c => (
-                <tr key={c.id} className='border-t'>
-                  <td className='px-4 py-2'>{c.id}</td>
-                  <td className='px-4 py-2'>{c.name}</td>
-                  <td className='px-4 py-2'>{c.email}</td>
-                  <td className='px-4 py-2'>
+            ) : customers.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center">
+                  No customers found
+                </td>
+              </tr>
+            ) : (
+              customers.map(c => (
+                <tr key={c.id} className="border-t">
+                  <td className="px-4 py-2">{c.id}</td>
+                  <td className="px-4 py-2">{c.name}</td>
+                  <td className="px-4 py-2">{c.email}</td>
+                  <td className="px-4 py-2">
                     {c.tags?.length ? c.tags.join(', ') : '-'}
                   </td>
-                  <td className='px-4 py-2'>{c.isHidden ? 'HIDDEN' : 'VISIBLE'}</td>
-                  <td className='px-4 py-2 flex gap-2'>
-                    <Link href={`/customers/${c.id}`} className='underline text-xs'>Details</Link>
+                  <td className="px-4 py-2">
+                    {c.isHidden ? 'HIDDEN' : 'VISIBLE'}
+                  </td>
+                  <td className="px-4 py-2 flex gap-2">
+                    <Link
+                      href={`/customers/${c.id}`}
+                      className="underline text-xs"
+                    >
+                      Details
+                    </Link>
                     {role === 'STAFF' && (
-                      <Link href={`/customers/${c.id}/edit`} className='underline text-xs'>Edit</Link>
+                      <Link
+                        href={`/customers/${c.id}/edit`}
+                        className="underline text-xs"
+                      >
+                        Edit
+                      </Link>
                     )}
                     {role === 'MANAGER' && (
                       <button
                         onClick={() => hideCustomer(c.id, !c.isHidden)}
-                        className='underline text-xs text-red-600'
-                      >{c.isHidden ? 'Restore' : 'Hide'}</button>
+                        className="underline text-xs text-red-600"
+                      >
+                        {c.isHidden ? 'Restore' : 'Hide'}
+                      </button>
                     )}
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex items-center justify-between mt-4">
+        <span>
+          Page {page + 1} of {totalPages}
+        </span>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            disabled={page === 0}
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            disabled={page + 1 >= totalPages}
+            onClick={() => setPage(p => p + 1)}
+          >
+            Next
+          </Button>
         </div>
-        <div className='flex items-center justify-between mt-4'>
-          <span>Page {page + 1} of {totalPages}</span>
-          <div className='flex gap-2'>
-            <Button variant='outline' disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))}>Previous</Button>
-            <Button variant='outline' disabled={page + 1 >= totalPages} onClick={() => setPage(p => p + 1)}>Next</Button>
-          </div>
-        </div>
-      </main>
+      </div>
     </div>
   )
-} 
+}
