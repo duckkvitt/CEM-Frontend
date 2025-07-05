@@ -15,6 +15,7 @@ interface Device {
   model?: string
   serialNumber?: string
   warrantyExpiry?: string
+  quantity?: number | string
   status: string
 }
 
@@ -74,7 +75,8 @@ export default function EditDevicePage () {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     if (!device) return
-    setDevice({ ...device, [name]: value })
+    const newValue = name === 'quantity' ? Number(value) : value
+    setDevice({ ...device, [name]: newValue })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,6 +91,7 @@ export default function EditDevicePage () {
         model: device.model || undefined,
         serialNumber: device.serialNumber || undefined,
         warrantyExpiry: device.warrantyExpiry || undefined,
+        quantity: device.quantity ? Number(device.quantity) : undefined,
         status: device.status || undefined
       }
       const res = await fetch(`${DEVICE_SERVICE_URL}/devices/${deviceId}`, {
@@ -123,7 +126,7 @@ export default function EditDevicePage () {
     <div>
       <div className='flex items-center gap-4 mb-6'>
         <Button variant='ghost' onClick={() => router.back()}>&larr; Back</Button>
-        <h1 className='text-2xl font-semibold'>Edit Device</h1>
+        <h1 className='text-2xl font-semibold'>Edit Inventory Device</h1>
       </div>
       <form onSubmit={handleSubmit} className='space-y-4'>
         <div>
@@ -141,6 +144,10 @@ export default function EditDevicePage () {
         <div>
           <Label htmlFor='warrantyExpiry'>Warranty Expiry</Label>
           <Input id='warrantyExpiry' name='warrantyExpiry' type='date' value={device.warrantyExpiry ?? ''} onChange={handleChange} />
+        </div>
+        <div>
+          <Label htmlFor='quantity'>Quantity</Label>
+          <Input id='quantity' name='quantity' type='number' min='0' value={device.quantity ?? ''} onChange={handleChange} />
         </div>
         <div>
           <Label htmlFor='status'>Status</Label>

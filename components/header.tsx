@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { Bell } from 'lucide-react'
+import { Bell, Search, LogOut, UserCircle } from 'lucide-react'
 import { getCurrentUser, logout as doLogout, type CurrentUser } from '@/lib/auth'
 
 export default function Header () {
@@ -15,19 +15,15 @@ export default function Header () {
   const menuRef = useRef<HTMLDivElement>(null)
 
   const handleLogout = async () => {
-    if (loading) return
     setLoading(true)
     try {
       await doLogout()
-    } catch (err) {
-      // even if logout API fails, proceed with client-side cleanup
     } finally {
       setLoading(false)
       router.replace('/login')
     }
   }
 
-  // Avoid reading localStorage on server-side; only after mount.
   useEffect(() => {
     const current = getCurrentUser()
     setUser(current)
@@ -38,71 +34,70 @@ export default function Header () {
     }
   }, [])
 
-  // Close dropdown when clicking outside
   useEffect(() => {
-    if (!menuOpen) return
-    const handleClick = (e: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false)
       }
     }
-    window.addEventListener('click', handleClick)
-    return () => window.removeEventListener('click', handleClick)
+    if (menuOpen) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [menuOpen])
 
+  const navigateAndClose = (path: string) => {
+    router.push(path)
+    setMenuOpen(false)
+  }
+  
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-background/80 px-6 backdrop-blur">
-      <div className="flex-1 max-w-lg">
+    <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-4 border-b bg-background/95 px-6 backdrop-blur-sm">
+      {/* Thanh tìm kiếm được cải thiện */}
+      <div className="relative flex-1 max-w-lg">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
           type="search"
           placeholder="Search..."
-          className="w-full rounded-md border bg-input px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="w-full rounded-full border bg-input pl-10 pr-4 py-2 text-sm focus:ring-primary focus:border-primary focus:outline-none"
         />
       </div>
+
       <div className="flex items-center gap-4 relative" ref={menuRef}>
-        <button className="relative focus-visible:ring-2 focus-visible:ring-ring rounded-full p-2 text-muted-foreground hover:text-foreground">
+        <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-foreground">
           <Bell size={20} />
-        </button>
-        {user && (
-          <>
-            <span className="text-sm font-medium whitespace-nowrap hidden sm:block">
-              {user.firstName} {user.lastName}
-            </span>
-            {user.role?.name && (
-              <span className="text-xs text-muted-foreground hidden sm:block">({user.role.name})</span>
-            )}
-          </>
-        )}
+          <span className="sr-only">Notifications</span>
+        </Button>
+        
+        {/* Avatar người dùng và menu thả xuống */}
         <button
           onClick={() => setMenuOpen(prev => !prev)}
-          className="h-8 w-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-semibold focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
         >
           {initials}
         </button>
 
         {menuOpen && (
-          <div className="absolute right-0 top-12 w-44 rounded-md bg-background shadow-lg py-1 z-50">
-            <Button
-              variant="ghost"
-              className="w-full justify-start px-4 py-2 text-sm"
-              onClick={() => {
-                setMenuOpen(false)
-                router.push('/profile')
-              }}
-            >
-              My Profile
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start px-4 py-2 text-sm"
-              disabled={loading}
-              onClick={async () => {
-                setMenuOpen(false)
-                await handleLogout()
-              }}
-            >
-              {loading ? 'Signing out...' : 'Logout'}
-            </Button>
+          <div className="absolute right-0 top-14 w-56 rounded-lg bg-card shadow-xl border p-2 z-50">
+            <div className="px-2 py-2 border-b">
+              <p className="font-semibold text-sm text-foreground">{user?.firstName} {user?.lastName}</p>
+              <p className="text-xs text-muted-foreground">{user?.email}</p>
+            </div>
+            <div className="mt-2 space-y-1">
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-2 px-2 py-1.5 text-sm"
+                onClick={() => navigateAndClose('/profile')}
+              >
+                <UserCircle size={16} /> My Profile
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-2 px-2 py-1.5 text-sm text-destructive hover:text-destructive"
+                disabled={loading}
+                onClick={handleLogout}
+              >
+                <LogOut size={16} /> {loading ? 'Signing out...' : 'Logout'}
+              </Button>
+            </div>
           </div>
         )}
       </div>

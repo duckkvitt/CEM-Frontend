@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Plus, Filter, Eye, Edit, Trash2, Check, RefreshCw } from 'lucide-react'
+import { Search, Plus, Filter, Eye, Edit, Trash2 } from 'lucide-react'
 import { 
   getUnsignedContracts, 
   getSignedContracts, 

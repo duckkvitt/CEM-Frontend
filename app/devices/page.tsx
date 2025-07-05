@@ -1,6 +1,5 @@
 'use client'
 
-import Sidebar from '@/components/sidebar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,8 +14,9 @@ interface Device {
   name: string
   model?: string
   serialNumber?: string
-  customerId?: number
+  // customerId không còn cần thiết ở đây vì đây là trang quản lý kho
   warrantyExpiry?: string
+  quantity?: number
   status: string
   createdAt?: string
   updatedAt?: string
@@ -43,7 +43,7 @@ const STATUS_OPTIONS = ['', 'ACTIVE', 'INACTIVE', 'MAINTENANCE', 'BROKEN', 'DISC
 export default function DeviceManagementPage () {
   const [devices, setDevices] = useState<Device[]>([])
   const [search, setSearch] = useState('')
-  // Xóa customerId và customers
+  // Xóa state của customer
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(0)
   const [size, setSize] = useState(20)
@@ -73,7 +73,8 @@ export default function DeviceManagementPage () {
       if (search) {
         params.append('keyword', search)
       }
-      // Xóa filter customerId
+      // Thêm param để chỉ lấy device trong kho
+      params.append('inStock', 'true')
       if (status) params.append('status', status)
       params.append('page', page.toString())
       params.append('size', size.toString())
@@ -121,14 +122,14 @@ export default function DeviceManagementPage () {
     }
   }
 
-  // Sửa layout: bỏ flex, Sidebar, ml-60, chỉ để content trong 1 div
+  // Sửa layout wrapper, bỏ Sidebar và các class không cần thiết
   return (
     <div>
       <div className='flex items-center justify-between mb-4'>
-        <h1 className='text-2xl font-semibold'>Device Management</h1>
+        <h1 className='text-2xl font-semibold'>Device Inventory Management</h1>
         {role === 'STAFF' && (
           <Link href='/devices/create'>
-            <Button>Add Device</Button>
+            <Button>Add New Device</Button>
           </Link>
         )}
       </div>
@@ -137,7 +138,7 @@ export default function DeviceManagementPage () {
           <Label htmlFor='search'>Search</Label>
           <Input id='search' value={search} onChange={e => setSearch(e.target.value)} placeholder='Name, model or serial' />
         </div>
-        {/* Xóa filter Customer */}
+        {/* Xóa bộ lọc customer */}
         <div className='flex flex-col gap-1'>
           <Label htmlFor='status'>Status</Label>
           <select
@@ -163,6 +164,7 @@ export default function DeviceManagementPage () {
               <th className='px-4 py-2 text-left'>Name</th>
               <th className='px-4 py-2 text-left'>Model</th>
               <th className='px-4 py-2 text-left'>Serial #</th>
+              <th className='px-4 py-2 text-left'>Qty</th>
               <th className='px-4 py-2 text-left'>Status</th>
               <th className='px-4 py-2 text-left'>Actions</th>
             </tr>
@@ -178,6 +180,7 @@ export default function DeviceManagementPage () {
                 <td className='px-4 py-2'>{d.name}</td>
                 <td className='px-4 py-2'>{d.model || '-'}</td>
                 <td className='px-4 py-2'>{d.serialNumber || '-'}</td>
+                <td className='px-4 py-2'>{d.quantity ?? '-'}</td>
                 <td className='px-4 py-2'>{d.status}</td>
                 <td className='px-4 py-2 flex gap-2'>
                   <Link href={`/devices/${d.id}`} className='underline text-xs'>Details</Link>

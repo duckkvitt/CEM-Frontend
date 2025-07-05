@@ -13,8 +13,8 @@ interface Device {
   name: string
   model?: string
   serialNumber?: string
-  customerId?: number
   warrantyExpiry?: string
+  quantity?: number
   status: string
   createdAt?: string
   updatedAt?: string
@@ -124,81 +124,77 @@ export default function DeviceDetailPage () {
 
   if (loading || !device) {
     return (
-      <div className='flex min-h-screen w-full'>
-        <Sidebar />
-        <main className='ml-60 flex-1 bg-background p-6 flex items-center justify-center'>
-          {loading ? 'Loading…' : error || 'Device not found'}
-        </main>
+      <div className='flex items-center justify-center min-h-[60vh]'>
+        {loading ? 'Loading…' : error || 'Device not found'}
       </div>
     )
   }
 
+  // Sửa layout: bỏ flex, Sidebar, ml-60, chỉ để content trong 1 div
   return (
-    <div className='flex min-h-screen w-full'>
-      <Sidebar />
-      <main className='ml-60 flex-1 bg-background p-6'>
-        <div className='flex items-center gap-4 mb-6'>
-          <Button variant='ghost' onClick={() => router.back()}>&larr; Back</Button>
-          <h1 className='text-2xl font-semibold'>Device #{device.id}</h1>
-          {role === 'STAFF' && (
-            <Link href={`/devices/${device.id}/edit`} className='underline'>Edit</Link>
-          )}
+    <div>
+      <div className='flex items-center gap-4 mb-6'>
+        <Button variant='ghost' onClick={() => router.back()}>&larr; Back</Button>
+        <h1 className='text-2xl font-semibold'>Device #{device.id}</h1>
+        {role === 'STAFF' && (
+          <Link href={`/devices/${device.id}/edit`} className='underline'>Edit</Link>
+        )}
+      </div>
+      <section className='grid grid-cols-1 md:grid-cols-2 gap-6 mb-8'>
+        <div>
+          <h2 className='font-semibold mb-2'>General</h2>
+          <ul className='space-y-1 text-sm'>
+            <li><strong>Name:</strong> {device.name}</li>
+            <li><strong>Model:</strong> {device.model || '-'}</li>
+            <li><strong>Serial #:</strong> {device.serialNumber || '-'}</li>
+            <li><strong>Quantity:</strong> {device.quantity ?? '-'}</li>
+            <li><strong>Status:</strong> {device.status}</li>
+          </ul>
         </div>
-        <section className='grid grid-cols-1 md:grid-cols-2 gap-6 mb-8'>
-          <div>
-            <h2 className='font-semibold mb-2'>General</h2>
-            <ul className='space-y-1 text-sm'>
-              <li><strong>Name:</strong> {device.name}</li>
-              <li><strong>Model:</strong> {device.model || '-'}</li>
-              <li><strong>Serial #:</strong> {device.serialNumber || '-'}</li>
-              <li><strong>Status:</strong> {device.status}</li>
-            </ul>
-          </div>
-          <div>
-            <h2 className='font-semibold mb-2'>Additional</h2>
-            <ul className='space-y-1 text-sm'>
-              <li><strong>Customer ID:</strong> {device.customerId || '-'}</li>
-              <li><strong>Warranty Expiry:</strong> {device.warrantyExpiry || '-'}</li>
-              <li><strong>Created At:</strong> {device.createdAt || '-'}</li>
-              <li><strong>Updated At:</strong> {device.updatedAt || '-'}</li>
-            </ul>
-          </div>
-        </section>
+        <div>
+          <h2 className='font-semibold mb-2'>Additional</h2>
+          <ul className='space-y-1 text-sm'>
+            {/* Xóa Customer ID */}
+            <li><strong>Warranty Expiry:</strong> {device.warrantyExpiry || '-'}</li>
+            <li><strong>Created At:</strong> {device.createdAt || '-'}</li>
+            <li><strong>Updated At:</strong> {device.updatedAt || '-'}</li>
+          </ul>
+        </div>
+      </section>
 
-        <section>
-          <div className='flex items-center justify-between mb-2'>
-            <h2 className='text-xl font-semibold'>Notes</h2>
+      <section>
+        <div className='flex items-center justify-between mb-2'>
+          <h2 className='text-xl font-semibold'>Notes</h2>
+        </div>
+        {role === 'STAFF' && (
+          <div className='flex gap-2 mb-4'>
+            <input
+              placeholder='Add a note…'
+              value={noteText}
+              onChange={e => setNoteText(e.target.value)}
+              className='flex-1 border rounded-md px-3 h-10'
+            />
+            <Button onClick={addNote}>Add</Button>
           </div>
-          {role === 'STAFF' && (
-            <div className='flex gap-2 mb-4'>
-              <input
-                placeholder='Add a note…'
-                value={noteText}
-                onChange={e => setNoteText(e.target.value)}
-                className='flex-1 border rounded-md px-3 h-10'
-              />
-              <Button onClick={addNote}>Add</Button>
-            </div>
-          )}
-          {notes.length === 0 ? (
-            <p className='text-sm text-muted-foreground'>No notes yet.</p>
-          ) : (
-            <ul className='space-y-3'>
-              {notes.map(n => (
-                <li key={n.id} className='border rounded-md p-3 flex justify-between items-start'>
-                  <div>
-                    <p className='text-sm whitespace-pre-line'>{n.note}</p>
-                    <p className='text-xs text-muted-foreground mt-1'>By {n.createdBy || 'Unknown'} on {new Date(n.createdAt).toLocaleString()}</p>
-                  </div>
-                  {role === 'STAFF' && (
-                    <button onClick={() => deleteNote(n.id)} className='text-red-600 text-xs underline ml-4'>Delete</button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </main>
+        )}
+        {notes.length === 0 ? (
+          <p className='text-sm text-muted-foreground'>No notes yet.</p>
+        ) : (
+          <ul className='space-y-3'>
+            {notes.map(n => (
+              <li key={n.id} className='border rounded-md p-3 flex justify-between items-start'>
+                <div>
+                  <p className='text-sm whitespace-pre-line'>{n.note}</p>
+                  <p className='text-xs text-muted-foreground mt-1'>By {n.createdBy || 'Unknown'} on {new Date(n.createdAt).toLocaleString()}</p>
+                </div>
+                {role === 'STAFF' && (
+                  <button onClick={() => deleteNote(n.id)} className='text-red-600 text-xs underline ml-4'>Delete</button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   )
 } 
