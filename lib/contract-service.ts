@@ -4,7 +4,6 @@ import { getAccessToken } from './auth'
 export interface ContractDetail {
   workCode: string
   deviceId?: number
-  serviceName: string
   description?: string
   quantity: number
   unitPrice: number
@@ -12,15 +11,34 @@ export interface ContractDetail {
   notes?: string
 }
 
+export interface DeliverySchedule {
+  itemName: string
+  unit: string
+  quantity: number
+  deliveryTime?: string
+  deliveryLocation?: string
+  notes?: string
+}
+
 export interface CreateContractRequest {
-  customerId: number
   title: string
   description?: string
-  totalValue?: number
+  customerId: number
   startDate?: string
   endDate?: string
-  contractDetails?: ContractDetail[]
-  filePath?: string
+  contractDetails: ContractDetail[]
+  
+  // Điều 2: Thanh toán
+  paymentMethod?: string
+  paymentTerm?: string 
+  bankAccount?: string
+  
+  // Điều 3: Thời gian, địa điểm, phương thức giao hàng - now managed as a table
+  deliverySchedules: DeliverySchedule[]
+  
+  // Điều 5: Bảo hành và hướng dẫn sử dụng hàng hóa
+  warrantyProduct?: string
+  warrantyPeriodMonths?: number
 }
 
 export interface UpdateContractRequest {
@@ -44,52 +62,29 @@ export interface SignContractRequest {
 export interface ContractResponse {
   id: number
   contractNumber: string
-  customerId: number
-  customerName?: string
-  staffId: number
-  staffName?: string
   title: string
   description?: string
-  totalValue: number
+  status: string
+  totalValue?: number
+  customerId: number
+  staffId: number
+  filePath?: string
   startDate?: string
   endDate?: string
-  status: 'UNSIGNED' | 'PAPER_SIGNED' | 'DIGITALLY_SIGNED' | 'CANCELLED' | 'EXPIRED'
-  filePath?: string
-  digitalSigned: boolean
-  paperConfirmed: boolean
-  isHidden: boolean
   createdAt: string
-  updatedAt?: string
-  signedAt?: string
-  contractDetails?: {
-    id: number
-    contractId: number
-    workCode: string
-    deviceId?: number
-    deviceName?: string
-    serviceName: string
-    description?: string
-    quantity: number
-    unitPrice: number
-    totalPrice: number
-    warrantyMonths?: number
-    notes?: string
-    createdAt: string
-    updatedAt?: string
-  }[]
-  signatures?: {
-    id: number
-    contractId: number
-    signerName: string
-    signerEmail: string
-    signerType: string
-    signatureType: string
-    signatureData?: string
-    notes?: string
-    createdAt: string
-  }[]
-  daysUntilExpiry?: number
-  isExpiringSoon?: boolean
+  contractDetails: ContractDetail[]
+  
+  // Điều 2: Thanh toán
+  paymentMethod?: string
+  paymentTerm?: string
+  bankAccount?: string
+  
+  // Điều 3: Thời gian, địa điểm, phương thức giao hàng - now managed as a table
+  deliverySchedules: DeliverySchedule[]
+  
+  // Điều 5: Bảo hành và hướng dẫn sử dụng hàng hóa
+  warrantyProduct?: string
+  warrantyPeriodMonths?: number
 }
 
 interface ApiResponse<T> {
@@ -283,4 +278,33 @@ export async function deleteContractFile(fileName: string): Promise<string> {
     `${CONTRACT_SERVICE_URL.replace('/contracts', '')}/files/delete/${fileName}`, 
     { method: 'POST' }
   );
+} 
+
+export async function submitSignature(contractId: number, signatureData: SignatureRequest): Promise<any> {
+  const token = getAccessToken();
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
+
+  const response = await fetch(`${CONTRACT_SERVICE_URL.replace('/contracts', '')}/api/v1/contracts/${contractId}/signatures`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(signatureData),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to submit signature.');
+  }
+
+  return await response.json();
+} 
+
+export async function getContractsForCurrentUser(): Promise<ContractResponse[]> {
+  const url = CONTRACT_SERVICE_URL.endsWith('/') ? CONTRACT_SERVICE_URL : `${CONTRACT_SERVICE_URL}/`
+  const contracts = await authenticatedFetch<ContractResponse[] | undefined>(url)
+  return contracts ?? []
 } 

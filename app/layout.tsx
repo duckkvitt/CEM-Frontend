@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import AppShell from '@/components/app-shell'
+import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -24,6 +25,7 @@ export default function RootLayout({
         className={`${inter.variable} antialiased`}
       >
         <AppShell>{children}</AppShell>
+        <Toaster />
       </body>
     </html>
   );

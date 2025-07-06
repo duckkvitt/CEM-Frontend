@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Plus, Filter, Eye, Edit, Trash2 } from 'lucide-react'
+import { Search, Plus, Filter, Eye, Edit, Trash2, Check, RefreshCw } from 'lucide-react'
 import { 
   getUnsignedContracts, 
   getSignedContracts, 
   getHiddenContracts,
   hideContract,
   restoreContract,
-  ContractResponse
+  ContractResponse,
+  getContractsForCurrentUser // Using a new service function
 } from '@/lib/contract-service'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getCurrentUserRole, getAccessToken } from '@/lib/auth'
@@ -60,23 +61,37 @@ export default function ContractsPage() {
       setError(null)
       
       try {
-        let result
+        // For role-based access, get all contracts for the user
+        // and filter them based on the active tab
+        const allContracts = await getContractsForCurrentUser()
+        
+        let filteredContracts = []
         
         switch (activeTab) {
           case 'unsigned':
-            result = await getUnsignedContracts(page)
+            filteredContracts = allContracts.filter(contract => 
+              contract.status === 'UNSIGNED' || 
+              contract.status === 'PENDING_SELLER_SIGNATURE' || 
+              contract.status === 'PENDING_CUSTOMER_SIGNATURE'
+            )
             break
           case 'signed':
-            result = await getSignedContracts(page)
+            filteredContracts = allContracts.filter(contract => 
+              contract.status === 'DIGITALLY_SIGNED' || 
+              contract.status === 'PAPER_SIGNED' ||
+              contract.status === 'ACTIVE'
+            )
             break
           case 'hidden':
-            result = await getHiddenContracts(page)
+            filteredContracts = allContracts.filter(contract => contract.isHidden)
             break
+          default:
+            filteredContracts = allContracts
         }
         
-        setContracts(result.content || [])
-        setTotalPages(result.totalPages || 0)
-        setTotalElements(result.totalElements || 0)
+        setContracts(filteredContracts || [])
+        setTotalPages(1) // Since we're not paginating on frontend
+        setTotalElements(filteredContracts.length)
       } catch (err) {
         console.error('Error fetching contracts:', err)
         if (err instanceof Error && err.message.includes('401')) {
@@ -92,15 +107,25 @@ export default function ContractsPage() {
     
     fetchContracts()
   }, [activeTab, page, router])
+
+  useEffect(() => {
+    const role = getCurrentUserRole();
+    setUserRole(role);
+  }, [])
   
   // Handle hide contract
   const handleHide = async (contractId: number) => {
     if (window.confirm('Are you sure you want to hide this contract?')) {
       try {
         await hideContract(contractId)
-        // Refresh contracts
-        const result = await getUnsignedContracts(page)
-        setContracts(result.content || [])
+        // Refresh contracts by re-fetching all contracts
+        const allContracts = await getContractsForCurrentUser()
+        const filteredContracts = allContracts.filter(contract => 
+          contract.status === 'UNSIGNED' || 
+          contract.status === 'PENDING_SELLER_SIGNATURE' || 
+          contract.status === 'PENDING_CUSTOMER_SIGNATURE'
+        )
+        setContracts(filteredContracts)
       } catch (err) {
         console.error('Error hiding contract:', err)
         setError('Failed to hide contract. Please try again.')
@@ -112,9 +137,10 @@ export default function ContractsPage() {
   const handleRestore = async (contractId: number) => {
     try {
       await restoreContract(contractId)
-      // Refresh contracts
-      const result = await getHiddenContracts(page)
-      setContracts(result.content || [])
+      // Refresh contracts by re-fetching all contracts
+      const allContracts = await getContractsForCurrentUser()
+      const filteredContracts = allContracts.filter(contract => contract.isHidden)
+      setContracts(filteredContracts)
     } catch (err) {
       console.error('Error restoring contract:', err)
       setError('Failed to restore contract. Please try again.')
@@ -127,6 +153,8 @@ export default function ContractsPage() {
   // Determine if user can edit based on role
   const canEdit = userRole === 'MANAGER' || userRole === 'STAFF'
   
+  const isPrivilegedUser = userRole === 'MANAGER' || userRole === 'STAFF';
+
   // Show loading until we verify authentication
   if (!userRole) {
     return (
@@ -138,19 +166,25 @@ export default function ContractsPage() {
       </div>
     )
   }
+
+  function handleSuccess() {
+    setIsCreateModalOpen(false)
+    // Add logic to refetch contract list
+  }
   
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Contract Management</h1>
-        {(isManager || userRole === 'STAFF') && (
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus size={16} />
-            Create Contract
-          </button>
+        {isPrivilegedUser && (
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus size={16} /> Create Contract
+            </button>
+          </div>
         )}
       </div>
 
@@ -350,16 +384,7 @@ export default function ContractsPage() {
       <CreateContractModal 
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={() => {
-          setIsCreateModalOpen(false)
-          // Refresh the list
-          setPage(0)
-          getUnsignedContracts(0).then(result => {
-            setContracts(result.content || [])
-            setTotalPages(result.totalPages || 0)
-            setTotalElements(result.totalElements || 0)
-          })
-        }}
+        onSuccess={handleSuccess}
       />
     </div>
   )
