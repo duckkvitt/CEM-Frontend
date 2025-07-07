@@ -46,7 +46,7 @@ export default function EditContractPage({ params }: Props) {
         const data = await getContractDetails(contractId)
         
         // Check if contract is editable
-        if (data.status !== 'UNSIGNED') {
+        if (data.status !== 'DRAFT') {
           setError('Cannot edit a contract that has already been signed')
           setLoading(false)
           return
@@ -177,10 +177,10 @@ export default function EditContractPage({ params }: Props) {
   const canEdit = userRole === 'MANAGER' || userRole === 'STAFF'
   
   async function uploadContractFile(): Promise<string | null> {
-    if (!contractFile) return null
+    if (!contractFile || !contract) return null
     // setUploadingFile(true)
     try {
-      const result = await uploadContractFileApi(contractFile)
+      const result = await uploadContractFileApi(contractFile, contract.contractNumber)
       return result
     } catch (err) {
       console.error('Upload error', err)

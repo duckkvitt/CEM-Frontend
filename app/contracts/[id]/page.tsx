@@ -4,9 +4,28 @@ import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Edit, ArrowLeft, Download, Trash2, Check } from 'lucide-react'
-import { getContractDetails, hideContract, ContractResponse, getSignedDownloadUrl } from '@/lib/contract-service'
+import { getContractDetails, hideContract, ContractResponse, getSignedDownloadUrl, submitSignature, SignatureRequest, getContractFileBlob } from '@/lib/contract-service'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils'
 import { getCurrentUserRole } from '@/lib/auth'
+import dynamic from 'next/dynamic';
+
+// Dynamic import for PdfViewer to avoid SSR issues
+const PdfViewer = dynamic(
+  () => import('@/components/pdf-viewer').then((mod) => ({ default: mod.PdfViewer })),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-[75vh] bg-gray-50 rounded-lg">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-sm text-gray-600">Loading PDF viewer...</p>
+        </div>
+      </div>
+    )
+  }
+);
+import { SignatureModal } from '@/components/signature-modal';
+import { toast } from "sonner";
 
 interface Props {
   params: Promise<{
@@ -21,6 +40,11 @@ export default function ContractDetailPage({ params }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
+  const [isSignatureModalOpen, setSignatureModalOpen] = useState(false);
+  const [isSigning, setIsSigning] = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   // Fetch contract details
   useEffect(() => {
@@ -28,6 +52,9 @@ export default function ContractDetailPage({ params }: Props) {
       try {
         setLoading(true)
         const data = await getContractDetails(parseInt(resolvedParams.id))
+        console.log('Contract data loaded:', data)
+        console.log('Contract filePath:', data.filePath)
+        console.log('Contract status:', data.status)
         setContract(data)
         setLoading(false)
       } catch (err) {
@@ -40,6 +67,42 @@ export default function ContractDetailPage({ params }: Props) {
     fetchContract()
     setUserRole(getCurrentUserRole())
   }, [resolvedParams.id])
+
+  // Fetch PDF blob when contract is loaded and has filePath
+  useEffect(() => {
+    let blobUrl: string | null = null;
+
+    async function fetchPdfBlob() {
+      if (contract && contract.filePath) {
+        try {
+          setPdfLoading(true);
+          setPdfError(null);
+          blobUrl = await getContractFileBlob(contract.id);
+          setPdfBlobUrl(blobUrl);
+        } catch (err) {
+          console.error('Error fetching PDF:', err);
+          const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred while loading PDF';
+          setPdfError(`Failed to load contract file: ${errorMessage}`);
+        } finally {
+          setPdfLoading(false);
+        }
+      } else {
+        if (contract && !contract.filePath) {
+          setPdfError('Contract file not available. The PDF may not have been generated yet.');
+        }
+      }
+    }
+
+    fetchPdfBlob();
+
+    // Cleanup function
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, [contract]); // Dependency is now only 'contract' object
+
 
   // Handle hide contract
   async function handleHideContract() {
@@ -66,13 +129,42 @@ export default function ContractDetailPage({ params }: Props) {
     }
   };
 
+  const handleSignContract = async (signatureImage: string) => {
+    if (!contract) return;
+
+    setIsSigning(true);
+    try {
+      const signerType = (userRole === 'MANAGER' || userRole === 'STAFF') ? 'SELLER' : 'CUSTOMER';
+      const request: SignatureRequest = { signatureImage, signerType };
+      
+      await submitSignature(contract.id, request);
+
+      toast.success("Signature submitted successfully.");
+      setSignatureModalOpen(false);
+      // Optionally, refetch contract data to show updated status
+      // fetchContract();
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to submit signature.";
+      toast.error(errorMessage);
+    } finally {
+      setIsSigning(false);
+    }
+  };
+  
+  // Determine if the current user can sign
+  const canSign = userRole && contract && (
+    (userRole === 'MANAGER' && contract.status === 'PENDING_SELLER_SIGNATURE') ||
+    (userRole === 'STAFF' && contract.status === 'PENDING_SELLER_SIGNATURE') ||
+    (userRole === 'CUSTOMER' && contract.status === 'PENDING_CUSTOMER_SIGNATURE')
+  );
+
   // Check if user is Manager
   const isManager = userRole === 'MANAGER'
 
   // Determine if user can edit based on role and contract status
   const canEdit = (userRole === 'MANAGER' || userRole === 'STAFF') && 
                  contract && 
-                 contract.status === 'UNSIGNED'
+                 contract.status === 'DRAFT'
 
   if (loading) {
     return (
@@ -105,7 +197,7 @@ export default function ContractDetailPage({ params }: Props) {
 
   return (
     <div>
-      {/* Header */}
+      {/* Header with actions */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <Link
@@ -119,7 +211,7 @@ export default function ContractDetailPage({ params }: Props) {
 
         <div className="flex items-center gap-2">
           {/* Actions based on contract status and user role */}
-          {contract.status === 'UNSIGNED' && canEdit && (
+          {contract.status === 'DRAFT' && canEdit && (
             <Link
               href={`/contracts/${contract.id}/edit`}
               className="flex items-center gap-1 rounded-md bg-primary/10 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/20"
@@ -129,14 +221,14 @@ export default function ContractDetailPage({ params }: Props) {
             </Link>
           )}
 
-          {contract.status === 'UNSIGNED' && isManager && (
-            <Link
-              href={`/contracts/${contract.id}/sign`}
+          {canSign && (
+            <button
+              onClick={() => setSignatureModalOpen(true)}
               className="flex items-center gap-1 rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
             >
               <Check size={16} />
               Sign Contract
-            </Link>
+            </button>
           )}
 
           {contract.filePath && (
@@ -161,9 +253,10 @@ export default function ContractDetailPage({ params }: Props) {
         </div>
       </div>
 
-      {/* Contract Summary Card */}
-      <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="col-span-2 rounded-lg border bg-white p-6 shadow-sm">
+      {/* Contract Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Contract Summary Card */}
+        <div className="lg:col-span-1 order-last lg:order-first">
           <div className="mb-4 pb-4 border-b">
             <h2 className="text-lg font-semibold">{contract.title}</h2>
             <div className="mt-2 text-sm text-muted-foreground">{contract.description || 'No description'}</div>
@@ -179,19 +272,31 @@ export default function ContractDetailPage({ params }: Props) {
               <div className="text-sm font-medium text-muted-foreground">Status</div>
               <div className="mt-1">
                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                  contract.status === 'UNSIGNED' 
+                  contract.status === 'DRAFT' || contract.status === 'PENDING_SELLER_SIGNATURE' || contract.status === 'PENDING_CUSTOMER_SIGNATURE' 
                     ? 'bg-yellow-100 text-yellow-800' 
-                    : contract.status === 'DIGITALLY_SIGNED' || contract.status === 'PAPER_SIGNED' 
+                    : contract.status === 'ACTIVE'
                       ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
+                      : contract.status === 'REJECTED' || contract.status === 'CANCELLED'
+                        ? 'bg-red-100 text-red-800'
+                        : contract.status === 'EXPIRED'
+                          ? 'bg-gray-100 text-gray-800'
+                          : 'bg-gray-100 text-gray-800'
                 }`}>
-                  {contract.status === 'UNSIGNED' 
-                    ? 'Chưa ký' 
-                    : contract.status === 'DIGITALLY_SIGNED' 
-                      ? 'Đã ký điện tử' 
-                      : contract.status === 'PAPER_SIGNED' 
-                        ? 'Đã ký giấy' 
-                        : 'Đã hủy'}
+                  {contract.status === 'DRAFT'
+                    ? 'Bản nháp'
+                    : contract.status === 'PENDING_SELLER_SIGNATURE' 
+                      ? 'Chờ bên bán ký' 
+                      : contract.status === 'PENDING_CUSTOMER_SIGNATURE'
+                        ? 'Chờ khách hàng ký'
+                        : contract.status === 'ACTIVE'
+                          ? 'Đã ký, có hiệu lực'
+                          : contract.status === 'REJECTED'
+                            ? 'Đã từ chối'
+                            : contract.status === 'CANCELLED'
+                              ? 'Đã hủy'
+                              : contract.status === 'EXPIRED'
+                                ? 'Đã hết hạn'
+                                : contract.status}
                 </span>
               </div>
             </div>
@@ -234,70 +339,60 @@ export default function ContractDetailPage({ params }: Props) {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
-          <h3 className="mb-4 font-semibold">Contract Status</h3>
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-medium">Signed Status</div>
-                <span className={`inline-flex h-6 items-center rounded-full px-2 text-xs font-semibold ${
-                  contract.status === 'UNSIGNED'
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-green-100 text-green-800'
-                }`}>
-                  {contract.status === 'UNSIGNED' ? 'Pending' : 'Signed'}
-                </span>
-              </div>
-            </div>
-
-            {contract.status !== 'UNSIGNED' && (
-              <div>
-                <div className="text-sm font-medium">Signed By</div>
-                <div className="mt-1 text-sm">{contract.signedBy || 'Unknown'}</div>
+        {/* PDF Viewer */}
+        <div className="lg:col-span-2 order-first lg:order-last">
+          <div className="rounded-lg border bg-white p-2 shadow-sm">
+            {contract.filePath ? (
+              pdfLoading ? (
+                <div className="flex items-center justify-center h-[75vh] bg-gray-50 rounded-md">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-sm text-muted-foreground">Loading contract file...</p>
+                  </div>
+                </div>
+              ) : pdfBlobUrl ? (
+                <PdfViewer fileUrl={pdfBlobUrl} />
+              ) : pdfError ? (
+                <div className="flex flex-col items-center justify-center h-[75vh] bg-red-50 rounded-md border border-red-200">
+                  <div className="text-center max-w-md">
+                    <div className="text-red-600 mb-2">
+                      <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-medium text-red-800 mb-2">Contract File Error</h3>
+                    <p className="text-sm text-red-700 mb-4">{pdfError}</p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="inline-flex items-center px-3 py-2 border border-red-300 shadow-sm text-sm leading-4 font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    >
+                      Retry Loading
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-[75vh] bg-gray-50 rounded-md">
+                  <p className="text-muted-foreground">Failed to load contract file.</p>
+                </div>
+              )
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[75vh] bg-yellow-50 rounded-md border border-yellow-200">
+                <div className="text-center max-w-md">
+                  <div className="text-yellow-600 mb-2">
+                    <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-yellow-800 mb-2">No Contract File</h3>
+                  <p className="text-sm text-yellow-700 mb-2">
+                    The PDF contract file has not been generated yet.
+                  </p>
+                  <p className="text-xs text-yellow-600">
+                    This usually happens when there was an error during contract creation. Please contact your administrator.
+                  </p>
+                </div>
               </div>
             )}
-
-            <div>
-              <div className="text-sm font-medium">Digital Signature</div>
-              <div className="mt-1">
-                <span className={`inline-flex h-6 items-center rounded-full px-2 text-xs font-semibold ${
-                  contract.digitalSigned
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {contract.digitalSigned ? 'Yes' : 'No'}
-                </span>
-              </div>
-            </div>
-
-            <div>
-              <div className="text-sm font-medium">Physical Copy</div>
-              <div className="mt-1">
-                <span className={`inline-flex h-6 items-center rounded-full px-2 text-xs font-semibold ${
-                  contract.paperConfirmed
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {contract.paperConfirmed ? 'Yes' : 'No'}
-                </span>
-              </div>
-            </div>
-
-            <div>
-              <div className="text-sm font-medium">File Attachment</div>
-              <div className="mt-1">
-                {contract.filePath ? (
-                  <button
-                    onClick={() => handleDownloadFile(contract.filePath)}
-                    className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
-                  >
-                    <Download size={14} /> Download
-                  </button>
-                ) : (
-                  <span className="text-sm text-muted-foreground">No file attached</span>
-                )}
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -398,6 +493,14 @@ export default function ContractDetailPage({ params }: Props) {
           Back to Contracts
         </Link>
       </div>
+
+      <SignatureModal
+        isOpen={isSignatureModalOpen}
+        onClose={() => setSignatureModalOpen(false)}
+        onSign={handleSignContract}
+        loading={isSigning}
+      />
     </div>
   )
 }
+

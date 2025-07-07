@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Plus, Filter, Eye, Edit, Trash2 } from 'lucide-react'
+import { Search, Plus, Filter, Eye, Edit, Trash2, Check, RefreshCw } from 'lucide-react'
 import { 
   getUnsignedContracts, 
   getSignedContracts, 
   getHiddenContracts,
   hideContract,
   restoreContract,
-  ContractResponse
+  ContractResponse,
+  getContractsForCurrentUser // Using a new service function
 } from '@/lib/contract-service'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getCurrentUserRole, getAccessToken } from '@/lib/auth'
@@ -60,23 +61,37 @@ export default function ContractsPage() {
       setError(null)
       
       try {
-        let result
+        // For role-based access, get all contracts for the user
+        // and filter them based on the active tab
+        const allContracts = await getContractsForCurrentUser()
+        
+        let filteredContracts = []
         
         switch (activeTab) {
           case 'unsigned':
-            result = await getUnsignedContracts(page)
+            filteredContracts = allContracts.filter(contract => 
+              !contract.isHidden && (
+                contract.status === 'DRAFT' ||
+                contract.status === 'PENDING_SELLER_SIGNATURE' || 
+                contract.status === 'PENDING_CUSTOMER_SIGNATURE'
+              )
+            )
             break
           case 'signed':
-            result = await getSignedContracts(page)
+            filteredContracts = allContracts.filter(contract => 
+              !contract.isHidden && contract.status === 'ACTIVE'
+            )
             break
           case 'hidden':
-            result = await getHiddenContracts(page)
+            filteredContracts = allContracts.filter(contract => contract.isHidden === true)
             break
+          default:
+            filteredContracts = allContracts
         }
         
-        setContracts(result.content || [])
-        setTotalPages(result.totalPages || 0)
-        setTotalElements(result.totalElements || 0)
+        setContracts(filteredContracts || [])
+        setTotalPages(1) // Since we're not paginating on frontend
+        setTotalElements(filteredContracts.length)
       } catch (err) {
         console.error('Error fetching contracts:', err)
         if (err instanceof Error && err.message.includes('401')) {
@@ -92,15 +107,45 @@ export default function ContractsPage() {
     
     fetchContracts()
   }, [activeTab, page, router])
+
+  useEffect(() => {
+    const role = getCurrentUserRole();
+    setUserRole(role);
+  }, [])
   
   // Handle hide contract
   const handleHide = async (contractId: number) => {
     if (window.confirm('Are you sure you want to hide this contract?')) {
       try {
         await hideContract(contractId)
-        // Refresh contracts
-        const result = await getUnsignedContracts(page)
-        setContracts(result.content || [])
+        // Refresh contracts by re-fetching all contracts and filtering based on current tab
+        const allContracts = await getContractsForCurrentUser()
+        
+        let filteredContracts = []
+        switch (activeTab) {
+          case 'unsigned':
+            filteredContracts = allContracts.filter(contract => 
+              !contract.isHidden && (
+                contract.status === 'DRAFT' ||
+                contract.status === 'PENDING_SELLER_SIGNATURE' || 
+                contract.status === 'PENDING_CUSTOMER_SIGNATURE'
+              )
+            )
+            break
+          case 'signed':
+            filteredContracts = allContracts.filter(contract => 
+              !contract.isHidden && contract.status === 'ACTIVE'
+            )
+            break
+          case 'hidden':
+            filteredContracts = allContracts.filter(contract => contract.isHidden === true)
+            break
+          default:
+            filteredContracts = allContracts
+        }
+        
+        setContracts(filteredContracts)
+        setTotalElements(filteredContracts.length)
       } catch (err) {
         console.error('Error hiding contract:', err)
         setError('Failed to hide contract. Please try again.')
@@ -112,9 +157,34 @@ export default function ContractsPage() {
   const handleRestore = async (contractId: number) => {
     try {
       await restoreContract(contractId)
-      // Refresh contracts
-      const result = await getHiddenContracts(page)
-      setContracts(result.content || [])
+      // Refresh contracts by re-fetching all contracts and filtering based on current tab
+      const allContracts = await getContractsForCurrentUser()
+      
+      let filteredContracts = []
+      switch (activeTab) {
+        case 'unsigned':
+          filteredContracts = allContracts.filter(contract => 
+            !contract.isHidden && (
+              contract.status === 'DRAFT' ||
+              contract.status === 'PENDING_SELLER_SIGNATURE' || 
+              contract.status === 'PENDING_CUSTOMER_SIGNATURE'
+            )
+          )
+          break
+        case 'signed':
+          filteredContracts = allContracts.filter(contract => 
+            !contract.isHidden && contract.status === 'ACTIVE'
+          )
+          break
+        case 'hidden':
+          filteredContracts = allContracts.filter(contract => contract.isHidden === true)
+          break
+        default:
+          filteredContracts = allContracts
+      }
+      
+      setContracts(filteredContracts)
+      setTotalElements(filteredContracts.length)
     } catch (err) {
       console.error('Error restoring contract:', err)
       setError('Failed to restore contract. Please try again.')
@@ -127,6 +197,8 @@ export default function ContractsPage() {
   // Determine if user can edit based on role
   const canEdit = userRole === 'MANAGER' || userRole === 'STAFF'
   
+  const isPrivilegedUser = userRole === 'MANAGER' || userRole === 'STAFF';
+
   // Show loading until we verify authentication
   if (!userRole) {
     return (
@@ -138,19 +210,25 @@ export default function ContractsPage() {
       </div>
     )
   }
+
+  function handleSuccess() {
+    setIsCreateModalOpen(false)
+    // Add logic to refetch contract list
+  }
   
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Contract Management</h1>
-        {(isManager || userRole === 'STAFF') && (
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus size={16} />
-            Create Contract
-          </button>
+        {isPrivilegedUser && (
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus size={16} /> Create Contract
+            </button>
+          </div>
         )}
       </div>
 
@@ -241,19 +319,31 @@ export default function ContractsPage() {
                   <td className="py-3 px-4">{contract.customerName || `Customer #${contract.customerId}`}</td>
                   <td className="py-3 px-4">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      contract.status === 'UNSIGNED' 
+                      contract.status === 'DRAFT' || contract.status === 'PENDING_SELLER_SIGNATURE' || contract.status === 'PENDING_CUSTOMER_SIGNATURE' 
                         ? 'bg-yellow-100 text-yellow-800' 
-                        : contract.status === 'DIGITALLY_SIGNED' || contract.status === 'PAPER_SIGNED' 
+                        : contract.status === 'ACTIVE'
                           ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
+                          : contract.status === 'REJECTED' || contract.status === 'CANCELLED'
+                            ? 'bg-red-100 text-red-800'
+                            : contract.status === 'EXPIRED'
+                              ? 'bg-gray-100 text-gray-800'
+                              : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {contract.status === 'UNSIGNED' 
-                        ? 'Chưa ký' 
-                        : contract.status === 'DIGITALLY_SIGNED' 
-                          ? 'Đã ký điện tử' 
-                          : contract.status === 'PAPER_SIGNED' 
-                            ? 'Đã ký giấy' 
-                            : 'Đã hủy'}
+                      {contract.status === 'DRAFT'
+                        ? 'Bản nháp'
+                        : contract.status === 'PENDING_SELLER_SIGNATURE' 
+                          ? 'Chờ bên bán ký' 
+                          : contract.status === 'PENDING_CUSTOMER_SIGNATURE'
+                            ? 'Chờ khách hàng ký'
+                            : contract.status === 'ACTIVE'
+                              ? 'Đã ký, có hiệu lực'
+                              : contract.status === 'REJECTED'
+                                ? 'Đã từ chối'
+                                : contract.status === 'CANCELLED'
+                                  ? 'Đã hủy'
+                                  : contract.status === 'EXPIRED'
+                                    ? 'Đã hết hạn'
+                                    : contract.status}
                     </span>
                   </td>
                   <td className="py-3 px-4">{formatCurrency(contract.totalValue)}</td>
@@ -269,8 +359,8 @@ export default function ContractsPage() {
                         <Eye size={16} />
                       </button>
                       
-                      {/* Edit button only for unsigned contracts and staff/managers */}
-                      {contract.status === 'UNSIGNED' && canEdit && (
+                                {/* Edit button only for draft contracts and staff/managers */}
+          {contract.status === 'DRAFT' && canEdit && (
                         <button
                           onClick={() => router.push(`/contracts/${contract.id}/edit`)}
                           className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -280,8 +370,8 @@ export default function ContractsPage() {
                         </button>
                       )}
                       
-                      {/* Sign button only for unsigned contracts and managers */}
-                      {contract.status === 'UNSIGNED' && isManager && (
+                                {/* Sign button only for contracts pending signature and managers */}
+          {(contract.status === 'PENDING_SELLER_SIGNATURE' || contract.status === 'PENDING_CUSTOMER_SIGNATURE') && isManager && (
                         <button
                           onClick={() => router.push(`/contracts/${contract.id}/sign`)}
                           className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -350,16 +440,7 @@ export default function ContractsPage() {
       <CreateContractModal 
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={() => {
-          setIsCreateModalOpen(false)
-          // Refresh the list
-          setPage(0)
-          getUnsignedContracts(0).then(result => {
-            setContracts(result.content || [])
-            setTotalPages(result.totalPages || 0)
-            setTotalElements(result.totalElements || 0)
-          })
-        }}
+        onSuccess={handleSuccess}
       />
     </div>
   )

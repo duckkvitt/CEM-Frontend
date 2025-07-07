@@ -4,7 +4,6 @@ import { getAccessToken } from './auth'
 export interface ContractDetail {
   workCode: string
   deviceId?: number
-  serviceName: string
   description?: string
   quantity: number
   unitPrice: number
@@ -12,15 +11,34 @@ export interface ContractDetail {
   notes?: string
 }
 
+export interface DeliverySchedule {
+  itemName: string
+  unit: string
+  quantity: number
+  deliveryTime?: string
+  deliveryLocation?: string
+  notes?: string
+}
+
 export interface CreateContractRequest {
-  customerId: number
   title: string
   description?: string
-  totalValue?: number
+  customerId: number
   startDate?: string
   endDate?: string
-  contractDetails?: ContractDetail[]
-  filePath?: string
+  contractDetails: ContractDetail[]
+  
+  // Điều 2: Thanh toán
+  paymentMethod?: string
+  paymentTerm?: string 
+  bankAccount?: string
+  
+  // Điều 3: Thời gian, địa điểm, phương thức giao hàng - now managed as a table
+  deliverySchedules: DeliverySchedule[]
+  
+  // Điều 5: Bảo hành và hướng dẫn sử dụng hàng hóa
+  warrantyProduct?: string
+  warrantyPeriodMonths?: number
 }
 
 export interface UpdateContractRequest {
@@ -44,52 +62,30 @@ export interface SignContractRequest {
 export interface ContractResponse {
   id: number
   contractNumber: string
-  customerId: number
-  customerName?: string
-  staffId: number
-  staffName?: string
   title: string
   description?: string
-  totalValue: number
+  status: string
+  totalValue?: number
+  customerId: number
+  staffId: number
+  filePath?: string
   startDate?: string
   endDate?: string
-  status: 'UNSIGNED' | 'PAPER_SIGNED' | 'DIGITALLY_SIGNED' | 'CANCELLED' | 'EXPIRED'
-  filePath?: string
-  digitalSigned: boolean
-  paperConfirmed: boolean
-  isHidden: boolean
   createdAt: string
-  updatedAt?: string
-  signedAt?: string
-  contractDetails?: {
-    id: number
-    contractId: number
-    workCode: string
-    deviceId?: number
-    deviceName?: string
-    serviceName: string
-    description?: string
-    quantity: number
-    unitPrice: number
-    totalPrice: number
-    warrantyMonths?: number
-    notes?: string
-    createdAt: string
-    updatedAt?: string
-  }[]
-  signatures?: {
-    id: number
-    contractId: number
-    signerName: string
-    signerEmail: string
-    signerType: string
-    signatureType: string
-    signatureData?: string
-    notes?: string
-    createdAt: string
-  }[]
-  daysUntilExpiry?: number
-  isExpiringSoon?: boolean
+  isHidden?: boolean // Add this field to match backend response
+  contractDetails: ContractDetail[]
+  
+  // Điều 2: Thanh toán
+  paymentMethod?: string
+  paymentTerm?: string
+  bankAccount?: string
+  
+  // Điều 3: Thời gian, địa điểm, phương thức giao hàng - now managed as a table
+  deliverySchedules: DeliverySchedule[]
+  
+  // Điều 5: Bảo hành và hướng dẫn sử dụng hàng hóa
+  warrantyProduct?: string
+  warrantyPeriodMonths?: number
 }
 
 interface ApiResponse<T> {
@@ -170,7 +166,7 @@ export async function getUnsignedContracts(
   page = 0, 
   size = 10
 ): Promise<{ content: ContractResponse[]; totalElements: number; totalPages: number }> {
-  return authenticatedFetch<any>(
+  return authenticatedFetch<{ content: ContractResponse[]; totalElements: number; totalPages: number }>(
     `${CONTRACT_SERVICE_URL}/unsigned?page=${page}&size=${size}`
   );
 }
@@ -180,7 +176,7 @@ export async function getSignedContracts(
   page = 0, 
   size = 10
 ): Promise<{ content: ContractResponse[]; totalElements: number; totalPages: number }> {
-  return authenticatedFetch<any>(
+  return authenticatedFetch<{ content: ContractResponse[]; totalElements: number; totalPages: number }>(
     `${CONTRACT_SERVICE_URL}/signed?page=${page}&size=${size}`
   );
 }
@@ -190,7 +186,7 @@ export async function getHiddenContracts(
   page = 0, 
   size = 10
 ): Promise<{ content: ContractResponse[]; totalElements: number; totalPages: number }> {
-  return authenticatedFetch<any>(
+  return authenticatedFetch<{ content: ContractResponse[]; totalElements: number; totalPages: number }>(
     `${CONTRACT_SERVICE_URL}/hidden?page=${page}&size=${size}`
   );
 }
@@ -271,8 +267,8 @@ export async function getSignedDownloadUrl(fileName: string): Promise<string> {
 }
 
 // Get contract file info
-export async function getContractFileInfo(fileName: string): Promise<any> {
-  return authenticatedFetch<any>(
+export async function getContractFileInfo(fileName: string): Promise<Record<string, unknown>> {
+  return authenticatedFetch<Record<string, unknown>>(
     `${CONTRACT_SERVICE_URL.replace('/contracts', '')}/files/info/${fileName}`
   );
 }
@@ -283,4 +279,55 @@ export async function deleteContractFile(fileName: string): Promise<string> {
     `${CONTRACT_SERVICE_URL.replace('/contracts', '')}/files/delete/${fileName}`, 
     { method: 'POST' }
   );
+} 
+
+export async function submitSignature(contractId: number, signatureData: SignatureRequest): Promise<Record<string, unknown>> {
+  const token = getAccessToken();
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
+
+  const response = await fetch(`${CONTRACT_SERVICE_URL.replace('/contracts', '')}/api/v1/contracts/${contractId}/signatures`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(signatureData),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to submit signature.');
+  }
+
+  return await response.json();
+} 
+
+export async function getContractsForCurrentUser(): Promise<ContractResponse[]> {
+  return authenticatedFetch<ContractResponse[]>(`${CONTRACT_SERVICE_URL}/`);
+}
+
+// Get PDF file content as blob URL for PDF viewer
+export async function getContractFileBlob(contractId: number): Promise<string> {
+  const token = getAccessToken();
+  
+  if (!token) {
+    throw new Error('No authentication token available');
+  }
+
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+  };
+
+  const response = await fetch(`${CONTRACT_SERVICE_URL}/${contractId}/file`, {
+    headers,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch contract file: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
 } 

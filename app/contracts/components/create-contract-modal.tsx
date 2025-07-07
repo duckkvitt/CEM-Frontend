@@ -20,6 +20,15 @@ interface Device {
   serialNumber?: string
 }
 
+interface DeliverySchedule {
+  itemName: string;
+  unit: string;
+  quantity: number;
+  deliveryTime: string;
+  deliveryLocation: string;
+  notes: string;
+}
+
 interface CreateContractModalProps {
   isOpen: boolean
   onClose: () => void
@@ -37,27 +46,45 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
   const [uploadingFile, setUploadingFile] = useState(false)
   const [fileError, setFileError] = useState<string | null>(null)
   
-  const [formData, setFormData] = useState<CreateContractRequest>({
-    customerId: 0,
-    title: '',
-    description: '',
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    contractDetails: [createEmptyContractDetail()],
-    filePath: ''
-  })
-  
   function createEmptyContractDetail(): ContractDetail {
     return {
       workCode: `WK-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
       deviceId: 0,
-      serviceName: '',
       description: '',
       quantity: 1,
       unitPrice: 0,
       warrantyMonths: 12
     }
   }
+
+  function createEmptyDeliverySchedule(): DeliverySchedule {
+    return {
+      itemName: '',
+      unit: '',
+      quantity: 1,
+      deliveryTime: '',
+      deliveryLocation: '',
+      notes: ''
+    }
+  }
+
+  const [formData, setFormData] = useState<CreateContractRequest>({
+    title: '',
+    description: '',
+    customerId: 0,
+    startDate: '',
+    endDate: '',
+    contractDetails: [createEmptyContractDetail()],
+    // Điều 2: Thanh toán
+    paymentMethod: '',
+    paymentTerm: '',
+    bankAccount: '',
+    // Điều 3: Delivery Schedule
+    deliverySchedules: [createEmptyDeliverySchedule()],
+    // Điều 5: Bảo hành
+    warrantyProduct: '',
+    warrantyPeriodMonths: 12
+  })
   
   // Load customers and devices on modal open
   useEffect(() => {
@@ -141,12 +168,12 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
         [field]: processedValue
       }
       
-      // If device is selected, auto-populate the service name with device name
+      // If device is selected, auto-populate the description with device name
       if (field === 'deviceId' && value) {
         const deviceId = Number(value)
         const selectedDevice = devices.find(d => d.id === deviceId)
         if (selectedDevice) {
-          updatedDetails[index].serviceName = `Maintenance for ${selectedDevice.name}`
+          updatedDetails[index].description = `${selectedDevice.name} - ${selectedDevice.model || 'Unknown model'}`
         }
       }
       
@@ -204,16 +231,41 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
     
     setUploadingFile(true);
     try {
-      const result = await uploadContractFileApi(contractFile);
+      // Generate a temporary contract number for file upload in create mode
+      const tempContractNumber = `TEMP_${Date.now()}`;
+      const result = await uploadContractFileApi(contractFile, tempContractNumber);
       return result;
     } catch (err) {
       console.error('Error uploading file:', err);
-      // Hiển thị lỗi cụ thể từ Cloudinary
+      // Hiển thị lỗi cụ thể từ Google Drive
       const errorMessage = err instanceof Error ? err.message : 'Failed to upload contract file';
       setFileError(errorMessage);
       throw new Error(errorMessage);
     } finally {
       setUploadingFile(false);
+    }
+  }
+  
+  function handleDeliveryScheduleChange(index: number, field: keyof DeliverySchedule, value: string | number) {
+    const updatedSchedules = [...formData.deliverySchedules]
+    updatedSchedules[index] = {
+      ...updatedSchedules[index],
+      [field]: value
+    }
+    setFormData({ ...formData, deliverySchedules: updatedSchedules })
+  }
+
+  function addDeliveryScheduleItem() {
+    setFormData({
+      ...formData,
+      deliverySchedules: [...formData.deliverySchedules, createEmptyDeliverySchedule()]
+    })
+  }
+
+  function removeDeliveryScheduleItem(index: number) {
+    if (formData.deliverySchedules.length > 1) {
+      const updatedSchedules = formData.deliverySchedules.filter((_, i) => i !== index)
+      setFormData({ ...formData, deliverySchedules: updatedSchedules })
     }
   }
   
@@ -400,6 +452,186 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                 </div>
               </div>
               
+              {/* Điều 2: Thanh toán */}
+              <div className="border rounded-md p-4">
+                <h3 className="text-md font-medium mb-4">Điều 2: Thanh toán</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Hình thức thanh toán</label>
+                    <input
+                      type="text"
+                      name="paymentMethod"
+                      value={formData.paymentMethod}
+                      onChange={handleInputChange}
+                      className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary"
+                      placeholder="Ví dụ: Chuyển khoản, tiền mặt..."
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Thời hạn thanh toán</label>
+                    <input
+                      type="text"
+                      name="paymentTerm"
+                      value={formData.paymentTerm}
+                      onChange={handleInputChange}
+                      className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary"
+                      placeholder="Ví dụ: Thanh toán trong vòng 30 ngày..."
+                    />
+                  </div>
+                  
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm font-medium mb-1">Tài khoản ngân hàng</label>
+                    <textarea
+                      name="bankAccount"
+                      value={formData.bankAccount}
+                      onChange={handleInputChange}
+                      className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary h-20"
+                      placeholder="Thông tin tài khoản ngân hàng nhận thanh toán..."
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Điều 3: Thời gian, địa điểm, phương thức giao hàng */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">Điều 3: Thời gian, địa điểm, phương thức giao hàng</h3>
+                  <button
+                    type="button"
+                    onClick={addDeliveryScheduleItem}
+                    className="px-3 py-1 bg-primary text-white rounded-md hover:bg-primary/90 text-sm"
+                  >
+                    + Thêm mặt hàng
+                  </button>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border border-gray-300">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">STT</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Tên hàng hóa</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Đơn vị</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Số lượng</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Thời gian giao hàng</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Địa điểm giao hàng</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Ghi chú</th>
+                        <th className="border border-gray-300 px-3 py-2 text-center text-sm font-medium">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {formData.deliverySchedules.map((schedule, index) => (
+                        <tr key={index}>
+                          <td className="border border-gray-300 px-3 py-2 text-center text-sm">
+                            {index + 1}
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2">
+                            <input
+                              type="text"
+                              value={schedule.itemName}
+                              onChange={(e) => handleDeliveryScheduleChange(index, 'itemName', e.target.value)}
+                              className="w-full p-1 border rounded text-sm"
+                              placeholder="Tên hàng hóa"
+                              required
+                            />
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2">
+                            <input
+                              type="text"
+                              value={schedule.unit}
+                              onChange={(e) => handleDeliveryScheduleChange(index, 'unit', e.target.value)}
+                              className="w-full p-1 border rounded text-sm"
+                              placeholder="Đơn vị"
+                              required
+                            />
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2">
+                            <input
+                              type="number"
+                              min="1"
+                              value={schedule.quantity}
+                              onChange={(e) => handleDeliveryScheduleChange(index, 'quantity', parseInt(e.target.value) || 1)}
+                              className="w-full p-1 border rounded text-sm"
+                              required
+                            />
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2">
+                            <input
+                              type="text"
+                              value={schedule.deliveryTime}
+                              onChange={(e) => handleDeliveryScheduleChange(index, 'deliveryTime', e.target.value)}
+                              className="w-full p-1 border rounded text-sm"
+                              placeholder="VD: 15 ngày"
+                            />
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2">
+                            <textarea
+                              value={schedule.deliveryLocation}
+                              onChange={(e) => handleDeliveryScheduleChange(index, 'deliveryLocation', e.target.value)}
+                              className="w-full p-1 border rounded text-sm"
+                              placeholder="Địa điểm giao hàng"
+                              rows={2}
+                            />
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2">
+                            <textarea
+                              value={schedule.notes}
+                              onChange={(e) => handleDeliveryScheduleChange(index, 'notes', e.target.value)}
+                              className="w-full p-1 border rounded text-sm"
+                              placeholder="Ghi chú"
+                              rows={2}
+                            />
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2 text-center">
+                            {formData.deliverySchedules.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeDeliveryScheduleItem(index)}
+                                className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                              >
+                                Xóa
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              
+              {/* Điều 5: Bảo hành và hướng dẫn sử dụng hàng hóa */}
+              <div className="border rounded-md p-4">
+                <h3 className="text-md font-medium mb-4">Điều 5: Bảo hành và hướng dẫn sử dụng hàng hóa</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Loại hàng bảo hành</label>
+                    <input
+                      type="text"
+                      name="warrantyProduct"
+                      value={formData.warrantyProduct}
+                      onChange={handleInputChange}
+                      className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary"
+                      placeholder="Loại hàng hóa được bảo hành..."
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Thời gian bảo hành (tháng)</label>
+                    <input
+                      type="number"
+                      name="warrantyPeriodMonths"
+                      value={formData.warrantyPeriodMonths}
+                      onChange={handleInputChange}
+                      className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary"
+                      min="0"
+                      placeholder="12"
+                    />
+                  </div>
+                </div>
+              </div>
+              
               {/* Contract Details */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -460,18 +692,6 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium mb-1">Service Name</label>
-                        <input
-                          type="text"
-                          value={detail.serviceName}
-                          onChange={(e) => handleDetailChange(index, 'serviceName', e.target.value)}
-                          className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary"
-                          required
-                          placeholder="Service or item name"
-                        />
-                      </div>
-                      
-                      <div className="col-span-1 md:col-span-2">
                         <label className="block text-sm font-medium mb-1">Description</label>
                         <textarea
                           value={detail.description || ''}
