@@ -72,6 +72,7 @@ export interface ContractResponse {
   startDate?: string
   endDate?: string
   createdAt: string
+  isHidden?: boolean // Add this field to match backend response
   contractDetails: ContractDetail[]
   
   // Điều 2: Thanh toán
@@ -165,7 +166,7 @@ export async function getUnsignedContracts(
   page = 0, 
   size = 10
 ): Promise<{ content: ContractResponse[]; totalElements: number; totalPages: number }> {
-  return authenticatedFetch<any>(
+  return authenticatedFetch<{ content: ContractResponse[]; totalElements: number; totalPages: number }>(
     `${CONTRACT_SERVICE_URL}/unsigned?page=${page}&size=${size}`
   );
 }
@@ -175,7 +176,7 @@ export async function getSignedContracts(
   page = 0, 
   size = 10
 ): Promise<{ content: ContractResponse[]; totalElements: number; totalPages: number }> {
-  return authenticatedFetch<any>(
+  return authenticatedFetch<{ content: ContractResponse[]; totalElements: number; totalPages: number }>(
     `${CONTRACT_SERVICE_URL}/signed?page=${page}&size=${size}`
   );
 }
@@ -185,7 +186,7 @@ export async function getHiddenContracts(
   page = 0, 
   size = 10
 ): Promise<{ content: ContractResponse[]; totalElements: number; totalPages: number }> {
-  return authenticatedFetch<any>(
+  return authenticatedFetch<{ content: ContractResponse[]; totalElements: number; totalPages: number }>(
     `${CONTRACT_SERVICE_URL}/hidden?page=${page}&size=${size}`
   );
 }
@@ -266,8 +267,8 @@ export async function getSignedDownloadUrl(fileName: string): Promise<string> {
 }
 
 // Get contract file info
-export async function getContractFileInfo(fileName: string): Promise<any> {
-  return authenticatedFetch<any>(
+export async function getContractFileInfo(fileName: string): Promise<Record<string, unknown>> {
+  return authenticatedFetch<Record<string, unknown>>(
     `${CONTRACT_SERVICE_URL.replace('/contracts', '')}/files/info/${fileName}`
   );
 }
@@ -280,7 +281,7 @@ export async function deleteContractFile(fileName: string): Promise<string> {
   );
 } 
 
-export async function submitSignature(contractId: number, signatureData: SignatureRequest): Promise<any> {
+export async function submitSignature(contractId: number, signatureData: SignatureRequest): Promise<Record<string, unknown>> {
   const token = getAccessToken();
   if (!token) {
     throw new Error('Not authenticated');
@@ -304,7 +305,29 @@ export async function submitSignature(contractId: number, signatureData: Signatu
 } 
 
 export async function getContractsForCurrentUser(): Promise<ContractResponse[]> {
-  const url = CONTRACT_SERVICE_URL.endsWith('/') ? CONTRACT_SERVICE_URL : `${CONTRACT_SERVICE_URL}/`
-  const contracts = await authenticatedFetch<ContractResponse[] | undefined>(url)
-  return contracts ?? []
+  return authenticatedFetch<ContractResponse[]>(`${CONTRACT_SERVICE_URL}/`);
+}
+
+// Get PDF file content as blob URL for PDF viewer
+export async function getContractFileBlob(contractId: number): Promise<string> {
+  const token = getAccessToken();
+  
+  if (!token) {
+    throw new Error('No authentication token available');
+  }
+
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+  };
+
+  const response = await fetch(`${CONTRACT_SERVICE_URL}/${contractId}/file`, {
+    headers,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch contract file: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
 } 

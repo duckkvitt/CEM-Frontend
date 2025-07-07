@@ -70,20 +70,20 @@ export default function ContractsPage() {
         switch (activeTab) {
           case 'unsigned':
             filteredContracts = allContracts.filter(contract => 
-              contract.status === 'UNSIGNED' || 
-              contract.status === 'PENDING_SELLER_SIGNATURE' || 
-              contract.status === 'PENDING_CUSTOMER_SIGNATURE'
+              !contract.isHidden && (
+                contract.status === 'DRAFT' ||
+                contract.status === 'PENDING_SELLER_SIGNATURE' || 
+                contract.status === 'PENDING_CUSTOMER_SIGNATURE'
+              )
             )
             break
           case 'signed':
             filteredContracts = allContracts.filter(contract => 
-              contract.status === 'DIGITALLY_SIGNED' || 
-              contract.status === 'PAPER_SIGNED' ||
-              contract.status === 'ACTIVE'
+              !contract.isHidden && contract.status === 'ACTIVE'
             )
             break
           case 'hidden':
-            filteredContracts = allContracts.filter(contract => contract.isHidden)
+            filteredContracts = allContracts.filter(contract => contract.isHidden === true)
             break
           default:
             filteredContracts = allContracts
@@ -118,14 +118,34 @@ export default function ContractsPage() {
     if (window.confirm('Are you sure you want to hide this contract?')) {
       try {
         await hideContract(contractId)
-        // Refresh contracts by re-fetching all contracts
+        // Refresh contracts by re-fetching all contracts and filtering based on current tab
         const allContracts = await getContractsForCurrentUser()
-        const filteredContracts = allContracts.filter(contract => 
-          contract.status === 'UNSIGNED' || 
-          contract.status === 'PENDING_SELLER_SIGNATURE' || 
-          contract.status === 'PENDING_CUSTOMER_SIGNATURE'
-        )
+        
+        let filteredContracts = []
+        switch (activeTab) {
+          case 'unsigned':
+            filteredContracts = allContracts.filter(contract => 
+              !contract.isHidden && (
+                contract.status === 'DRAFT' ||
+                contract.status === 'PENDING_SELLER_SIGNATURE' || 
+                contract.status === 'PENDING_CUSTOMER_SIGNATURE'
+              )
+            )
+            break
+          case 'signed':
+            filteredContracts = allContracts.filter(contract => 
+              !contract.isHidden && contract.status === 'ACTIVE'
+            )
+            break
+          case 'hidden':
+            filteredContracts = allContracts.filter(contract => contract.isHidden === true)
+            break
+          default:
+            filteredContracts = allContracts
+        }
+        
         setContracts(filteredContracts)
+        setTotalElements(filteredContracts.length)
       } catch (err) {
         console.error('Error hiding contract:', err)
         setError('Failed to hide contract. Please try again.')
@@ -137,10 +157,34 @@ export default function ContractsPage() {
   const handleRestore = async (contractId: number) => {
     try {
       await restoreContract(contractId)
-      // Refresh contracts by re-fetching all contracts
+      // Refresh contracts by re-fetching all contracts and filtering based on current tab
       const allContracts = await getContractsForCurrentUser()
-      const filteredContracts = allContracts.filter(contract => contract.isHidden)
+      
+      let filteredContracts = []
+      switch (activeTab) {
+        case 'unsigned':
+          filteredContracts = allContracts.filter(contract => 
+            !contract.isHidden && (
+              contract.status === 'DRAFT' ||
+              contract.status === 'PENDING_SELLER_SIGNATURE' || 
+              contract.status === 'PENDING_CUSTOMER_SIGNATURE'
+            )
+          )
+          break
+        case 'signed':
+          filteredContracts = allContracts.filter(contract => 
+            !contract.isHidden && contract.status === 'ACTIVE'
+          )
+          break
+        case 'hidden':
+          filteredContracts = allContracts.filter(contract => contract.isHidden === true)
+          break
+        default:
+          filteredContracts = allContracts
+      }
+      
       setContracts(filteredContracts)
+      setTotalElements(filteredContracts.length)
     } catch (err) {
       console.error('Error restoring contract:', err)
       setError('Failed to restore contract. Please try again.')
@@ -275,19 +319,31 @@ export default function ContractsPage() {
                   <td className="py-3 px-4">{contract.customerName || `Customer #${contract.customerId}`}</td>
                   <td className="py-3 px-4">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      contract.status === 'UNSIGNED' 
+                      contract.status === 'DRAFT' || contract.status === 'PENDING_SELLER_SIGNATURE' || contract.status === 'PENDING_CUSTOMER_SIGNATURE' 
                         ? 'bg-yellow-100 text-yellow-800' 
-                        : contract.status === 'DIGITALLY_SIGNED' || contract.status === 'PAPER_SIGNED' 
+                        : contract.status === 'ACTIVE'
                           ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
+                          : contract.status === 'REJECTED' || contract.status === 'CANCELLED'
+                            ? 'bg-red-100 text-red-800'
+                            : contract.status === 'EXPIRED'
+                              ? 'bg-gray-100 text-gray-800'
+                              : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {contract.status === 'UNSIGNED' 
-                        ? 'Chưa ký' 
-                        : contract.status === 'DIGITALLY_SIGNED' 
-                          ? 'Đã ký điện tử' 
-                          : contract.status === 'PAPER_SIGNED' 
-                            ? 'Đã ký giấy' 
-                            : 'Đã hủy'}
+                      {contract.status === 'DRAFT'
+                        ? 'Bản nháp'
+                        : contract.status === 'PENDING_SELLER_SIGNATURE' 
+                          ? 'Chờ bên bán ký' 
+                          : contract.status === 'PENDING_CUSTOMER_SIGNATURE'
+                            ? 'Chờ khách hàng ký'
+                            : contract.status === 'ACTIVE'
+                              ? 'Đã ký, có hiệu lực'
+                              : contract.status === 'REJECTED'
+                                ? 'Đã từ chối'
+                                : contract.status === 'CANCELLED'
+                                  ? 'Đã hủy'
+                                  : contract.status === 'EXPIRED'
+                                    ? 'Đã hết hạn'
+                                    : contract.status}
                     </span>
                   </td>
                   <td className="py-3 px-4">{formatCurrency(contract.totalValue)}</td>
@@ -303,8 +359,8 @@ export default function ContractsPage() {
                         <Eye size={16} />
                       </button>
                       
-                      {/* Edit button only for unsigned contracts and staff/managers */}
-                      {contract.status === 'UNSIGNED' && canEdit && (
+                                {/* Edit button only for draft contracts and staff/managers */}
+          {contract.status === 'DRAFT' && canEdit && (
                         <button
                           onClick={() => router.push(`/contracts/${contract.id}/edit`)}
                           className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -314,8 +370,8 @@ export default function ContractsPage() {
                         </button>
                       )}
                       
-                      {/* Sign button only for unsigned contracts and managers */}
-                      {contract.status === 'UNSIGNED' && isManager && (
+                                {/* Sign button only for contracts pending signature and managers */}
+          {(contract.status === 'PENDING_SELLER_SIGNATURE' || contract.status === 'PENDING_CUSTOMER_SIGNATURE') && isManager && (
                         <button
                           onClick={() => router.push(`/contracts/${contract.id}/sign`)}
                           className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"

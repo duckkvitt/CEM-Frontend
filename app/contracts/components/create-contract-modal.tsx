@@ -231,11 +231,13 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
     
     setUploadingFile(true);
     try {
-      const result = await uploadContractFileApi(contractFile);
+      // Generate a temporary contract number for file upload in create mode
+      const tempContractNumber = `TEMP_${Date.now()}`;
+      const result = await uploadContractFileApi(contractFile, tempContractNumber);
       return result;
     } catch (err) {
       console.error('Error uploading file:', err);
-      // Hiển thị lỗi cụ thể từ Cloudinary
+      // Hiển thị lỗi cụ thể từ Google Drive
       const errorMessage = err instanceof Error ? err.message : 'Failed to upload contract file';
       setFileError(errorMessage);
       throw new Error(errorMessage);

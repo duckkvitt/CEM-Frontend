@@ -38,8 +38,8 @@ export default function SignContractPage({ params }: Props) {
         const contractId = parseInt(resolvedParams.id)
         const data = await getContractDetails(contractId)
         
-        // Check if contract is unsigned
-        if (data.status !== 'UNSIGNED') {
+              // Check if contract is unsigned
+      if (data.status !== 'PENDING_SELLER_SIGNATURE' && data.status !== 'PENDING_CUSTOMER_SIGNATURE') {
           setError('This contract has already been signed')
           setLoading(false)
           return
