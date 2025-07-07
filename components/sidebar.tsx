@@ -55,6 +55,12 @@ export default function Sidebar() {
       roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'TECH_LEAD', 'TECHNICIAN'],
     },
     {
+      name: 'Spare Part Management',
+      href: '/spare-parts',
+      icon: <Wrench size={20} />,
+      roles: ['MANAGER', 'STAFF'],
+    },
+    {
       name: 'Contract Management',
       href: '/contracts',
       icon: <FileText size={20} />,

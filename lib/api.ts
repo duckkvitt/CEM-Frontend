@@ -8,3 +8,4 @@ export const AUTH_SERVICE_URL = `${API_BASE}/auth`
 export const CUSTOMER_SERVICE_URL = `${API_BASE}/customer`
 export const DEVICE_SERVICE_URL = `${API_BASE}/device`
 export const CONTRACT_SERVICE_URL = `${API_BASE}/contract`
+export const SPARE_PARTS_SERVICE_URL = `${API_BASE}/spare-parts`
