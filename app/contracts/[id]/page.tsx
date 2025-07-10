@@ -134,15 +134,15 @@ export default function ContractDetailPage({ params }: Props) {
 
     setIsSigning(true);
     try {
-      const signerType = (userRole === 'MANAGER' || userRole === 'STAFF') ? 'SELLER' : 'CUSTOMER';
-      const request: SignatureRequest = { signatureImage, signerType };
+      const request: SignatureRequest = { signature: signatureImage };
       
       await submitSignature(contract.id, request);
 
       toast.success("Signature submitted successfully.");
       setSignatureModalOpen(false);
-      // Optionally, refetch contract data to show updated status
-      // fetchContract();
+      // Refetch contract data to show updated status
+      const data = await getContractDetails(parseInt(resolvedParams.id));
+      setContract(data);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to submit signature.";
       toast.error(errorMessage);
@@ -154,7 +154,6 @@ export default function ContractDetailPage({ params }: Props) {
   // Determine if the current user can sign
   const canSign = userRole && contract && (
     (userRole === 'MANAGER' && contract.status === 'PENDING_SELLER_SIGNATURE') ||
-    (userRole === 'STAFF' && contract.status === 'PENDING_SELLER_SIGNATURE') ||
     (userRole === 'CUSTOMER' && contract.status === 'PENDING_CUSTOMER_SIGNATURE')
   );
 

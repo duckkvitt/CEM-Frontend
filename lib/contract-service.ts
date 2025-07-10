@@ -51,12 +51,8 @@ export interface UpdateContractRequest {
   filePath?: string
 }
 
-export interface SignContractRequest {
-  signatureType: 'DIGITAL' | 'PAPER' | 'DIGITAL_IMAGE'
-  signerName: string
-  signerEmail: string
-  signatureData?: string
-  notes?: string
+export interface SignatureRequest {
+  signature: string;
 }
 
 export interface ContractResponse {
@@ -191,20 +187,6 @@ export async function getHiddenContracts(
   );
 }
 
-// Sign contract with e-signature
-export async function signContract(
-  id: number, 
-  signRequest: SignContractRequest
-): Promise<ContractResponse> {
-  return authenticatedFetch<ContractResponse>(
-    `${CONTRACT_SERVICE_URL}/${id}/sign`, 
-    {
-      method: 'POST',
-      body: JSON.stringify(signRequest),
-    }
-  );
-}
-
 // Hide a contract
 export async function hideContract(id: number): Promise<string> {
   return authenticatedFetch<string>(
@@ -282,28 +264,14 @@ export async function deleteContractFile(fileName: string): Promise<string> {
 } 
 
 export async function submitSignature(contractId: number, signatureData: SignatureRequest): Promise<Record<string, unknown>> {
-  const token = getAccessToken();
-  if (!token) {
-    throw new Error('Not authenticated');
-  }
-
-  const response = await fetch(`${CONTRACT_SERVICE_URL.replace('/contracts', '')}/api/v1/contracts/${contractId}/signatures`, {
+  const url = `${CONTRACT_SERVICE_URL}/${contractId}/signatures`;
+  return authenticatedFetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
     body: JSON.stringify(signatureData),
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to submit signature.');
-  }
-
-  return await response.json();
 } 
 
+// Get all contracts for the current user (could be any role)
 export async function getContractsForCurrentUser(): Promise<ContractResponse[]> {
   return authenticatedFetch<ContractResponse[]>(`${CONTRACT_SERVICE_URL}/`);
 }
