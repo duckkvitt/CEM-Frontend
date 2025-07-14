@@ -3,11 +3,12 @@
 import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Edit, ArrowLeft, Download, Trash2, Check } from 'lucide-react'
-import { getContractDetails, hideContract, ContractResponse, getSignedDownloadUrl, submitSignature, SignatureRequest, getContractFileBlob } from '@/lib/contract-service'
+import { Edit, ArrowLeft, Download, Trash2, Check, ShieldCheck, Loader2, X } from 'lucide-react'
+import { getContractDetails, hideContract, ContractResponse, getSignedDownloadUrl, submitSignature, SignatureRequest, getContractFileBlob, submitDigitalSignature, getContractSignatures, verifySignature, type DigitalSignatureRequest, type DigitalSignatureRecord, type SignatureVerificationResult } from '@/lib/contract-service'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils'
 import { getCurrentUserRole } from '@/lib/auth'
 import dynamic from 'next/dynamic';
+import { Button } from '@/components/ui/button';
 
 // Dynamic import for PdfViewer to avoid SSR issues
 const PdfViewer = dynamic(
@@ -45,6 +46,9 @@ export default function ContractDetailPage({ params }: Props) {
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [signatures, setSignatures] = useState<DigitalSignatureRecord[]>([])
+  const [verificationResults, setVerificationResults] = useState<Map<number, SignatureVerificationResult>>(new Map())
+  const [loadingVerification, setLoadingVerification] = useState<Set<number>>(new Set())
 
   // Fetch contract details
   useEffect(() => {
@@ -77,7 +81,9 @@ export default function ContractDetailPage({ params }: Props) {
         try {
           setPdfLoading(true);
           setPdfError(null);
-          blobUrl = await getContractFileBlob(contract.id);
+          // Add timestamp to force refresh PDF after signatures
+          const timestamp = Date.now();
+          blobUrl = await getContractFileBlob(contract.id, timestamp);
           setPdfBlobUrl(blobUrl);
         } catch (err) {
           console.error('Error fetching PDF:', err);
@@ -101,7 +107,7 @@ export default function ContractDetailPage({ params }: Props) {
         URL.revokeObjectURL(blobUrl);
       }
     };
-  }, [contract]); // Dependency is now only 'contract' object
+  }, [contract, contract?.digitalSigned, contract?.signedAt]); // Re-fetch when signature status changes
 
 
   // Handle hide contract
@@ -134,20 +140,133 @@ export default function ContractDetailPage({ params }: Props) {
 
     setIsSigning(true);
     try {
-      const request: SignatureRequest = { signature: signatureImage };
-      
-      await submitSignature(contract.id, request);
+      // Determine signer type based on user role
+      let signerType = 'STAFF'; // Default
+      if (userRole === 'MANAGER') {
+        signerType = 'MANAGER';
+      } else if (userRole === 'CUSTOMER') {
+        signerType = 'CUSTOMER';
+      }
 
-      toast.success("Signature submitted successfully.");
+      // Create comprehensive digital signature request
+      const digitalSignatureRequest: DigitalSignatureRequest = {
+        signerType: signerType,
+        signerName: `${signerType} User`, // You can update this with actual user name
+        signerEmail: `${signerType.toLowerCase()}@cemcontract.com`, // You can update this with actual email
+        signatureData: signatureImage, // Base64 encoded PNG from canvas
+        reason: "Digital contract signature",
+        location: "CEM Digital Platform",
+        contactInfo: "CEM Contract Management System",
+        // Position signature in bottom-right area for visibility
+        signatureX: 350,
+        signatureY: 50,
+        signatureWidth: 200,
+        signatureHeight: 100,
+        pageNumber: 1,
+        includeTimestamp: true,
+        // Add browser and client information
+        ipAddress: "127.0.0.1", // Would typically get from server
+        userAgent: navigator.userAgent
+      };
+      
+      console.log("Submitting digital signature with data:", digitalSignatureRequest);
+      
+      const signatureRecord = await submitDigitalSignature(contract.id, digitalSignatureRequest);
+
+      toast.success("Digital signature submitted successfully! The signature should now be visible in the PDF.");
       setSignatureModalOpen(false);
-      // Refetch contract data to show updated status
-      const data = await getContractDetails(parseInt(resolvedParams.id));
-      setContract(data);
+      
+      // Clear old PDF blob to force refresh
+      if (pdfBlobUrl) {
+        URL.revokeObjectURL(pdfBlobUrl);
+        setPdfBlobUrl(null);
+      }
+      
+      // Refetch contract data and signatures
+      const [updatedContract, contractSignatures] = await Promise.all([
+        getContractDetails(parseInt(resolvedParams.id)),
+        getContractSignatures(contract.id)
+      ]);
+      
+      setContract(updatedContract);
+      setSignatures(contractSignatures);
+      
+      // Force PDF reload after a short delay to ensure contract state is updated
+      setTimeout(() => {
+        setPdfLoading(true);
+      }, 100);
+      
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to submit signature.";
-      toast.error(errorMessage);
+      console.error("Digital signature failed:", err);
+      
+      // Better error handling
+      if (err instanceof Error) {
+        toast.error(`Digital signature failed: ${err.message}`);
+      } else {
+        toast.error("Digital signature failed with unknown error");
+      }
+      
+      // Optional: Still try legacy signature as fallback
+      try {
+        console.log("Attempting legacy signature fallback...");
+        const legacyRequest: SignatureRequest = { signature: signatureImage };
+        await submitSignature(contract.id, legacyRequest);
+        
+        toast.success("Signature submitted successfully (legacy mode). Note: Signature may not be visible in PDF.");
+        setSignatureModalOpen(false);
+        
+        // Refetch contract data
+        const data = await getContractDetails(parseInt(resolvedParams.id));
+        setContract(data);
+        
+      } catch (legacyErr: unknown) {
+        const errorMessage = legacyErr instanceof Error ? legacyErr.message : "Failed to submit signature.";
+        toast.error(`All signature methods failed: ${errorMessage}`);
+      }
     } finally {
       setIsSigning(false);
+    }
+  };
+
+  // Load signatures when contract loads
+  useEffect(() => {
+    if (contract?.id) {
+      loadContractSignatures();
+    }
+  }, [contract?.id]);
+
+  const loadContractSignatures = async () => {
+    if (!contract) return;
+    
+    try {
+      const contractSignatures = await getContractSignatures(contract.id);
+      setSignatures(contractSignatures);
+    } catch (error) {
+      console.error("Failed to load contract signatures:", error);
+    }
+  };
+
+  const handleVerifySignature = async (signatureId: number) => {
+    setLoadingVerification(prev => new Set(prev).add(signatureId));
+    
+    try {
+      const result = await verifySignature(signatureId);
+      setVerificationResults(prev => new Map(prev).set(signatureId, result));
+      
+      if (result.signatureValid && result.certificateValid && result.documentIntegrityValid) {
+        toast.success("Signature verification successful - cryptographic integrity confirmed!");
+      } else {
+        toast.error(`Signature verification failed: ${result.errorMessage || "Invalid signature"}`);
+      }
+    } catch (error) {
+      console.error("Signature verification failed:", error);
+      toast.error("Failed to verify signature");
+    } finally {
+      setLoadingVerification(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(signatureId);
+        return newSet;
+      });
     }
   };
   
@@ -195,7 +314,7 @@ export default function ContractDetailPage({ params }: Props) {
   }
 
   return (
-    <div>
+    <div className="container mx-auto p-4 space-y-6">
       {/* Header with actions */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
@@ -478,6 +597,109 @@ export default function ContractDetailPage({ params }: Props) {
                 )}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Digital Signatures Section */}
+      {signatures.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-green-600" />
+            Digital Signatures ({signatures.length})
+          </h3>
+          
+          <div className="space-y-4">
+            {signatures.map((signature) => {
+              const verification = verificationResults.get(signature.id);
+              const isVerifying = loadingVerification.has(signature.id);
+              
+              return (
+                <div key={signature.id} className="border rounded-lg p-4 bg-gray-50">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="font-medium">{signature.signerName}</p>
+                      <p className="text-sm text-gray-600">{signature.signerEmail}</p>
+                      <p className="text-sm text-gray-500">
+                        Signed: {new Date(signature.signedAt).toLocaleString()}
+                      </p>
+                      {signature.signatureReason && (
+                        <p className="text-sm text-gray-500">Reason: {signature.signatureReason}</p>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        signature.verificationStatus === 'VALID' 
+                          ? 'bg-green-100 text-green-800' 
+                          : signature.verificationStatus === 'INVALID'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {signature.verificationStatus}
+                      </span>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleVerifySignature(signature.id)}
+                        disabled={isVerifying}
+                        className="text-xs"
+                      >
+                        {isVerifying ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            Verifying...
+                          </>
+                        ) : (
+                          <>
+                            <ShieldCheck className="h-3 w-3 mr-1" />
+                            Verify
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {verification && (
+                    <div className="mt-3 p-3 bg-white rounded border">
+                      <h4 className="font-medium text-sm mb-2">Verification Results:</h4>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className={`flex items-center gap-1 ${verification.signatureValid ? 'text-green-600' : 'text-red-600'}`}>
+                          {verification.signatureValid ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                          Signature Valid
+                        </div>
+                        <div className={`flex items-center gap-1 ${verification.certificateValid ? 'text-green-600' : 'text-red-600'}`}>
+                          {verification.certificateValid ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                          Certificate Valid
+                        </div>
+                        <div className={`flex items-center gap-1 ${verification.documentIntegrityValid ? 'text-green-600' : 'text-red-600'}`}>
+                          {verification.documentIntegrityValid ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                          Document Integrity
+                        </div>
+                        <div className={`flex items-center gap-1 ${verification.timestampValid ? 'text-green-600' : 'text-red-600'}`}>
+                          {verification.timestampValid ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                          Timestamp Valid
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Verified: {new Date(verification.verificationTime).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="mt-2 text-xs text-gray-500">
+                    <p>Hash: {signature.signatureHash.substring(0, 16)}...</p>
+                    {signature.certificateFingerprint && (
+                      <p>Certificate: {signature.certificateFingerprint.substring(0, 16)}...</p>
+                    )}
+                    {signature.ipAddress && (
+                      <p>IP: {signature.ipAddress}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

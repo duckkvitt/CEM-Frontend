@@ -55,6 +55,60 @@ export interface SignatureRequest {
   signature: string;
 }
 
+// New interfaces for digital signature system - Updated to match backend API
+export interface DigitalSignatureRequest {
+  contractId?: number;
+  certificateId?: number;
+  signerType: string; // MANAGER, CUSTOMER, STAFF
+  signerId?: number;
+  signerName: string;
+  signerEmail: string;
+  signatureData: string; // Base64 encoded PNG from canvas
+  pageNumber?: number; // PDF page number (1-based)
+  signatureX?: number; // X coordinate
+  signatureY?: number; // Y coordinate
+  signatureWidth?: number; // Signature width
+  signatureHeight?: number; // Signature height
+  reason?: string; // Reason for signing
+  location?: string; // Geographic location
+  contactInfo?: string; // Contact information
+  ipAddress?: string; // Client IP address
+  userAgent?: string; // Browser user agent
+  includeTimestamp?: boolean; // Whether to include RFC 3161 timestamp
+  timestampUrl?: string; // Custom TSA URL (optional)
+}
+
+export interface DigitalSignatureRecord {
+  id: number;
+  contractId: number;
+  signerName: string;
+  signerEmail: string;
+  canvasSignatureData: string;
+  signatureHash: string;
+  certificateFingerprint?: string;
+  signedAt: string;
+  verificationStatus: string;
+  signatureReason?: string;
+  signatureLocation?: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pageNumber: number;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+export interface SignatureVerificationResult {
+  signatureValid: boolean;
+  certificateValid: boolean;
+  documentIntegrityValid: boolean;
+  timestampValid: boolean;
+  verificationTime: string;
+  errorMessage?: string;
+  certificateDetails?: Record<string, unknown>;
+}
+
 export interface ContractResponse {
   id: number
   contractNumber: string
@@ -263,13 +317,38 @@ export async function deleteContractFile(fileName: string): Promise<string> {
   );
 } 
 
+// Updated signature submission using new digital signature endpoint
+export async function submitDigitalSignature(contractId: number, signatureData: DigitalSignatureRequest): Promise<DigitalSignatureRecord> {
+  signatureData.contractId = contractId;
+  const url = `${CONTRACT_SERVICE_URL}/${contractId}/digital-signature`;
+  return authenticatedFetch<DigitalSignatureRecord>(url, {
+    method: 'POST',
+    body: JSON.stringify(signatureData),
+  });
+}
+
+// Get all signatures for a contract
+export async function getContractSignatures(contractId: number): Promise<DigitalSignatureRecord[]> {
+  const url = `${CONTRACT_SERVICE_URL}/${contractId}/signatures`;
+  return authenticatedFetch<DigitalSignatureRecord[]>(url);
+}
+
+// Verify a digital signature
+export async function verifySignature(signatureId: number): Promise<SignatureVerificationResult> {
+  const url = `${CONTRACT_SERVICE_URL}/signatures/${signatureId}/verify`;
+  return authenticatedFetch<SignatureVerificationResult>(url, {
+    method: 'POST',
+  });
+}
+
+// Legacy signature submission (deprecated - kept for backward compatibility)
 export async function submitSignature(contractId: number, signatureData: SignatureRequest): Promise<Record<string, unknown>> {
   const url = `${CONTRACT_SERVICE_URL}/${contractId}/signatures`;
   return authenticatedFetch(url, {
     method: 'POST',
     body: JSON.stringify(signatureData),
   });
-} 
+}
 
 // Get all contracts for the current user (could be any role)
 export async function getContractsForCurrentUser(): Promise<ContractResponse[]> {
@@ -277,7 +356,7 @@ export async function getContractsForCurrentUser(): Promise<ContractResponse[]> 
 }
 
 // Get PDF file content as blob URL for PDF viewer
-export async function getContractFileBlob(contractId: number): Promise<string> {
+export async function getContractFileBlob(contractId: number, cacheBuster?: number): Promise<string> {
   const token = getAccessToken();
   
   if (!token) {
@@ -286,10 +365,19 @@ export async function getContractFileBlob(contractId: number): Promise<string> {
 
   const headers = {
     'Authorization': `Bearer ${token}`,
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0'
   };
 
-  const response = await fetch(`${CONTRACT_SERVICE_URL}/${contractId}/file`, {
+  // Add cache buster to URL to ensure fresh PDF after signatures
+  const url = cacheBuster 
+    ? `${CONTRACT_SERVICE_URL}/${contractId}/file?_t=${cacheBuster}`
+    : `${CONTRACT_SERVICE_URL}/${contractId}/file`;
+
+  const response = await fetch(url, {
     headers,
+    cache: 'no-store', // Disable browser cache
   });
 
   if (!response.ok) {
