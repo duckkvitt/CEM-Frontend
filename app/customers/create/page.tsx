@@ -37,7 +37,6 @@ import { z } from 'zod'
 
 // Schema definition using Zod
 const formSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(255),
   email: z.string().email('Invalid email format').max(255),
   phone: z
     .string()
@@ -82,7 +81,6 @@ export default function CreateCustomerPage() {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: '',
       email: '',
       phone: '',
       address: '',
@@ -106,6 +104,8 @@ export default function CreateCustomerPage() {
   }, [router])
 
   const onSubmit = async (values: FormValues) => {
+    console.log('Form submitted with values:', values)
+    console.log('Form errors:', form.formState.errors)
     setLoading(true)
     setError(null)
     setSuccess(null)
@@ -370,12 +370,22 @@ export default function CreateCustomerPage() {
             
             {error && <p className='text-destructive text-sm font-medium'>{error}</p>}
             {success && <p className='text-green-600 text-sm font-medium'>{success}</p>}
+            
+            {/* Debug info - remove in production */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="text-xs text-muted-foreground">
+                <p>Form valid: {form.formState.isValid ? 'Yes' : 'No'}</p>
+                {Object.keys(form.formState.errors).length > 0 && (
+                  <p>Errors: {Object.keys(form.formState.errors).join(', ')}</p>
+                )}
+              </div>
+            )}
 
             <div className="flex justify-end gap-4">
                <Button type="button" variant="outline" onClick={() => router.push('/customers')}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading || !form.formState.isValid}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Customer
               </Button>
