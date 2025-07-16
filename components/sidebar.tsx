@@ -64,7 +64,7 @@ export default function Sidebar() {
       name: 'Contract Management',
       href: '/contracts',
       icon: <FileText size={20} />,
-      roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM'],
+      roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'CUSTOMER'],
     },
     { name: 'Maintenance', href: '/maintenance', icon: <Wrench size={20} /> },
     {

@@ -277,12 +277,12 @@ export default function ContractDetailPage({ params }: Props) {
   );
 
   // Check if user is Manager
-  const isManager = userRole === 'MANAGER'
+  const isManager = userRole === 'MANAGER';
+  const isStaff = userRole === 'STAFF';
+  const isCustomer = userRole === 'CUSTOMER';
 
   // Determine if user can edit based on role and contract status
-  const canEdit = (userRole === 'MANAGER' || userRole === 'STAFF') && 
-                 contract && 
-                 contract.status === 'DRAFT'
+  const canEdit = (isManager || isStaff) && contract && contract.status === 'DRAFT';
 
   if (loading) {
     return (

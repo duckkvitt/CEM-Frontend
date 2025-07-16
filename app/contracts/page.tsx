@@ -37,12 +37,11 @@ export default function ContractsPage() {
     }
     
     // Set user role
-    setUserRole(getCurrentUserRole());
-    
-    // Check if user has permission to access contract management
     const role = getCurrentUserRole();
-    const contractRoles = ['MANAGER', 'STAFF', 'SUPPORT_TEAM'];
+    setUserRole(role);
     
+    // Allow contract management for MANAGER, STAFF, SUPPORT_TEAM, CUSTOMER
+    const contractRoles = ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'CUSTOMER'];
     if (!role || !contractRoles.includes(role)) {
       router.push('/dashboard');
       return;
@@ -191,14 +190,6 @@ export default function ContractsPage() {
     }
   }
 
-  // Check if user is Manager
-  const isManager = userRole === 'MANAGER'
-
-  // Determine if user can edit based on role
-  const canEdit = userRole === 'MANAGER' || userRole === 'STAFF'
-  
-  const isPrivilegedUser = userRole === 'MANAGER' || userRole === 'STAFF';
-
   // Show loading until we verify authentication
   if (!userRole) {
     return (
@@ -216,10 +207,18 @@ export default function ContractsPage() {
     // Add logic to refetch contract list
   }
   
+  // Tabs rendering and role helpers
+  const isManager = userRole === 'MANAGER';
+  const isStaff = userRole === 'STAFF';
+  const isSupport = userRole === 'SUPPORT_TEAM';
+  const isCustomer = userRole === 'CUSTOMER';
+  const isPrivilegedUser = isManager || isStaff;
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Contract Management</h1>
+        {/* Only privileged users can create contracts */}
         {isPrivilegedUser && (
           <div className="flex space-x-2">
             <button
@@ -255,6 +254,7 @@ export default function ContractsPage() {
           >
             Signed Contracts
           </button>
+          {/* Only managers see the hidden tab */}
           {isManager && (
             <button
               className={`py-2 px-4 font-medium ${
@@ -358,9 +358,8 @@ export default function ContractsPage() {
                       >
                         <Eye size={16} />
                       </button>
-                      
-                                {/* Edit button only for draft contracts and staff/managers */}
-          {contract.status === 'DRAFT' && canEdit && (
+                      {/* Edit button only for draft contracts and staff/managers */}
+                      {contract.status === 'DRAFT' && isPrivilegedUser && (
                         <button
                           onClick={() => router.push(`/contracts/${contract.id}/edit`)}
                           className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -369,20 +368,19 @@ export default function ContractsPage() {
                           <Edit size={16} />
                         </button>
                       )}
-                      
-                                {/* Sign button only for contracts pending signature and managers */}
-          {(contract.status === 'PENDING_SELLER_SIGNATURE' || contract.status === 'PENDING_CUSTOMER_SIGNATURE') && isManager && (
+                      {/* Sign button for contracts pending signature: MANAGER or CUSTOMER */}
+                      {(contract.status === 'PENDING_SELLER_SIGNATURE' && isManager) ||
+                       (contract.status === 'PENDING_CUSTOMER_SIGNATURE' && isCustomer) ? (
                         <button
-                          onClick={() => router.push(`/contracts/${contract.id}/sign`)}
+                          onClick={() => router.push(`/contracts/${contract.id}`)}
                           className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
                           title="Sign contract"
                         >
                           <Check size={16} />
                         </button>
-                      )}
-                      
-                      {/* Hide button only for visible contracts and managers */}
-                      {activeTab !== 'hidden' && isManager && (
+                      ) : null}
+                      {/* Hide/Restore only for managers */}
+                      {isManager && !contract.isHidden && (
                         <button
                           onClick={() => handleHide(contract.id)}
                           className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -391,9 +389,7 @@ export default function ContractsPage() {
                           <Trash2 size={16} />
                         </button>
                       )}
-                      
-                      {/* Restore button only for hidden contracts and managers */}
-                      {activeTab === 'hidden' && isManager && (
+                      {isManager && activeTab === 'hidden' && (
                         <button
                           onClick={() => handleRestore(contract.id)}
                           className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
