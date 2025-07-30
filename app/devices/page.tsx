@@ -17,6 +17,8 @@ interface Device {
   // customerId không còn cần thiết ở đây vì đây là trang quản lý kho
   warrantyExpiry?: string
   quantity?: number
+  price?: number
+  unit?: string
   status: string
   createdAt?: string
   updatedAt?: string
@@ -165,15 +167,17 @@ export default function DeviceManagementPage () {
               <th className='px-4 py-2 text-left'>Model</th>
               <th className='px-4 py-2 text-left'>Serial #</th>
               <th className='px-4 py-2 text-left'>Qty</th>
+              <th className='px-4 py-2 text-left'>Price</th>
+              <th className='px-4 py-2 text-left'>Unit</th>
               <th className='px-4 py-2 text-left'>Status</th>
               <th className='px-4 py-2 text-left'>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className='px-4 py-6 text-center'>Loading...</td></tr>
+              <tr><td colSpan={8} className='px-4 py-6 text-center'>Loading...</td></tr>
             ) : devices.length === 0 ? (
-              <tr><td colSpan={6} className='px-4 py-6 text-center'>No devices found</td></tr>
+              <tr><td colSpan={8} className='px-4 py-6 text-center'>No devices found</td></tr>
             ) : devices.map(d => (
               <tr key={d.id} className='border-t'>
                 <td className='px-4 py-2'>{d.id}</td>
@@ -181,6 +185,8 @@ export default function DeviceManagementPage () {
                 <td className='px-4 py-2'>{d.model || '-'}</td>
                 <td className='px-4 py-2'>{d.serialNumber || '-'}</td>
                 <td className='px-4 py-2'>{d.quantity ?? '-'}</td>
+                <td className='px-4 py-2'>{d.price ? `${d.price.toLocaleString()} VND` : '-'}</td>
+                <td className='px-4 py-2'>{d.unit || '-'}</td>
                 <td className='px-4 py-2'>{d.status}</td>
                 <td className='px-4 py-2 flex gap-2'>
                   <Link href={`/devices/${d.id}`} className='underline text-xs'>Details</Link>

@@ -82,6 +82,12 @@ export default function Sidebar() {
       icon: <ShieldCheck size={20} />,
       roles: ['ADMIN', 'SUPER_ADMIN'],
     },
+    {
+      name: 'Customer User Management',
+      href: '/users/customers',
+      icon: <UsersRound size={20} />,
+      roles: ['ADMIN', 'SUPER_ADMIN'],
+    },
     { name: 'Help', href: '/help', icon: <HelpCircle size={20} /> },
     { name: 'Bot', href: '/bot', icon: <BotMessageSquare size={20} /> },
   ]
@@ -98,11 +104,17 @@ export default function Sidebar() {
       return null
     }
 
-    // Handle active state for nested routes
-    const isActive =
-      item.href === '/dashboard'
-        ? pathname === item.href
-        : pathname.startsWith(item.href)
+    // Handle active state for specific routes
+    let isActive = false
+    if (item.href === '/dashboard') {
+      isActive = pathname === item.href
+    } else if (item.href === '/users') {
+      isActive = pathname === item.href
+    } else if (item.href === '/users/customers') {
+      isActive = pathname === item.href
+    } else {
+      isActive = pathname.startsWith(item.href)
+    }
 
     return (
       <Link

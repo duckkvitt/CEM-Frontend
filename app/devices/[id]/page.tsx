@@ -15,6 +15,8 @@ interface Device {
   serialNumber?: string
   warrantyExpiry?: string
   quantity?: number
+  price?: number
+  unit?: string
   status: string
   createdAt?: string
   updatedAt?: string
@@ -148,6 +150,8 @@ export default function DeviceDetailPage () {
             <li><strong>Model:</strong> {device.model || '-'}</li>
             <li><strong>Serial #:</strong> {device.serialNumber || '-'}</li>
             <li><strong>Quantity:</strong> {device.quantity ?? '-'}</li>
+            <li><strong>Price:</strong> {device.price ? `${device.price.toLocaleString()} VND` : '-'}</li>
+            <li><strong>Unit:</strong> {device.unit || '-'}</li>
             <li><strong>Status:</strong> {device.status}</li>
           </ul>
         </div>

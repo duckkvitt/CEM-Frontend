@@ -28,6 +28,7 @@ export function CreateSparePartForm() {
       // Basic client-side validation
       if (!payload.partName) {
         setErrors({ partName: ['Part name is required'] });
+        setSubmitting(false);
         return;
       }
 
@@ -46,7 +47,6 @@ export function CreateSparePartForm() {
       setMessage(
         err instanceof Error ? `Failed to create spare part: ${err.message}` : 'Unexpected error'
       );
-    } finally {
       setSubmitting(false);
     }
   }

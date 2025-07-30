@@ -27,6 +27,8 @@ export default function CreateDevicePage () {
     serialNumber: '',
     warrantyExpiry: '',
     quantity: '',
+    price: '',
+    unit: '',
     status: 'ACTIVE'
   })
   const [loading, setLoading] = useState(false)
@@ -41,7 +43,12 @@ export default function CreateDevicePage () {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
-    const newValue = name === 'quantity' ? value.replace(/[^0-9]/g, '') : value
+    let newValue = value
+    if (name === 'quantity') {
+      newValue = value.replace(/[^0-9]/g, '')
+    } else if (name === 'price') {
+      newValue = value.replace(/[^0-9.]/g, '')
+    }
     // @ts-ignore dynamic key
     setForm(prev => ({ ...prev, [name]: newValue }))
   }
@@ -58,6 +65,8 @@ export default function CreateDevicePage () {
         serialNumber: form.serialNumber || undefined,
         warrantyExpiry: form.warrantyExpiry || undefined,
         quantity: form.quantity ? parseInt(form.quantity, 10) : undefined,
+        price: form.price ? parseFloat(form.price) : undefined,
+        unit: form.unit || undefined,
         status: form.status || undefined
       }
       const res = await fetch(`${DEVICE_SERVICE_URL}/devices`, {
@@ -106,6 +115,14 @@ export default function CreateDevicePage () {
         <div>
           <Label htmlFor='quantity'>Quantity</Label>
           <Input id='quantity' name='quantity' type='number' min='0' value={form.quantity} onChange={handleChange} />
+        </div>
+        <div>
+          <Label htmlFor='price'>Price</Label>
+          <Input id='price' name='price' type='number' step='0.01' min='0' value={form.price} onChange={handleChange} placeholder='0.00' />
+        </div>
+        <div>
+          <Label htmlFor='unit'>Unit</Label>
+          <Input id='unit' name='unit' value={form.unit} onChange={handleChange} placeholder='Unit' />
         </div>
         <div>
           <Label htmlFor='status'>Status</Label>

@@ -2,19 +2,18 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Plus, Filter, Eye, Edit, Trash2, Check, RefreshCw } from 'lucide-react'
+import { Plus, Eye, Edit, Trash2, Check, RefreshCw } from 'lucide-react'
 import { 
-  getUnsignedContracts, 
-  getSignedContracts, 
-  getHiddenContracts,
+  getContractsWithFilters,
   hideContract,
   restoreContract,
-  ContractResponse,
-  getContractsForCurrentUser // Using a new service function
+  ContractResponse
 } from '@/lib/contract-service'
+import { getAllCustomers, CustomerResponse } from '@/lib/customer-service'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getCurrentUserRole, getAccessToken } from '@/lib/auth'
 import { CreateContractModal } from '@/app/contracts/components/create-contract-modal'
+import FilterSection from '@/app/contracts/components/filter-section'
 
 export default function ContractsPage() {
   const router = useRouter()
@@ -27,6 +26,12 @@ export default function ContractsPage() {
   const [totalElements, setTotalElements] = useState(0)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
+  
+  // Filter and search states
+  const [selectedCustomer, setSelectedCustomer] = useState<number | undefined>()
+  const [searchTerm, setSearchTerm] = useState('')
+  const [customers, setCustomers] = useState<CustomerResponse[]>([])
+  const [customersLoading, setCustomersLoading] = useState(true)
   
   // Check auth on mount
   useEffect(() => {
@@ -48,7 +53,26 @@ export default function ContractsPage() {
     }
   }, [router]);
   
-  // Load contracts based on active tab
+  // Load customers for filter dropdown
+  useEffect(() => {
+    const loadCustomers = async () => {
+      try {
+        setCustomersLoading(true)
+        const customersData = await getAllCustomers()
+        console.log('Customers data:', customersData)
+        setCustomers(Array.isArray(customersData) ? customersData : [])
+      } catch (err) {
+        console.error('Error loading customers:', err)
+        setCustomers([])
+      } finally {
+        setCustomersLoading(false)
+      }
+    }
+    
+    loadCustomers()
+  }, [])
+  
+  // Load contracts based on active tab and filters
   useEffect(() => {
     const fetchContracts = async () => {
       if (!getAccessToken()) {
@@ -60,37 +84,31 @@ export default function ContractsPage() {
       setError(null)
       
       try {
-        // For role-based access, get all contracts for the user
-        // and filter them based on the active tab
-        const allContracts = await getContractsForCurrentUser()
-        
-        let filteredContracts = []
-        
+        // Determine status filter based on active tab
+        let statusFilter: string | undefined
         switch (activeTab) {
           case 'unsigned':
-            filteredContracts = allContracts.filter(contract => 
-              !contract.isHidden && (
-                contract.status === 'DRAFT' ||
-                contract.status === 'PENDING_SELLER_SIGNATURE' || 
-                contract.status === 'PENDING_CUSTOMER_SIGNATURE'
-              )
-            )
+            statusFilter = 'DRAFT,PENDING_SELLER_SIGNATURE,PENDING_CUSTOMER_SIGNATURE'
             break
           case 'signed':
-            filteredContracts = allContracts.filter(contract => 
-              !contract.isHidden && contract.status === 'ACTIVE'
-            )
+            statusFilter = 'ACTIVE'
             break
           case 'hidden':
-            filteredContracts = allContracts.filter(contract => contract.isHidden === true)
+            statusFilter = 'HIDDEN'
             break
-          default:
-            filteredContracts = allContracts
         }
         
-        setContracts(filteredContracts || [])
-        setTotalPages(1) // Since we're not paginating on frontend
-        setTotalElements(filteredContracts.length)
+        const response = await getContractsWithFilters(
+          page,
+          10, // page size
+          selectedCustomer,
+          searchTerm || undefined,
+          statusFilter
+        )
+        
+        setContracts(response.content || [])
+        setTotalPages(response.totalPages)
+        setTotalElements(response.totalElements)
       } catch (err) {
         console.error('Error fetching contracts:', err)
         if (err instanceof Error && err.message.includes('401')) {
@@ -105,7 +123,7 @@ export default function ContractsPage() {
     }
     
     fetchContracts()
-  }, [activeTab, page, router])
+  }, [activeTab, page, selectedCustomer, searchTerm, router])
 
   useEffect(() => {
     const role = getCurrentUserRole();
@@ -117,34 +135,17 @@ export default function ContractsPage() {
     if (window.confirm('Are you sure you want to hide this contract?')) {
       try {
         await hideContract(contractId)
-        // Refresh contracts by re-fetching all contracts and filtering based on current tab
-        const allContracts = await getContractsForCurrentUser()
-        
-        let filteredContracts = []
-        switch (activeTab) {
-          case 'unsigned':
-            filteredContracts = allContracts.filter(contract => 
-              !contract.isHidden && (
-                contract.status === 'DRAFT' ||
-                contract.status === 'PENDING_SELLER_SIGNATURE' || 
-                contract.status === 'PENDING_CUSTOMER_SIGNATURE'
-              )
-            )
-            break
-          case 'signed':
-            filteredContracts = allContracts.filter(contract => 
-              !contract.isHidden && contract.status === 'ACTIVE'
-            )
-            break
-          case 'hidden':
-            filteredContracts = allContracts.filter(contract => contract.isHidden === true)
-            break
-          default:
-            filteredContracts = allContracts
-        }
-        
-        setContracts(filteredContracts)
-        setTotalElements(filteredContracts.length)
+        // Refresh contracts
+        const response = await getContractsWithFilters(
+          page,
+          10,
+          selectedCustomer,
+          searchTerm || undefined,
+          activeTab === 'unsigned' ? 'DRAFT,PENDING_SELLER_SIGNATURE,PENDING_CUSTOMER_SIGNATURE' :
+          activeTab === 'signed' ? 'ACTIVE' : 'HIDDEN'
+        )
+        setContracts(response.content || [])
+        setTotalElements(response.totalElements)
       } catch (err) {
         console.error('Error hiding contract:', err)
         setError('Failed to hide contract. Please try again.')
@@ -156,38 +157,40 @@ export default function ContractsPage() {
   const handleRestore = async (contractId: number) => {
     try {
       await restoreContract(contractId)
-      // Refresh contracts by re-fetching all contracts and filtering based on current tab
-      const allContracts = await getContractsForCurrentUser()
-      
-      let filteredContracts = []
-      switch (activeTab) {
-        case 'unsigned':
-          filteredContracts = allContracts.filter(contract => 
-            !contract.isHidden && (
-              contract.status === 'DRAFT' ||
-              contract.status === 'PENDING_SELLER_SIGNATURE' || 
-              contract.status === 'PENDING_CUSTOMER_SIGNATURE'
-            )
-          )
-          break
-        case 'signed':
-          filteredContracts = allContracts.filter(contract => 
-            !contract.isHidden && contract.status === 'ACTIVE'
-          )
-          break
-        case 'hidden':
-          filteredContracts = allContracts.filter(contract => contract.isHidden === true)
-          break
-        default:
-          filteredContracts = allContracts
-      }
-      
-      setContracts(filteredContracts)
-      setTotalElements(filteredContracts.length)
+      // Refresh contracts
+      const response = await getContractsWithFilters(
+        page,
+        10,
+        selectedCustomer,
+        searchTerm || undefined,
+        activeTab === 'unsigned' ? 'DRAFT,PENDING_SELLER_SIGNATURE,PENDING_CUSTOMER_SIGNATURE' :
+        activeTab === 'signed' ? 'ACTIVE' : 'HIDDEN'
+      )
+      setContracts(response.content || [])
+      setTotalElements(response.totalElements)
     } catch (err) {
       console.error('Error restoring contract:', err)
       setError('Failed to restore contract. Please try again.')
     }
+  }
+
+  // Handle search
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    setPage(0) // Reset to first page when searching
+  }
+
+  // Handle customer filter change
+  const handleCustomerChange = (customerId: string) => {
+    setSelectedCustomer(customerId ? parseInt(customerId) : undefined)
+    setPage(0) // Reset to first page when filtering
+  }
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSelectedCustomer(undefined)
+    setSearchTerm('')
+    setPage(0)
   }
 
   // Show loading until we verify authentication
@@ -204,13 +207,25 @@ export default function ContractsPage() {
 
   function handleSuccess() {
     setIsCreateModalOpen(false)
-    // Add logic to refetch contract list
+    // Refresh contracts
+    const fetchContracts = async () => {
+      const response = await getContractsWithFilters(
+        page,
+        10,
+        selectedCustomer,
+        searchTerm || undefined,
+        activeTab === 'unsigned' ? 'DRAFT,PENDING_SELLER_SIGNATURE,PENDING_CUSTOMER_SIGNATURE' :
+        activeTab === 'signed' ? 'ACTIVE' : 'HIDDEN'
+      )
+      setContracts(response.content || [])
+      setTotalElements(response.totalElements)
+    }
+    fetchContracts()
   }
   
   // Tabs rendering and role helpers
   const isManager = userRole === 'MANAGER';
   const isStaff = userRole === 'STAFF';
-  const isSupport = userRole === 'SUPPORT_TEAM';
   const isCustomer = userRole === 'CUSTOMER';
   const isPrivilegedUser = isManager || isStaff;
 
@@ -270,6 +285,18 @@ export default function ContractsPage() {
         </div>
       </div>
 
+      {/* Search and Filter Section */}
+      <FilterSection
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        selectedCustomer={selectedCustomer}
+        setSelectedCustomer={setSelectedCustomer}
+        customers={customers}
+        customersLoading={customersLoading}
+        onSearch={handleSearch}
+        onClearFilters={clearFilters}
+      />
+
       {/* Error message */}
       {error && (
         <div className="mb-4 p-4 bg-red-50 text-red-600 rounded-md">
@@ -282,6 +309,7 @@ export default function ContractsPage() {
         <table className="w-full bg-white text-sm">
           <thead className="bg-muted/50 text-muted-foreground">
             <tr>
+              <th className="py-3 px-4 text-left font-medium">ID</th>
               <th className="py-3 px-4 text-left font-medium">Contract Number</th>
               <th className="py-3 px-4 text-left font-medium">Title</th>
               <th className="py-3 px-4 text-left font-medium">Customer</th>
@@ -294,7 +322,7 @@ export default function ContractsPage() {
           <tbody className="divide-y">
             {loading ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                <td colSpan={8} className="py-8 text-center text-muted-foreground">
                   <div className="flex justify-center items-center">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                     <span className="ml-2">Loading...</span>
@@ -303,7 +331,7 @@ export default function ContractsPage() {
               </tr>
             ) : contracts.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                <td colSpan={8} className="py-8 text-center text-muted-foreground">
                   {activeTab === 'unsigned' 
                     ? 'No unsigned contracts found.' 
                     : activeTab === 'signed' 
@@ -312,8 +340,11 @@ export default function ContractsPage() {
                 </td>
               </tr>
             ) : (
-              contracts.map((contract) => (
+              contracts.map((contract, index) => (
                 <tr key={contract.id} className="hover:bg-muted/30">
+                  <td className="py-3 px-4 font-medium text-muted-foreground">
+                    {page * 10 + index + 1}
+                  </td>
                   <td className="py-3 px-4 font-medium">{contract.contractNumber}</td>
                   <td className="py-3 px-4 max-w-xs truncate">{contract.title}</td>
                   <td className="py-3 px-4">{contract.customerName || `Customer #${contract.customerId}`}</td>
@@ -417,14 +448,17 @@ export default function ContractsPage() {
             <button
               onClick={() => setPage(Math.max(0, page - 1))}
               disabled={page === 0}
-              className="px-3 py-1.5 border rounded-md text-sm disabled:opacity-50"
+              className="px-3 py-1.5 border rounded-md text-sm disabled:opacity-50 hover:bg-muted"
             >
               Previous
             </button>
+            <span className="px-3 py-1.5 text-sm">
+              Page {page + 1} of {totalPages}
+            </span>
             <button
               onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
               disabled={page >= totalPages - 1}
-              className="px-3 py-1.5 border rounded-md bg-primary text-primary-foreground text-sm disabled:opacity-50"
+              className="px-3 py-1.5 border rounded-md bg-primary text-primary-foreground text-sm disabled:opacity-50 hover:bg-primary/90"
             >
               Next
             </button>

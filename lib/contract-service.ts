@@ -146,9 +146,24 @@ interface ApiResponse<T> {
 }
 
 // Common error handling function
-function handleErrors(response: Response): void {
+async function handleErrors(response: Response): Promise<void> {
   if (!response.ok) {
-    throw new Error(`API Error: ${response.status}`);
+    try {
+      const errorData = await response.json();
+      // Extract error message from backend response
+      if (errorData.message) {
+        throw new Error(errorData.message);
+      } else if (errorData.errors && Array.isArray(errorData.errors)) {
+        // Handle validation errors
+        const errorMessages = errorData.errors.map((err: any) => err.defaultMessage || err.message).join(', ');
+        throw new Error(errorMessages);
+      } else {
+        throw new Error(`API Error: ${response.status}`);
+      }
+    } catch (parseError) {
+      // If we can't parse the error response, fall back to status code
+      throw new Error(`API Error: ${response.status}`);
+    }
   }
 }
 
@@ -174,7 +189,7 @@ async function authenticatedFetch<T>(
     headers,
   });
 
-  handleErrors(response);
+  await handleErrors(response);
   const data: ApiResponse<T> = await response.json();
   return data.data;
 }
@@ -353,6 +368,37 @@ export async function submitSignature(contractId: number, signatureData: Signatu
 // Get all contracts for the current user (could be any role)
 export async function getContractsForCurrentUser(): Promise<ContractResponse[]> {
   return authenticatedFetch<ContractResponse[]>(`${CONTRACT_SERVICE_URL}/`);
+}
+
+// Get contracts with pagination and filtering
+export async function getContractsWithFilters(
+  page = 0,
+  size = 10,
+  customerId?: number,
+  search?: string,
+  status?: string
+): Promise<{ content: ContractResponse[]; totalElements: number; totalPages: number }> {
+  let url = `${CONTRACT_SERVICE_URL}/?page=${page}&size=${size}`
+  
+  if (customerId) {
+    url += `&customerId=${customerId}`
+  }
+  
+  if (search) {
+    url += `&search=${encodeURIComponent(search)}`
+  }
+  
+  if (status) {
+    url += `&status=${encodeURIComponent(status)}`
+  }
+  
+  const response = await authenticatedFetch<{ content: ContractResponse[]; totalElements: number; totalPages: number; size: number; number: number; first: boolean; last: boolean }>(url)
+  
+  return {
+    content: response.content,
+    totalElements: response.totalElements,
+    totalPages: response.totalPages
+  }
 }
 
 // Get PDF file content as blob URL for PDF viewer

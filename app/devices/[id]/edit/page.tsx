@@ -16,6 +16,8 @@ interface Device {
   serialNumber?: string
   warrantyExpiry?: string
   quantity?: number | string
+  price?: number | string
+  unit?: string
   status: string
 }
 
@@ -75,7 +77,12 @@ export default function EditDevicePage () {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     if (!device) return
-    const newValue = name === 'quantity' ? Number(value) : value
+    let newValue: string | number = value
+    if (name === 'quantity') {
+      newValue = Number(value)
+    } else if (name === 'price') {
+      newValue = value ? Number(value) : value
+    }
     setDevice({ ...device, [name]: newValue })
   }
 
@@ -92,6 +99,8 @@ export default function EditDevicePage () {
         serialNumber: device.serialNumber || undefined,
         warrantyExpiry: device.warrantyExpiry || undefined,
         quantity: device.quantity ? Number(device.quantity) : undefined,
+        price: device.price ? Number(device.price) : undefined,
+        unit: device.unit || undefined,
         status: device.status || undefined
       }
       const res = await fetch(`${DEVICE_SERVICE_URL}/devices/${deviceId}`, {
@@ -148,6 +157,14 @@ export default function EditDevicePage () {
         <div>
           <Label htmlFor='quantity'>Quantity</Label>
           <Input id='quantity' name='quantity' type='number' min='0' value={device.quantity ?? ''} onChange={handleChange} />
+        </div>
+        <div>
+          <Label htmlFor='price'>Price</Label>
+          <Input id='price' name='price' type='number' step='0.01' min='0' value={device.price ?? ''} onChange={handleChange} placeholder='0.00' />
+        </div>
+        <div>
+          <Label htmlFor='unit'>Unit</Label>
+          <Input id='unit' name='unit' value={device.unit || ''} onChange={handleChange} placeholder='xe, cái, chiếc...' />
         </div>
         <div>
           <Label htmlFor='status'>Status</Label>

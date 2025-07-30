@@ -18,6 +18,8 @@ interface Device {
   name: string
   model?: string
   serialNumber?: string
+  price?: number
+  unit?: string
 }
 
 interface DeliverySchedule {
@@ -93,6 +95,13 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
       fetchDevices()
     }
   }, [isOpen])
+
+  // Sync delivery schedule when devices are loaded or contract details change
+  useEffect(() => {
+    if (devices.length > 0 && formData.contractDetails.length > 0) {
+      syncDeliveryScheduleWithContractDetails()
+    }
+  }, [devices, formData.contractDetails])
   
   async function fetchCustomers() {
     setCustomersLoading(true)
@@ -168,12 +177,25 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
         [field]: processedValue
       }
       
-      // If device is selected, auto-populate the description with device name
+      // If device is selected, auto-populate the description and calculate unit price
       if (field === 'deviceId' && value) {
         const deviceId = Number(value)
         const selectedDevice = devices.find(d => d.id === deviceId)
         if (selectedDevice) {
           updatedDetails[index].description = `${selectedDevice.name} - ${selectedDevice.model || 'Unknown model'}`
+          // Auto-calculate unit price based on device price
+          if (selectedDevice.price) {
+            updatedDetails[index].unitPrice = selectedDevice.price
+          }
+        }
+      }
+      
+      // If quantity changes and device is selected, update unit price calculation
+      if (field === 'quantity' && updatedDetails[index].deviceId) {
+        const deviceId = updatedDetails[index].deviceId
+        const selectedDevice = devices.find(d => d.id === deviceId)
+        if (selectedDevice && selectedDevice.price) {
+          updatedDetails[index].unitPrice = selectedDevice.price
         }
       }
       
@@ -255,19 +277,41 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
     setFormData({ ...formData, deliverySchedules: updatedSchedules })
   }
 
-  function addDeliveryScheduleItem() {
-    setFormData({
-      ...formData,
-      deliverySchedules: [...formData.deliverySchedules, createEmptyDeliverySchedule()]
+  // Function to sync delivery schedule with contract details
+  function syncDeliveryScheduleWithContractDetails() {
+    const updatedSchedules = formData.contractDetails.map((detail, index) => {
+      if (detail.deviceId) {
+        const selectedDevice = devices.find(d => d.id === detail.deviceId)
+        if (selectedDevice) {
+          return {
+            itemName: selectedDevice.name,
+            unit: selectedDevice.unit || '',
+            quantity: detail.quantity,
+            deliveryTime: formData.deliverySchedules[index]?.deliveryTime || '',
+            deliveryLocation: formData.deliverySchedules[index]?.deliveryLocation || '',
+            notes: formData.deliverySchedules[index]?.notes || ''
+          }
+        }
+      }
+      // If no device selected, create empty schedule
+      return {
+        itemName: '',
+        unit: '',
+        quantity: detail.quantity,
+        deliveryTime: formData.deliverySchedules[index]?.deliveryTime || '',
+        deliveryLocation: formData.deliverySchedules[index]?.deliveryLocation || '',
+        notes: formData.deliverySchedules[index]?.notes || ''
+      }
     })
+    
+    setFormData(prev => ({
+      ...prev,
+      deliverySchedules: updatedSchedules
+    }))
   }
 
-  function removeDeliveryScheduleItem(index: number) {
-    if (formData.deliverySchedules.length > 1) {
-      const updatedSchedules = formData.deliverySchedules.filter((_, i) => i !== index)
-      setFormData({ ...formData, deliverySchedules: updatedSchedules })
-    }
-  }
+  // Delivery schedule is now automatically managed based on contract details
+  // No manual add/remove functions needed
   
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -310,7 +354,13 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
       onSuccess()
     } catch (err) {
       console.error('Error creating contract:', err)
-      setError(err instanceof Error ? err.message : 'Failed to create contract')
+      if (err instanceof Error) {
+        setError(err.message)
+      } else if (typeof err === 'string') {
+        setError(err)
+      } else {
+        setError('Failed to create contract. Please check your input and try again.')
+      }
     } finally {
       setLoading(false)
     }
@@ -495,30 +545,25 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
               
               {/* Điều 3: Thời gian, địa điểm, phương thức giao hàng */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div>
                   <h3 className="text-lg font-semibold">Điều 3: Thời gian, địa điểm, phương thức giao hàng</h3>
-                  <button
-                    type="button"
-                    onClick={addDeliveryScheduleItem}
-                    className="px-3 py-1 bg-primary text-white rounded-md hover:bg-primary/90 text-sm"
-                  >
-                    + Thêm mặt hàng
-                  </button>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Tự động đồng bộ với Contract Details. Chỉ cần nhập: Thời gian giao hàng, Địa điểm giao hàng, Ghi chú
+                  </p>
                 </div>
                 
                 <div className="overflow-x-auto">
                   <table className="min-w-full border border-gray-300">
                     <thead className="bg-gray-50">
-                      <tr>
-                        <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">STT</th>
-                        <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Tên hàng hóa</th>
-                        <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Đơn vị</th>
-                        <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Số lượng</th>
-                        <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Thời gian giao hàng</th>
-                        <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Địa điểm giao hàng</th>
-                        <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Ghi chú</th>
-                        <th className="border border-gray-300 px-3 py-2 text-center text-sm font-medium">Thao tác</th>
-                      </tr>
+                                              <tr>
+                          <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">STT</th>
+                          <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Tên hàng hóa</th>
+                          <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Đơn vị</th>
+                          <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Số lượng</th>
+                          <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Thời gian giao hàng</th>
+                          <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Địa điểm giao hàng</th>
+                          <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Ghi chú</th>
+                        </tr>
                     </thead>
                     <tbody>
                       {formData.deliverySchedules.map((schedule, index) => (
@@ -530,20 +575,18 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                             <input
                               type="text"
                               value={schedule.itemName}
-                              onChange={(e) => handleDeliveryScheduleChange(index, 'itemName', e.target.value)}
-                              className="w-full p-1 border rounded text-sm"
-                              placeholder="Tên hàng hóa"
-                              required
+                              className="w-full p-1 border rounded text-sm bg-gray-50"
+                              placeholder="Tự động điền từ thiết bị"
+                              readOnly
                             />
                           </td>
                           <td className="border border-gray-300 px-3 py-2">
                             <input
                               type="text"
                               value={schedule.unit}
-                              onChange={(e) => handleDeliveryScheduleChange(index, 'unit', e.target.value)}
-                              className="w-full p-1 border rounded text-sm"
-                              placeholder="Đơn vị"
-                              required
+                              className="w-full p-1 border rounded text-sm bg-gray-50"
+                              placeholder="Tự động điền từ thiết bị"
+                              readOnly
                             />
                           </td>
                           <td className="border border-gray-300 px-3 py-2">
@@ -551,9 +594,9 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                               type="number"
                               min="1"
                               value={schedule.quantity}
-                              onChange={(e) => handleDeliveryScheduleChange(index, 'quantity', parseInt(e.target.value) || 1)}
-                              className="w-full p-1 border rounded text-sm"
-                              required
+                              className="w-full p-1 border rounded text-sm bg-gray-50"
+                              placeholder="Tự động điền từ Contract Details"
+                              readOnly
                             />
                           </td>
                           <td className="border border-gray-300 px-3 py-2">
@@ -582,17 +625,6 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                               placeholder="Ghi chú"
                               rows={2}
                             />
-                          </td>
-                          <td className="border border-gray-300 px-3 py-2 text-center">
-                            {formData.deliverySchedules.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => removeDeliveryScheduleItem(index)}
-                                className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                              >
-                                Xóa
-                              </button>
-                            )}
                           </td>
                         </tr>
                       ))}
@@ -720,9 +752,9 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                           min="0"
                           step="1000"
                           value={detail.unitPrice}
-                          onChange={(e) => handleDetailChange(index, 'unitPrice', e.target.value)}
-                          className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary"
-                          required
+                          className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary bg-gray-50"
+                          placeholder="Tự động tính từ giá thiết bị"
+                          readOnly
                         />
                       </div>
                       
