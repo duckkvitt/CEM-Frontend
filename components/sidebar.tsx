@@ -3,20 +3,20 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { isAdmin, getCurrentUserRole } from '@/lib/auth'
+import { getCurrentUserRole } from '@/lib/auth'
 import { useEffect, useState } from 'react'
 import {
   LayoutDashboard,
   UsersRound,
   Bell,
   Settings,
-  UserCog,
   HelpCircle,
   Database,
   FileText,
   BotMessageSquare,
   Wrench,
   ShieldCheck,
+  MessageCircle,
 } from 'lucide-react'
 
 interface NavItem {
@@ -41,6 +41,12 @@ export default function Sidebar() {
       name: 'Dashboard',
       href: '/dashboard',
       icon: <LayoutDashboard size={20} />,
+    },
+    {
+      name: 'Customer Support',
+      href: '/support',
+      icon: <MessageCircle size={20} />,
+      roles: ['SUPPORT_TEAM'],
     },
     {
       name: 'Customer Management',
@@ -90,6 +96,7 @@ export default function Sidebar() {
     },
     { name: 'Help', href: '/help', icon: <HelpCircle size={20} /> },
     { name: 'Bot', href: '/bot', icon: <BotMessageSquare size={20} /> },
+    { name: 'Chat Demo', href: '/chat-demo', icon: <BotMessageSquare size={20} /> },
   ]
 
   function hasAccess(item: NavItem): boolean {

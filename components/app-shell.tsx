@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import Sidebar from '@/components/sidebar'
 import Header from '@/components/header'
+import CustomerChatBubble from '@/components/chat/customer-chat-bubble'
 import { getAccessToken } from '@/lib/auth'
 
 interface Props {
@@ -42,6 +43,7 @@ export default function AppShell ({ children }: Props) {
           {children}
         </main>
       </div>
+      <CustomerChatBubble />
     </div>
   )
 } 
