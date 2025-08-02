@@ -96,7 +96,6 @@ export default function Sidebar() {
     },
     { name: 'Help', href: '/help', icon: <HelpCircle size={20} /> },
     { name: 'Bot', href: '/bot', icon: <BotMessageSquare size={20} /> },
-    { name: 'Chat Demo', href: '/chat-demo', icon: <BotMessageSquare size={20} /> },
   ]
 
   function hasAccess(item: NavItem): boolean {

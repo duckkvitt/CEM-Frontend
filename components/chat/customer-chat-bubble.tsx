@@ -9,7 +9,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import { chatService } from '@/lib/chat-service'
@@ -39,16 +38,49 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
     totalAtCapacity: number
   } | null>(null)
   const [estimatedWaitTime, setEstimatedWaitTime] = useState<number>(-1)
+  const [isHydrated, setIsHydrated] = useState(false)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const currentUser = getCurrentUser()
   const userRole = getCurrentUserRole()
 
-  // Only show for CUSTOMER role
-  if (userRole !== 'CUSTOMER') {
-    return null
-  }
+  // Handle client-side hydration
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
+
+  // Check for existing active chat session when component mounts
+  useEffect(() => {
+    if (isHydrated && currentUser && userRole === 'CUSTOMER') {
+      const checkExistingChat = async () => {
+        try {
+          const existingSession = await chatService.getCustomerChatSession(currentUser.id.toString())
+          if (existingSession && existingSession.status !== 'closed') {
+            console.log('Found existing chat session:', existingSession)
+            setChatSession(existingSession)
+            setIsOpen(true)
+            
+            // Load existing messages
+            const existingMessages = await chatService.getMessages(existingSession.id)
+            setMessages(existingMessages)
+            
+            // Get support availability
+            const availability = await supportAssignmentService.getSupportTeamAvailability()
+            setSupportAvailability(availability)
+            
+            // Get estimated wait time
+            const waitTime = await supportAssignmentService.getEstimatedWaitTime()
+            setEstimatedWaitTime(waitTime)
+          }
+        } catch (error) {
+          console.error('Error checking existing chat session:', error)
+        }
+      }
+      
+      checkExistingChat()
+    }
+  }, [isHydrated, currentUser, userRole])
 
   useEffect(() => {
     if (isOpen && chatSession) {
@@ -63,69 +95,136 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
 
       return unsubscribe
     }
-  }, [isOpen, chatSession, currentUser?.id])
+  }, [isOpen, chatSession?.id, currentUser?.id])
 
   useEffect(() => {
     if (isOpen && chatSession) {
       const unsubscribe = chatService.onChatSession(chatSession.id, (session) => {
-        setChatSession(session)
+        if (session) {
+          setChatSession(session)
+        }
       })
 
       return unsubscribe
     }
-  }, [isOpen, chatSession])
+  }, [isOpen, chatSession?.id])
 
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    if (messagesEndRef.current && messages.length > 0 && chatSession) {
+      // Use setTimeout to ensure DOM is updated
+      setTimeout(() => {
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+        }
+      }, 100)
     }
-  }, [messages])
+  }, [messages.length, chatSession?.id])
+
+  // Only show for CUSTOMER role after hydration
+  if (!isHydrated || userRole !== 'CUSTOMER') {
+    return null
+  }
 
   const handleStartChat = async () => {
-    if (!currentUser) return
+    if (!currentUser) {
+      toast.error('Please log in to start a chat')
+      return
+    }
 
     setIsConnecting(true)
-    try {
-      // Check support team availability first
-      const availability = await supportAssignmentService.getSupportTeamAvailability()
-      setSupportAvailability(availability)
 
-      if (availability.totalOnline === 0) {
-        toast.error('Tất cả nhân viên hỗ trợ hiện tại đang bận, xin vui lòng thử lại sau')
+    try {
+      // First check if there's an existing active chat session
+      const existingSession = await chatService.getCustomerChatSession(currentUser.id.toString())
+      if (existingSession && existingSession.status !== 'closed') {
+        console.log('Found existing active chat session:', existingSession)
+        setChatSession(existingSession)
+        setIsOpen(true)
+        
+        // Load existing messages
+        const existingMessages = await chatService.getMessages(existingSession.id)
+        setMessages(existingMessages)
+        
+        // Get support availability
+        const availability = await supportAssignmentService.getSupportTeamAvailability()
+        setSupportAvailability(availability)
+        
+        // Get estimated wait time
+        const waitTime = await supportAssignmentService.getEstimatedWaitTime()
+        setEstimatedWaitTime(waitTime)
+        
+        toast.success('Reconnected to existing chat session')
         setIsConnecting(false)
         return
       }
 
-      // Check for existing active session
-      let session = await chatService.getCustomerChatSession(currentUser.id.toString())
-      
-      if (!session || session.status === 'closed') {
-        // Create new session
-        const sessionId = await chatService.createChatSession(
-          currentUser.id.toString(),
-          currentUser.fullName || `${currentUser.firstName} ${currentUser.lastName}`
-        )
-        session = await chatService.getChatSession(sessionId)
+      // Check support team availability with retry mechanism
+      let totalOnline = 0
+      let retryCount = 0
+      const maxRetries = 3
+
+      while (totalOnline === 0 && retryCount < maxRetries) {
+        const availability = await supportAssignmentService.getSupportTeamAvailability()
+        totalOnline = availability.totalOnline
+        setSupportAvailability(availability) // Set availability state once
+        
+        if (totalOnline === 0 && retryCount < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second before retry
+          retryCount++
+        }
       }
 
+      if (totalOnline === 0) {
+        toast.error('No support team available at the moment. Please try again later.')
+        setIsConnecting(false)
+        return
+      }
+
+      // Create new chat session
+      const sessionId = await chatService.createChatSession(
+        currentUser.id.toString(),
+        currentUser.fullName || `${currentUser.firstName} ${currentUser.lastName}`
+      )
+
+      // Get the created session
+      const session = await chatService.getChatSession(sessionId)
       if (session) {
         setChatSession(session)
         setIsOpen(true)
-        setIsMinimized(false)
-
-        // Start auto-assignment for this session
-        supportAssignmentService.startAutoAssignment()
-
-        // Get estimated wait time
-        const waitTime = await supportAssignmentService.getEstimatedWaitTime()
-        setEstimatedWaitTime(waitTime)
+        setMessages([])
+        setInputValue('')
+        setUnreadCount(0)
       }
+
+      // Get estimated wait time
+      const waitTime = await supportAssignmentService.getEstimatedWaitTime()
+      setEstimatedWaitTime(waitTime)
+
+      toast.success('Chat session created successfully')
     } catch (error) {
-      toast.error('Failed to start chat session')
       console.error('Error starting chat:', error)
+      toast.error('Failed to start chat session')
     } finally {
       setIsConnecting(false)
     }
+  }
+
+  const handleStartNewChat = async () => {
+    // Reset chat state completely
+    setChatSession(null)
+    setMessages([])
+    setInputValue('')
+    setUnreadCount(0)
+    setEstimatedWaitTime(-1)
+    setSupportAvailability(null)
+    
+    // Close the current chat window
+    setIsOpen(false)
+    
+    // Wait a moment before starting new chat to ensure state is reset
+    setTimeout(async () => {
+      await handleStartChat()
+    }, 100)
   }
 
   const handleSendMessage = async () => {
@@ -170,18 +269,59 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (!file || !chatSession || !currentUser) return
+    if (!file || !chatSession || !currentUser) {
+      console.log('Image upload: Missing file, chatSession, or currentUser')
+      return
+    }
 
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file')
+      return
+    }
+
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
       toast.error('File size too large. Maximum 10MB allowed.')
       return
     }
 
+    console.log('Starting image upload:', { 
+      fileName: file.name, 
+      fileSize: file.size, 
+      fileType: file.type,
+      sessionId: chatSession.id,
+      userId: currentUser.id 
+    })
+
     setIsUploading(true)
+    
+    // Add timeout protection (increased to account for retries)
+    const uploadTimeout = setTimeout(() => {
+      console.error('Image upload timeout after 60 seconds')
+      toast.error('Upload timeout. Please check your internet connection and try again.')
+      setIsUploading(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }, 60000) // Increased to 60 seconds to account for retries
+
     try {
+      // Step 1: Upload image to Firebase Storage (now includes retry mechanism)
+      console.log('Step 1: Uploading image to Firebase Storage...')
       const imageUrl = await chatService.uploadImage(file, chatSession.id)
+      console.log('Step 1: Image uploaded successfully:', imageUrl)
       
-      await chatService.sendMessage(chatSession.id, {
+      // Check if it's a data URL (fallback method)
+      const isDataUrl = imageUrl.startsWith('data:')
+      if (isDataUrl) {
+        console.log('Step 1: Using fallback data URL method')
+        toast.success('Image uploaded using fallback method (may be slower to load)')
+      }
+      
+      // Step 2: Send message with image
+      console.log('Step 2: Sending image message...')
+      const messageResult = await chatService.sendMessage(chatSession.id, {
         senderId: currentUser.id.toString(),
         senderName: currentUser.fullName || `${currentUser.firstName} ${currentUser.lastName}`,
         senderRole: currentUser.role?.name || 'CUSTOMER',
@@ -190,11 +330,44 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
         read: false,
         imageUrl,
       })
+      
+      console.log('Step 2: Image message sent successfully:', messageResult)
+      if (!isDataUrl) {
+        toast.success('Image uploaded successfully')
+      }
+      
+      // Clear timeout since upload succeeded
+      clearTimeout(uploadTimeout)
+      
     } catch (error) {
-      toast.error('Failed to upload image')
       console.error('Error uploading image:', error)
+      
+      // Provide more specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes('storage/unauthorized')) {
+          toast.error('Upload failed: Unauthorized access to storage. Please contact support.')
+        } else if (error.message.includes('storage/quota-exceeded')) {
+          toast.error('Upload failed: Storage quota exceeded. Please try a smaller image.')
+        } else if (error.message.includes('storage/retry-limit-exceeded') || error.message.includes('Network connectivity issue')) {
+          toast.error('Upload failed: Network connectivity issue. Please check your internet connection and try again.')
+        } else if (error.message.includes('storage/invalid-format')) {
+          toast.error('Upload failed: Invalid file format. Please select a valid image file.')
+        } else if (error.message.includes('Upload timed out') || error.message.includes('Upload timeout')) {
+          toast.error('Upload timed out. Please check your internet connection and try again.')
+        } else if (error.message.includes('attempts')) {
+          toast.error('Upload failed after multiple attempts. Please try again later.')
+        } else {
+          toast.error(`Upload failed: ${error.message}`)
+        }
+      } else {
+        toast.error('Failed to upload image. Please try again.')
+      }
+      
+      // Clear timeout since error occurred
+      clearTimeout(uploadTimeout)
     } finally {
       setIsUploading(false)
+      // Clear the file input
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
@@ -217,6 +390,32 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
 
   const renderMessage = (message: ChatMessage) => {
     const isOwnMessage = message.senderId === currentUser?.id.toString()
+    const isSystemMessage = message.senderRole === 'SYSTEM'
+
+    // Handle system messages differently
+    if (isSystemMessage) {
+      return (
+        <motion.div
+          key={message.id}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex justify-center mb-4"
+        >
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 max-w-[80%]">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-4 rounded-full bg-blue-100 flex items-center justify-center">
+                <MessageCircle className="h-2 w-2 text-blue-600" />
+              </div>
+              <p className="text-xs text-blue-700 font-medium">{message.content}</p>
+            </div>
+            <p className="text-xs text-blue-500 text-center mt-1">
+              {formatTime(message.timestamp)}
+            </p>
+          </div>
+        </motion.div>
+      )
+    }
 
     return (
       <motion.div
@@ -369,14 +568,23 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                         Customer Support
                       </CardTitle>
                                               <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+                          <div className={cn(
+                            "h-2 w-2 rounded-full",
+                            chatSession?.status === 'closed' ? 'bg-red-400' :
+                            chatSession?.status === 'waiting' ? 'bg-yellow-400 animate-pulse' :
+                            'bg-green-400'
+                          )} />
                           <span className="text-xs opacity-90">
                             {chatSession?.status === 'waiting' ? 
                               (supportAvailability?.totalOnline === 0 ? 
                                 'No support available' : 
-                                `Connecting... (${supportAvailability?.totalAvailable || 0} available)`
+                                supportAvailability?.totalAvailable === 0 ?
+                                  'Support busy, please wait...' :
+                                  `Connecting... (${supportAvailability?.totalAvailable || 0} available)`
                               ) : 
-                              'Online'
+                              chatSession?.status === 'closed' ?
+                                'Chat ended' :
+                                'Online'
                             }
                           </span>
                         </div>
@@ -406,7 +614,7 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                   >
                     <CardContent className="p-0">
                       {/* Messages Area */}
-                      <ScrollArea className="h-80 px-4 py-3">
+                      <div className="h-80 overflow-y-auto px-4 py-3">
                         <div className="space-y-2">
                           {chatSession?.status === 'waiting' && (
                             <motion.div
@@ -418,7 +626,9 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                               <p className="text-sm text-muted-foreground">
                                 {supportAvailability?.totalOnline === 0 ? 
                                   'Tất cả nhân viên hỗ trợ hiện tại đang bận, xin vui lòng thử lại sau' :
-                                  `Connecting to support team... (${supportAvailability?.totalAvailable || 0} available)`
+                                  supportAvailability?.totalAvailable === 0 ?
+                                    'Support team is busy, please wait...' :
+                                    `Connecting to support team... (${supportAvailability?.totalAvailable || 0} available)`
                                 }
                               </p>
                               {estimatedWaitTime > 0 && (
@@ -428,11 +638,40 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                               )}
                             </motion.div>
                           )}
+
+                          {chatSession?.status === 'closed' && (
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              className="text-center py-8"
+                            >
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                <div className="flex items-center justify-center mb-2">
+                                  <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <MessageCircle className="h-4 w-4 text-blue-600" />
+                                  </div>
+                                </div>
+                                <h3 className="text-sm font-medium text-blue-900 mb-1">
+                                  Chat Session Ended
+                                </h3>
+                                <p className="text-xs text-blue-700 mb-4">
+                                  This support chat has ended. You can start a new chat by clicking the button below.
+                                </p>
+                                <Button
+                                  onClick={handleStartNewChat}
+                                  size="sm"
+                                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                                >
+                                  Start New Support Request
+                                </Button>
+                              </div>
+                            </motion.div>
+                          )}
                           
                           {messages.map(renderMessage)}
                           <div ref={messagesEndRef} />
                         </div>
-                      </ScrollArea>
+                      </div>
 
                       <Separator />
 
@@ -443,9 +682,9 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
                             onKeyPress={handleKeyPress}
-                            placeholder="Type your message..."
+                            placeholder={chatSession?.status === 'closed' ? 'Chat has ended' : "Type your message..."}
                             className="min-h-[60px] resize-none border-0 bg-muted/50 focus:bg-white"
-                            disabled={chatSession?.status === 'waiting'}
+                            disabled={chatSession?.status === 'waiting' || chatSession?.status === 'closed'}
                           />
                         </div>
                         
@@ -455,7 +694,7 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                               variant="ghost"
                               size="sm"
                               onClick={() => fileInputRef.current?.click()}
-                              disabled={isUploading || chatSession?.status === 'waiting'}
+                              disabled={isUploading || chatSession?.status === 'waiting' || chatSession?.status === 'closed'}
                               className="h-8 w-8 p-0"
                             >
                               {isUploading ? (
@@ -468,7 +707,7 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                           
                           <Button
                             onClick={handleSendMessage}
-                            disabled={!inputValue.trim() || isTyping || chatSession?.status === 'waiting'}
+                            disabled={!inputValue.trim() || isTyping || chatSession?.status === 'waiting' || chatSession?.status === 'closed'}
                             size="sm"
                             className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
                           >

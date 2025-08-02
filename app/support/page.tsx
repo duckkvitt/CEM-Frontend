@@ -21,7 +21,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
@@ -48,47 +47,46 @@ export default function SupportPage() {
   const [supportTeamStatus, setSupportTeamStatus] = useState<SupportTeamStatus | null>(null)
   const [isOnline, setIsOnline] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const currentUser = getCurrentUser()
   const userRole = getCurrentUserRole()
-  
-  // State to track if we're on client side
-  const [isClient, setIsClient] = useState(false)
-  const [effectiveRole, setEffectiveRole] = useState<string | null>(null)
 
-  // Check for demo role in localStorage only on client side
+  // Handle client-side hydration
   useEffect(() => {
-    setIsClient(true)
-    const demoRole = localStorage.getItem('demoRole')
-    setEffectiveRole(demoRole || userRole)
-  }, [userRole])
+    setIsHydrated(true)
+  }, [])
 
   useEffect(() => {
-    // For demo purposes, create a mock user if none exists
-    const demoUser = currentUser || {
-      id: 888,
-      firstName: 'Demo',
-      lastName: 'Support',
-      fullName: 'Demo Support Team',
-      email: 'support@example.com',
-      role: { name: 'SUPPORT_TEAM' }
-    }
+    if (!isHydrated || !currentUser) return
 
-    // Initialize support team status
     const initializeStatus = async () => {
       const status: SupportTeamStatus = {
-        id: demoUser.id.toString(),
-        name: demoUser.fullName || `${demoUser.firstName} ${demoUser.lastName}`,
         online: isOnline,
         activeChats: 0,
         maxChats: 5,
         lastSeen: Date.now(),
       }
       
-      await chatService.updateSupportTeamStatus(demoUser.id.toString(), status)
-      setSupportTeamStatus(status)
+      await chatService.updateSupportTeamStatus(currentUser.id.toString(), status)
+      // Only update state if it's different to prevent infinite loops
+      setSupportTeamStatus(prev => {
+        if (JSON.stringify(prev) !== JSON.stringify(status)) {
+          return status
+        }
+        return prev
+      })
+
+      // Load existing active sessions for this support team member
+      try {
+        const existingActiveSessions = await chatService.getActiveChatSessions(currentUser.id.toString())
+        setActiveSessions(existingActiveSessions)
+        console.log('Loaded existing active sessions:', existingActiveSessions.length)
+      } catch (error) {
+        console.error('Error loading existing active sessions:', error)
+      }
     }
 
     initializeStatus()
@@ -98,16 +96,27 @@ export default function SupportPage() {
       setWaitingSessions(sessions)
     })
 
+    // Listen for active sessions that this support team member is handling
+    const unsubscribeActive = chatService.onActiveChatSessions(currentUser.id.toString(), (sessions) => {
+      setActiveSessions(sessions)
+    })
+
     // Listen for support team status
-    const unsubscribeStatus = chatService.onSupportTeamStatus(demoUser.id.toString(), (status) => {
-      setSupportTeamStatus(status)
+    const unsubscribeStatus = chatService.onSupportTeamStatus(currentUser.id.toString(), (status) => {
+      setSupportTeamStatus(prev => {
+        if (JSON.stringify(prev) !== JSON.stringify(status)) {
+          return status
+        }
+        return prev
+      })
     })
 
     return () => {
       unsubscribeWaiting()
+      unsubscribeActive()
       unsubscribeStatus()
     }
-  }, []) // Remove dependencies that cause infinite loops
+  }, [currentUser?.id, isOnline, isHydrated]) // Remove currentUser from dependencies, use currentUser?.id instead
 
   useEffect(() => {
     if (selectedSession) {
@@ -116,44 +125,25 @@ export default function SupportPage() {
       })
 
       return unsubscribe
+    } else {
+      // Clear messages when no session is selected
+      setMessages([])
     }
-  }, [selectedSession?.id]) // Use selectedSession.id instead of the entire object
+  }, [selectedSession?.id])
 
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    if (messagesEndRef.current && messages.length > 0 && selectedSession) {
+      // Use setTimeout to ensure DOM is updated
+      setTimeout(() => {
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+        }
+      }, 100)
     }
-  }, [messages.length]) // Use messages.length instead of the entire messages array
-
-  useEffect(() => {
-    // Update support team status when online status changes
-    const demoUser = currentUser || { id: 888 }
-    if (supportTeamStatus) {
-      chatService.updateSupportTeamStatus(demoUser.id.toString(), {
-        online: isOnline,
-        lastSeen: Date.now(),
-      })
-    }
-  }, [isOnline]) // Only depend on isOnline to prevent infinite loops
-
-  // Only allow SUPPORT_TEAM access - but wait for client-side hydration
-  if (isClient && effectiveRole !== 'SUPPORT_TEAM') {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground">You don&apos;t have permission to access this page.</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Please select &quot;SUPPORT_TEAM&quot; role in the demo page to access this feature.
-          </p>
-        </div>
-      </div>
-    )
-  }
+  }, [messages.length, selectedSession?.id])
 
   // Show loading state during hydration
-  if (!isClient) {
+  if (!isHydrated) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
@@ -164,18 +154,24 @@ export default function SupportPage() {
     )
   }
 
-  const handleAcceptChat = async (session: ChatSession) => {
-    // For demo purposes, create a mock user if none exists
-    const demoUser = currentUser || {
-      id: 888,
-      firstName: 'Demo',
-      lastName: 'Support',
-      fullName: 'Demo Support Team',
-      email: 'support@example.com',
-      role: { name: 'SUPPORT_TEAM' }
-    }
+  // Only allow SUPPORT_TEAM access
+  if (userRole !== 'SUPPORT_TEAM') {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground">You don&apos;t have permission to access this page.</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Only SUPPORT_TEAM members can access this feature.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
-    if (!supportTeamStatus) return
+  const handleAcceptChat = async (session: ChatSession) => {
+    if (!currentUser || !supportTeamStatus) return
 
     if (supportTeamStatus.activeChats >= supportTeamStatus.maxChats) {
       toast.error('You have reached the maximum number of active chats')
@@ -185,17 +181,23 @@ export default function SupportPage() {
     try {
       await chatService.assignSupportTeam(
         session.id,
-        demoUser.id.toString(),
-        demoUser.fullName || `${demoUser.firstName} ${demoUser.lastName}`
+        currentUser.id.toString(),
+        currentUser.fullName || `${currentUser.firstName} ${currentUser.lastName}`
       )
 
       // Update local state
-      setActiveSessions(prev => [...prev, session])
+      setActiveSessions(prev => {
+        // Check if session is already in active sessions
+        if (prev.find(s => s.id === session.id)) {
+          return prev
+        }
+        return [...prev, { ...session, status: 'active' }]
+      })
       setWaitingSessions(prev => prev.filter(s => s.id !== session.id))
-      setSelectedSession(session)
+      setSelectedSession({ ...session, status: 'active' })
 
       // Update support team status
-      await chatService.updateSupportTeamStatus(demoUser.id.toString(), {
+      await chatService.updateSupportTeamStatus(currentUser.id.toString(), {
         activeChats: supportTeamStatus.activeChats + 1,
       })
 
@@ -207,19 +209,20 @@ export default function SupportPage() {
   }
 
   const handleCloseChat = async (sessionId: string) => {
-    // For demo purposes, create a mock user if none exists
-    const demoUser = currentUser || {
-      id: 888,
-      firstName: 'Demo',
-      lastName: 'Support',
-      fullName: 'Demo Support Team',
-      email: 'support@example.com',
-      role: { name: 'SUPPORT_TEAM' }
-    }
-
-    if (!supportTeamStatus) return
+    if (!currentUser || !supportTeamStatus) return
 
     try {
+      // Send a system message to notify the customer that the chat has ended
+      await chatService.sendMessage(sessionId, {
+        senderId: 'system',
+        senderName: 'System',
+        senderRole: 'SYSTEM',
+        content: 'Chat session has ended. You can start a new support request if needed.',
+        type: 'text',
+        read: false,
+      })
+
+      // Close the chat session
       await chatService.closeChatSession(sessionId)
 
       // Update local state
@@ -230,7 +233,7 @@ export default function SupportPage() {
       }
 
       // Update support team status
-      await chatService.updateSupportTeamStatus(demoUser.id.toString(), {
+      await chatService.updateSupportTeamStatus(currentUser.id.toString(), {
         activeChats: Math.max(0, supportTeamStatus.activeChats - 1),
       })
 
@@ -242,17 +245,7 @@ export default function SupportPage() {
   }
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || !selectedSession) return
-
-    // For demo purposes, create a mock user if none exists
-    const demoUser = currentUser || {
-      id: 888,
-      firstName: 'Demo',
-      lastName: 'Support',
-      fullName: 'Demo Support Team',
-      email: 'support@example.com',
-      role: { name: 'SUPPORT_TEAM' }
-    }
+    if (!inputValue.trim() || !selectedSession || !currentUser) return
 
     const content = inputValue.trim()
     setInputValue('')
@@ -275,9 +268,9 @@ export default function SupportPage() {
       }
 
       await chatService.sendMessage(selectedSession.id, {
-        senderId: demoUser.id.toString(),
-        senderName: demoUser.fullName || `${demoUser.firstName} ${demoUser.lastName}`,
-        senderRole: demoUser.role?.name || 'SUPPORT_TEAM',
+        senderId: currentUser.id.toString(),
+        senderName: currentUser.fullName || `${currentUser.firstName} ${currentUser.lastName}`,
+        senderRole: currentUser.role?.name || 'SUPPORT_TEAM',
         content,
         type: messageType,
         read: false,
@@ -293,17 +286,7 @@ export default function SupportPage() {
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (!file || !selectedSession) return
-
-    // For demo purposes, create a mock user if none exists
-    const demoUser = currentUser || {
-      id: 888,
-      firstName: 'Demo',
-      lastName: 'Support',
-      fullName: 'Demo Support Team',
-      email: 'support@example.com',
-      role: { name: 'SUPPORT_TEAM' }
-    }
+    if (!file || !selectedSession || !currentUser) return
 
     if (file.size > 10 * 1024 * 1024) { // 10MB limit
       toast.error('File size too large. Maximum 10MB allowed.')
@@ -315,9 +298,9 @@ export default function SupportPage() {
       const imageUrl = await chatService.uploadImage(file, selectedSession.id)
       
       await chatService.sendMessage(selectedSession.id, {
-        senderId: demoUser.id.toString(),
-        senderName: demoUser.fullName || `${demoUser.firstName} ${demoUser.lastName}`,
-        senderRole: demoUser.role?.name || 'SUPPORT_TEAM',
+        senderId: currentUser.id.toString(),
+        senderName: currentUser.fullName || `${currentUser.firstName} ${currentUser.lastName}`,
+        senderRole: currentUser.role?.name || 'SUPPORT_TEAM',
         content: 'Image',
         type: 'image',
         read: false,
@@ -358,8 +341,33 @@ export default function SupportPage() {
   }
 
   const renderMessage = (message: ChatMessage) => {
-    const demoUser = currentUser || { id: 888 }
-    const isOwnMessage = message.senderId === demoUser.id.toString()
+    const isOwnMessage = message.senderId === currentUser?.id.toString()
+    const isSystemMessage = message.senderRole === 'SYSTEM'
+
+    // Handle system messages differently
+    if (isSystemMessage) {
+      return (
+        <motion.div
+          key={message.id}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex justify-center mb-4"
+        >
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 max-w-[80%]">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-4 rounded-full bg-blue-100 flex items-center justify-center">
+                <MessageCircle className="h-2 w-2 text-blue-600" />
+              </div>
+              <p className="text-xs text-blue-700 font-medium">{message.content}</p>
+            </div>
+            <p className="text-xs text-blue-500 text-center mt-1">
+              {formatTime(message.timestamp)}
+            </p>
+          </div>
+        </motion.div>
+      )
+    }
 
     return (
       <motion.div
@@ -606,8 +614,8 @@ export default function SupportPage() {
             </TabsList>
             
             <TabsContent value="active" className="flex-1 mt-4">
-              <ScrollArea className="h-full">
-                <div className="space-y-3">
+              <div className="h-full overflow-y-auto">
+                <div className="space-y-3 p-4">
                   {activeSessions.length === 0 ? (
                     <div className="text-center py-8">
                       <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -617,12 +625,12 @@ export default function SupportPage() {
                     activeSessions.map(session => renderSessionCard(session, true))
                   )}
                 </div>
-              </ScrollArea>
+              </div>
             </TabsContent>
             
             <TabsContent value="waiting" className="flex-1 mt-4">
-              <ScrollArea className="h-full">
-                <div className="space-y-3">
+              <div className="h-full overflow-y-auto">
+                <div className="space-y-3 p-4">
                   {waitingSessions.length === 0 ? (
                     <div className="text-center py-8">
                       <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -632,7 +640,7 @@ export default function SupportPage() {
                     waitingSessions.map(session => renderSessionCard(session))
                   )}
                 </div>
-              </ScrollArea>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
@@ -676,12 +684,12 @@ export default function SupportPage() {
 
               <CardContent className="flex-1 flex flex-col p-0">
                 {/* Messages Area */}
-                <ScrollArea className="flex-1 px-4 py-3">
+                <div className="flex-1 overflow-y-auto px-4 py-3">
                   <div className="space-y-2">
                     {messages.map(renderMessage)}
                     <div ref={messagesEndRef} />
                   </div>
-                </ScrollArea>
+                </div>
 
                 <Separator />
 

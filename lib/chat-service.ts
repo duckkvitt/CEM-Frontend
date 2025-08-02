@@ -1,17 +1,11 @@
-import {
-  ref,
-  push,
-  set,
-  get,
-  query,
-  orderByChild,
-  equalTo,
-  limitToLast,
-  onValue,
-  off,
-  update,
-  remove,
-  serverTimestamp,
+import { 
+  ref, 
+  get, 
+  set, 
+  push, 
+  update, 
+  onValue, 
+  off 
 } from 'firebase/database'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { database, storage } from './firebase'
@@ -56,49 +50,54 @@ export class ChatService {
 
   async getCustomerChatSession(customerId: string): Promise<ChatSession | null> {
     const sessionsRef = ref(database, 'chat_sessions')
-    const q = query(
-      sessionsRef,
-      orderByChild('customerId'),
-      equalTo(customerId),
-      limitToLast(1)
-    )
-    const snapshot = await get(q)
+    const snapshot = await get(sessionsRef)
     
     if (snapshot.exists()) {
-      const sessions = snapshot.val()
-      const sessionIds = Object.keys(sessions)
-      const latestSessionId = sessionIds[sessionIds.length - 1]
-      return sessions[latestSessionId]
+      const sessions = Object.values(snapshot.val()) as ChatSession[]
+      // Filter by customerId and get the most recent active session
+      const customerSessions = sessions
+        .filter(session => session.customerId === customerId && session.status !== 'closed')
+        .sort((a, b) => b.createdAt - a.createdAt) // Sort by creation time, newest first
+      
+      return customerSessions.length > 0 ? customerSessions[0] : null
     }
     return null
   }
 
   async getSupportTeamChatSessions(supportTeamId: string): Promise<ChatSession[]> {
     const sessionsRef = ref(database, 'chat_sessions')
-    const q = query(
-      sessionsRef,
-      orderByChild('supportTeamId'),
-      equalTo(supportTeamId)
-    )
-    const snapshot = await get(q)
+    const snapshot = await get(sessionsRef)
     
     if (snapshot.exists()) {
-      return Object.values(snapshot.val())
+      const sessions = Object.values(snapshot.val()) as ChatSession[]
+      // Filter by supportTeamId in JavaScript instead of using Firebase query
+      return sessions.filter(session => session.supportTeamId === supportTeamId)
+    }
+    return []
+  }
+
+  async getActiveChatSessions(supportTeamId: string): Promise<ChatSession[]> {
+    const sessionsRef = ref(database, 'chat_sessions')
+    const snapshot = await get(sessionsRef)
+    
+    if (snapshot.exists()) {
+      const sessions = Object.values(snapshot.val()) as ChatSession[]
+      // Filter by supportTeamId and active status in JavaScript
+      return sessions.filter(session => 
+        session.status === 'active' && session.supportTeamId === supportTeamId
+      )
     }
     return []
   }
 
   async getWaitingChatSessions(): Promise<ChatSession[]> {
     const sessionsRef = ref(database, 'chat_sessions')
-    const q = query(
-      sessionsRef,
-      orderByChild('status'),
-      equalTo('waiting')
-    )
-    const snapshot = await get(q)
+    const snapshot = await get(sessionsRef)
     
     if (snapshot.exists()) {
-      return Object.values(snapshot.val())
+      const sessions = Object.values(snapshot.val()) as ChatSession[]
+      // Filter by status in JavaScript instead of using Firebase query
+      return sessions.filter(session => session.status === 'waiting')
     }
     return []
   }
@@ -144,11 +143,13 @@ export class ChatService {
 
   async getMessages(sessionId: string, limit: number = 50): Promise<ChatMessage[]> {
     const messagesRef = ref(database, `chat_messages/${sessionId}`)
-    const q = query(messagesRef, orderByChild('timestamp'), limitToLast(limit))
-    const snapshot = await get(q)
+    const snapshot = await get(messagesRef)
     
     if (snapshot.exists()) {
-      return Object.values(snapshot.val()).sort((a: any, b: any) => a.timestamp - b.timestamp)
+      const messages = Object.values(snapshot.val()) as ChatMessage[]
+      // Sort by timestamp in JavaScript and limit results
+      const sortedMessages = messages.sort((a, b) => a.timestamp - b.timestamp)
+      return sortedMessages.slice(-limit)
     }
     return []
   }
@@ -169,14 +170,23 @@ export class ChatService {
   }
 
   async getOnlineSupportTeams(): Promise<SupportTeamStatus[]> {
-    const statusRef = ref(database, 'support_team_status')
-    const q = query(statusRef, orderByChild('online'), equalTo(true))
-    const snapshot = await get(q)
-    
-    if (snapshot.exists()) {
-      return Object.values(snapshot.val())
+    try {
+      const statusRef = ref(database, 'support_team_status')
+      const snapshot = await get(statusRef)
+      
+      if (snapshot.exists()) {
+        const teams = Object.values(snapshot.val()) as SupportTeamStatus[]
+        // Filter online teams in JavaScript instead of using Firebase query
+        const onlineTeams = teams.filter(team => team.online === true)
+        console.log('getOnlineSupportTeams - Found teams:', teams.length, 'Online teams:', onlineTeams.length)
+        return onlineTeams
+      }
+      console.log('getOnlineSupportTeams - No teams found in database')
+      return []
+    } catch (error) {
+      console.error('Error in getOnlineSupportTeams:', error)
+      return []
     }
-    return []
   }
 
   async getSupportTeamStatus(supportTeamId: string): Promise<SupportTeamStatus | null> {
@@ -187,24 +197,141 @@ export class ChatService {
 
   // File Upload
   async uploadImage(file: File, sessionId: string): Promise<string> {
-    const fileName = `${sessionId}/${Date.now()}_${file.name}`
-    const imageRef = storageRef(storage, `chat_images/${fileName}`)
+    const maxRetries = 3
+    let lastError: Error | null = null
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`uploadImage: Attempt ${attempt}/${maxRetries}`, {
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          sessionId
+        })
+
+        // Validate inputs
+        if (!file) {
+          throw new Error('No file provided')
+        }
+        if (!sessionId) {
+          throw new Error('No session ID provided')
+        }
+        if (!file.type.startsWith('image/')) {
+          throw new Error('File is not an image')
+        }
+
+        // Create file name with timestamp to avoid conflicts
+        const timestamp = Date.now()
+        const fileName = `${sessionId}/${timestamp}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+        console.log('uploadImage: Generated file name:', fileName)
+
+        // Create storage reference
+        const imageRef = storageRef(storage, `chat_images/${fileName}`)
+        console.log('uploadImage: Created storage reference')
+
+        // Upload file to Firebase Storage with timeout
+        console.log('uploadImage: Starting upload to Firebase Storage...')
+        const uploadPromise = uploadBytes(imageRef, file)
+        
+        // Add timeout to the upload operation
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Upload timeout')), 15000) // 15 second timeout
+        })
+
+        const uploadResult = await Promise.race([uploadPromise, timeoutPromise]) as any
+        console.log('uploadImage: Upload completed:', uploadResult)
+
+        // Get download URL with timeout
+        console.log('uploadImage: Getting download URL...')
+        const downloadPromise = getDownloadURL(imageRef)
+        const downloadTimeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Download URL timeout')), 10000) // 10 second timeout
+        })
+
+        const downloadURL = await Promise.race([downloadPromise, downloadTimeoutPromise]) as string
+        console.log('uploadImage: Download URL obtained:', downloadURL)
+
+        return downloadURL
+
+      } catch (error) {
+        console.error(`uploadImage: Attempt ${attempt} failed:`, error)
+        lastError = error as Error
+
+        // If this is the last attempt, throw the error
+        if (attempt === maxRetries) {
+          break
+        }
+
+        // Wait before retrying (exponential backoff)
+        const waitTime = Math.pow(2, attempt) * 1000 // 2s, 4s, 8s
+        console.log(`uploadImage: Waiting ${waitTime}ms before retry...`)
+        await new Promise(resolve => setTimeout(resolve, waitTime))
+      }
+    }
+
+    // All retries failed, try fallback to data URL
+    console.log('uploadImage: Firebase Storage failed, trying fallback to data URL...')
+    try {
+      const dataUrl = await this.convertFileToDataURL(file)
+      console.log('uploadImage: Successfully converted to data URL')
+      return dataUrl
+    } catch (fallbackError) {
+      console.error('uploadImage: Fallback also failed:', fallbackError)
+    }
+
+    // All methods failed, provide detailed error information
+    console.error('uploadImage: All upload methods failed')
     
-    await uploadBytes(imageRef, file)
-    const downloadURL = await getDownloadURL(imageRef)
-    
-    return downloadURL
+    if (lastError instanceof Error) {
+      if (lastError.message.includes('storage/unauthorized')) {
+        throw new Error('Storage access denied. Please check Firebase configuration.')
+      } else if (lastError.message.includes('storage/quota-exceeded')) {
+        throw new Error('Storage quota exceeded. Please try a smaller image.')
+      } else if (lastError.message.includes('storage/retry-limit-exceeded')) {
+        throw new Error('Network connectivity issue. Please check your internet connection and try again.')
+      } else if (lastError.message.includes('storage/invalid-format')) {
+        throw new Error('Invalid file format. Please select a valid image file.')
+      } else if (lastError.message.includes('Upload timeout') || lastError.message.includes('Download URL timeout')) {
+        throw new Error('Upload timed out. Please check your internet connection and try again.')
+      } else {
+        throw new Error(`Upload failed after ${maxRetries} attempts: ${lastError.message}`)
+      }
+    } else {
+      throw new Error('Unknown upload error occurred')
+    }
+  }
+
+  // Fallback method: Convert file to data URL
+  private async convertFileToDataURL(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result)
+        } else {
+          reject(new Error('Failed to convert file to data URL'))
+        }
+      }
+      
+      reader.onerror = () => {
+        reject(new Error('Failed to read file'))
+      }
+      
+      reader.readAsDataURL(file)
+    })
   }
 
   // Real-time Listeners
   onChatMessages(sessionId: string, callback: (messages: ChatMessage[]) => void): () => void {
     const messagesRef = ref(database, `chat_messages/${sessionId}`)
-    const q = query(messagesRef, orderByChild('timestamp'))
     
-    const listener = onValue(q, (snapshot) => {
+    const listener = onValue(messagesRef, (snapshot) => {
       if (snapshot.exists()) {
-        const messages = Object.values(snapshot.val()).sort((a: any, b: any) => a.timestamp - b.timestamp)
-        callback(messages)
+        const messages = Object.values(snapshot.val()) as ChatMessage[]
+        // Sort by timestamp in JavaScript instead of using Firebase query
+        const sortedMessages = messages.sort((a, b) => a.timestamp - b.timestamp)
+        callback(sortedMessages)
       } else {
         callback([])
       }
@@ -233,12 +360,13 @@ export class ChatService {
 
   onWaitingChatSessions(callback: (sessions: ChatSession[]) => void): () => void {
     const sessionsRef = ref(database, 'chat_sessions')
-    const q = query(sessionsRef, orderByChild('status'), equalTo('waiting'))
     
-    const listener = onValue(q, (snapshot) => {
+    const listener = onValue(sessionsRef, (snapshot) => {
       if (snapshot.exists()) {
-        const sessions = Object.values(snapshot.val())
-        callback(sessions)
+        const sessions = Object.values(snapshot.val()) as ChatSession[]
+        // Filter by status in JavaScript instead of using Firebase query
+        const waitingSessions = sessions.filter(session => session.status === 'waiting')
+        callback(waitingSessions)
       } else {
         callback([])
       }
@@ -248,6 +376,29 @@ export class ChatService {
     return () => {
       off(sessionsRef, 'value', listener)
       this.listeners.delete('waiting_sessions')
+    }
+  }
+
+  onActiveChatSessions(supportTeamId: string, callback: (sessions: ChatSession[]) => void): () => void {
+    const sessionsRef = ref(database, 'chat_sessions')
+    
+    const listener = onValue(sessionsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const sessions = Object.values(snapshot.val()) as ChatSession[]
+        // Filter by supportTeamId and active status in JavaScript
+        const activeSessions = sessions.filter(session => 
+          session.status === 'active' && session.supportTeamId === supportTeamId
+        )
+        callback(activeSessions)
+      } else {
+        callback([])
+      }
+    })
+
+    this.listeners.set(`active_sessions_${supportTeamId}`, () => off(sessionsRef, 'value', listener))
+    return () => {
+      off(sessionsRef, 'value', listener)
+      this.listeners.delete(`active_sessions_${supportTeamId}`)
     }
   }
 
