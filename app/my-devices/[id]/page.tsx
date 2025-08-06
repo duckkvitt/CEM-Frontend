@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator'
 import { getCustomerDeviceById, CustomerDevice } from '@/lib/device-service'
 import { getCurrentUserRole } from '@/lib/auth'
 import { motion } from 'framer-motion'
+import { ServiceRequestModal } from './components/service-request-modal'
 import { 
   ArrowLeft, 
   Package, 
@@ -21,7 +22,9 @@ import {
   DollarSign,
   Hash,
   Info,
-  Shield
+  Shield,
+  Wrench,
+  FileText
 } from 'lucide-react'
 
 const STATUS_COLORS = {
@@ -45,6 +48,7 @@ export default function DeviceDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [role, setRole] = useState<string | null>(null)
+  const [isServiceRequestModalOpen, setIsServiceRequestModalOpen] = useState(false)
   const router = useRouter()
   const params = useParams()
   const deviceId = params.id as string
@@ -376,8 +380,21 @@ export default function DeviceDetailPage() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button className="w-full" variant="outline">
+              <Button 
+                className="w-full" 
+                variant="outline"
+                onClick={() => setIsServiceRequestModalOpen(true)}
+              >
+                <Wrench className="h-4 w-4 mr-2" />
                 Request Support
+              </Button>
+              <Button 
+                className="w-full" 
+                variant="outline"
+                onClick={() => router.push('/service-requests')}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                View Service Requests
               </Button>
               <Button className="w-full" variant="outline">
                 View Documentation
@@ -430,6 +447,19 @@ export default function DeviceDetailPage() {
           </Card>
         </motion.div>
       </div>
+
+      {/* Service Request Modal */}
+      {device && (
+        <ServiceRequestModal
+          isOpen={isServiceRequestModalOpen}
+          onClose={() => setIsServiceRequestModalOpen(false)}
+          device={device}
+          onSuccess={() => {
+            // Optionally refresh device data or show success message
+            console.log('Service request submitted successfully')
+          }}
+        />
+      )}
     </div>
   )
 } 

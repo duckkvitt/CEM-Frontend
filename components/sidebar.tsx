@@ -79,6 +79,12 @@ export default function Sidebar() {
       icon: <Package size={20} />,
       roles: ['CUSTOMER'],
     },
+    {
+      name: 'Service Requests',
+      href: '/service-requests',
+      icon: <Wrench size={20} />,
+      roles: ['CUSTOMER'],
+    },
     { name: 'Maintenance', href: '/maintenance', icon: <Wrench size={20} /> },
     {
       name: 'Notifications',
