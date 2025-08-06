@@ -50,32 +50,54 @@ export default function DeviceDetailPage () {
   const [noteText, setNoteText] = useState('')
   const [error, setError] = useState<string | null>(null)
 
+  // Note: Customers can now access device details through the /info endpoint
+
+  // Allow staff, managers, and customers to access this page
+  useEffect(() => {
+    if (role && !['STAFF', 'MANAGER', 'SUPPORT_TEAM', 'TECH_LEAD', 'TECHNICIAN', 'CUSTOMER'].includes(role)) {
+      router.replace('/dashboard')
+    }
+  }, [role, router])
+
   const fetchDetails = async () => {
     if (!deviceId) return
     setLoading(true)
     try {
+      // Use different endpoints based on user role
+      const deviceEndpoint = role === 'CUSTOMER' 
+        ? `${DEVICE_SERVICE_URL}/devices/${deviceId}/info`
+        : `${DEVICE_SERVICE_URL}/devices/${deviceId}`
+      
       const [deviceRes, notesRes] = await Promise.all([
-        fetch(`${DEVICE_SERVICE_URL}/devices/${deviceId}`, {
+        fetch(deviceEndpoint, {
           headers: { Authorization: `Bearer ${getAccessToken()}` },
           cache: 'no-store'
         }),
-        fetch(`${DEVICE_SERVICE_URL}/devices/${deviceId}/notes`, {
-          headers: { Authorization: `Bearer ${getAccessToken()}` },
-          cache: 'no-store'
-        })
+        // Only fetch notes for non-customer users
+        ...(role !== 'CUSTOMER' ? [
+          fetch(`${DEVICE_SERVICE_URL}/devices/${deviceId}/notes`, {
+            headers: { Authorization: `Bearer ${getAccessToken()}` },
+            cache: 'no-store'
+          })
+        ] : [])
       ])
+      
       const deviceJson: ApiResponse<Device> = await deviceRes.json()
-      const notesJson: ApiResponse<DeviceNote[] | unknown> = await notesRes.json()
       if (!deviceJson.success) throw new Error(deviceJson.message || 'Failed to fetch device')
-      if (!notesJson.success) throw new Error(notesJson.message || 'Failed to fetch notes')
       setDevice(deviceJson.data)
-      if (Array.isArray(notesJson.data)) {
-        setNotes(notesJson.data as DeviceNote[])
-      } else {
-        // handle paginated maybe
-        // note data could be Page type; for now handle both
-        // @ts-ignore
-        if (notesJson.data?.content) setNotes(notesJson.data.content)
+      
+      // Only process notes for non-customer users
+      if (role !== 'CUSTOMER' && notesRes) {
+        const notesJson: ApiResponse<DeviceNote[] | unknown> = await notesRes.json()
+        if (!notesJson.success) throw new Error(notesJson.message || 'Failed to fetch notes')
+        if (Array.isArray(notesJson.data)) {
+          setNotes(notesJson.data as DeviceNote[])
+        } else {
+          // handle paginated maybe
+          // note data could be Page type; for now handle both
+          // @ts-ignore
+          if (notesJson.data?.content) setNotes(notesJson.data.content)
+        }
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Unexpected error')
@@ -85,9 +107,11 @@ export default function DeviceDetailPage () {
   }
 
   useEffect(() => {
-    fetchDetails()
+    if (role && ['STAFF', 'MANAGER', 'SUPPORT_TEAM', 'TECH_LEAD', 'TECHNICIAN', 'CUSTOMER'].includes(role)) {
+      fetchDetails()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deviceId])
+  }, [deviceId, role])
 
   const addNote = async () => {
     if (!noteText.trim()) return
