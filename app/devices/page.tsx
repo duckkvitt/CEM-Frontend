@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { DEVICE_SERVICE_URL, CUSTOMER_SERVICE_URL } from '@/lib/api'
+import { DEVICE_SERVICE_URL } from '@/lib/api'
 import { getAccessToken, getCurrentUserRole } from '@/lib/auth'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
@@ -14,9 +14,8 @@ interface Device {
   name: string
   model?: string
   serialNumber?: string
-  // customerId không còn cần thiết ở đây vì đây là trang quản lý kho
+  // customerId không còn cần thiết ở đây vì đây là trang quản lý thiết bị
   warrantyExpiry?: string
-  quantity?: number
   price?: number
   unit?: string
   status: string
@@ -48,7 +47,7 @@ export default function DeviceManagementPage () {
   // Xóa state của customer
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(0)
-  const [size, setSize] = useState(20)
+  const [size] = useState(20)
   const [totalPages, setTotalPages] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -75,8 +74,7 @@ export default function DeviceManagementPage () {
       if (search) {
         params.append('keyword', search)
       }
-      // Thêm param để chỉ lấy device trong kho
-      params.append('inStock', 'true')
+      // Removed inStock filter to show all devices in database
       if (status) params.append('status', status)
       params.append('page', page.toString())
       params.append('size', size.toString())
@@ -128,7 +126,7 @@ export default function DeviceManagementPage () {
   return (
     <div>
       <div className='flex items-center justify-between mb-4'>
-        <h1 className='text-2xl font-semibold'>Device Inventory Management</h1>
+        <h1 className='text-2xl font-semibold'>Device Management</h1>
         {role === 'STAFF' && (
           <Link href='/devices/create'>
             <Button>Add New Device</Button>
@@ -166,7 +164,6 @@ export default function DeviceManagementPage () {
               <th className='px-4 py-2 text-left'>Name</th>
               <th className='px-4 py-2 text-left'>Model</th>
               <th className='px-4 py-2 text-left'>Serial #</th>
-              <th className='px-4 py-2 text-left'>Qty</th>
               <th className='px-4 py-2 text-left'>Price</th>
               <th className='px-4 py-2 text-left'>Unit</th>
               <th className='px-4 py-2 text-left'>Status</th>
@@ -175,16 +172,15 @@ export default function DeviceManagementPage () {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className='px-4 py-6 text-center'>Loading...</td></tr>
+              <tr><td colSpan={7} className='px-4 py-6 text-center'>Loading...</td></tr>
             ) : devices.length === 0 ? (
-              <tr><td colSpan={8} className='px-4 py-6 text-center'>No devices found</td></tr>
+              <tr><td colSpan={7} className='px-4 py-6 text-center'>No devices found</td></tr>
             ) : devices.map(d => (
               <tr key={d.id} className='border-t'>
                 <td className='px-4 py-2'>{d.id}</td>
                 <td className='px-4 py-2'>{d.name}</td>
                 <td className='px-4 py-2'>{d.model || '-'}</td>
                 <td className='px-4 py-2'>{d.serialNumber || '-'}</td>
-                <td className='px-4 py-2'>{d.quantity ?? '-'}</td>
                 <td className='px-4 py-2'>{d.price ? `${d.price.toLocaleString()} VND` : '-'}</td>
                 <td className='px-4 py-2'>{d.unit || '-'}</td>
                 <td className='px-4 py-2'>{d.status}</td>
