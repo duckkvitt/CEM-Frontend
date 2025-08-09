@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   MessageCircle,
   Package,
+  Store,
 } from 'lucide-react'
 
 interface NavItem {
@@ -66,6 +67,12 @@ export default function Sidebar() {
       href: '/spare-parts',
       icon: <Wrench size={20} />,
       roles: ['MANAGER', 'STAFF'],
+    },
+    {
+      name: 'Supplier Management',
+      href: '/suppliers',
+      icon: <Store size={20} />,
+      roles: ['MANAGER'],
     },
     {
       name: 'Contract Management',

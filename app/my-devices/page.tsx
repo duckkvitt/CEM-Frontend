@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,16 +13,20 @@ import { DEVICE_SERVICE_URL } from '@/lib/api'
 import { getAccessToken, getCurrentUserRole } from '@/lib/auth'
 import { motion } from 'framer-motion'
 import { Search, Filter, Package, AlertTriangle, CheckCircle, Clock, Settings, Shield } from 'lucide-react'
+import { getContractsForCurrentUser, type ContractResponse } from '@/lib/contract-service'
+import { useCallback } from 'react'
 
 interface CustomerDevice {
   id: number
   customerId: number
+  contractId?: number
   deviceId: number
   deviceName: string
   deviceModel?: string
   serialNumber?: string
   devicePrice?: number
   deviceUnit?: string
+  customerDeviceCode?: string
   warrantyEnd?: string
   status: string
   warrantyExpired: boolean
@@ -86,12 +90,14 @@ export default function MyDevicesPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('ALL')
   const [warrantyExpired, setWarrantyExpired] = useState<boolean | null>(null)
+  const [contractId, setContractId] = useState<string>('ALL')
   const [page, setPage] = useState(0)
-  const [size, setSize] = useState(12)
+  const [size] = useState(12)
   const [totalPages, setTotalPages] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [role, setRole] = useState<string | null>(null)
+  const [contracts, setContracts] = useState<ContractResponse[]>([])
   const router = useRouter()
 
   useEffect(() => {
@@ -104,7 +110,7 @@ export default function MyDevicesPage() {
     }
   }, [role, router])
 
-  const fetchDevices = async () => {
+  const fetchDevices = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -112,6 +118,7 @@ export default function MyDevicesPage() {
       if (search) params.append('keyword', search)
       if (status && status !== 'ALL') params.append('status', status)
       if (warrantyExpired !== null) params.append('warrantyExpired', warrantyExpired.toString())
+      if (contractId && contractId !== 'ALL') params.append('contractId', contractId)
       params.append('page', page.toString())
       params.append('size', size.toString())
       
@@ -136,7 +143,7 @@ export default function MyDevicesPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [search, status, warrantyExpired, contractId, page, size])
 
   const fetchStatistics = async () => {
     try {
@@ -160,9 +167,11 @@ export default function MyDevicesPage() {
   useEffect(() => {
     if (role === 'CUSTOMER') {
       fetchDevices()
+      // load contracts for filter options
+      getContractsForCurrentUser().then(setContracts).catch(() => {})
       fetchStatistics()
     }
-  }, [page, size, role])
+  }, [page, size, role, fetchDevices])
 
   const handleFilter = (e: React.FormEvent) => {
     e.preventDefault()
@@ -220,6 +229,33 @@ export default function MyDevicesPage() {
       }
     }
   }
+
+  // Group devices by contract to render a big contract card containing small device cards
+  const groupedByContract = useMemo(() => {
+    const map = new Map<string, CustomerDevice[]>()
+    devices.forEach(d => {
+      const key = d.contractId !== undefined ? String(d.contractId) : 'NO_CONTRACT'
+      const list = map.get(key) ?? []
+      list.push(d)
+      map.set(key, list)
+    })
+
+    const groups = Array.from(map.entries()).map(([key, list]) => {
+      const id = key === 'NO_CONTRACT' ? undefined : Number(key)
+      const contract = id ? contracts.find(c => c.id === id) : undefined
+      return { key, contractId: id, contract, devices: list }
+    })
+
+    // Sort: contracts with id first (ascending), then unassigned
+    groups.sort((a, b) => {
+      if (a.contractId === undefined && b.contractId !== undefined) return 1
+      if (a.contractId !== undefined && b.contractId === undefined) return -1
+      if (a.contractId === undefined && b.contractId === undefined) return 0
+      return (a.contractId ?? 0) - (b.contractId ?? 0)
+    })
+
+    return groups
+  }, [devices, contracts])
 
   if (role && role !== 'CUSTOMER') {
     return null
@@ -323,7 +359,7 @@ export default function MyDevicesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleFilter} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <form onSubmit={handleFilter} className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
                 <Label htmlFor="search">Search</Label>
                 <div className="relative">
@@ -371,6 +407,26 @@ export default function MyDevicesPage() {
                 </Select>
               </div>
 
+              <div>
+                <Label htmlFor="contract">Contract</Label>
+                <Select 
+                  value={contractId}
+                  onValueChange={(value) => setContractId(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Contracts" />
+                  </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Contracts</SelectItem>
+                      {contracts.map(c => (
+                        <SelectItem key={c.id} value={String(c.id)}>
+                          #{c.id} — {c.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex items-end gap-2">
                 <Button type="submit" className="flex-1">
                   Apply Filters
@@ -395,96 +451,133 @@ export default function MyDevicesPage() {
         </motion.div>
       )}
 
-      {/* Devices Grid */}
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-      >
-        {loading ? (
-          // Loading skeletons
-          Array.from({ length: 6 }).map((_, index) => (
-            <Card key={index} className="overflow-hidden">
+      {/* Contract Groups -> each big card contains small device cards */}
+      {loading ? (
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-1 gap-6"
+        >
+          {Array.from({ length: 3 }).map((_, idx) => (
+            <Card key={idx} className="overflow-hidden">
               <CardHeader>
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-6 w-1/3" />
+                <Skeleton className="h-4 w-1/5" />
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-4 w-1/2" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Array.from({ length: 3 }).map((__, i) => (
+                    <Card key={i} className="p-4">
+                      <Skeleton className="h-5 w-2/3 mb-2" />
+                      <Skeleton className="h-4 w-1/2 mb-2" />
+                      <Skeleton className="h-4 w-1/3" />
+                    </Card>
+                  ))}
                 </div>
               </CardContent>
             </Card>
-          ))
-        ) : devices.length === 0 ? (
-          <div className="col-span-full text-center py-12">
-            <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No devices found</h3>
-            <p className="text-gray-500">You haven't purchased any devices yet.</p>
-          </div>
-        ) : (
-          devices.map(device => {
-            const StatusIcon = STATUS_ICONS[device.status as keyof typeof STATUS_ICONS] || CheckCircle
-            const warrantyStatus = getWarrantyStatus(device)
-            const WarrantyIcon = warrantyStatus.icon
-
-                         return (
-               <motion.div key={device.id} variants={itemVariants}>
-                 <Card className="h-full hover:shadow-lg transition-shadow duration-200 cursor-pointer" onClick={() => router.push(`/my-devices/${device.id}`)}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg mb-2">{device.deviceName}</CardTitle>
-                        <CardDescription>
-                          {device.deviceModel && `${device.deviceModel}`}
-                          {device.serialNumber && ` • SN: ${device.serialNumber}`}
-                        </CardDescription>
-                      </div>
-                      <Badge className={STATUS_COLORS[device.status as keyof typeof STATUS_COLORS] || 'bg-gray-100 text-gray-800'}>
-                        <StatusIcon className="h-3 w-3 mr-1" />
-                        {device.status}
-                      </Badge>
+          ))}
+        </motion.div>
+      ) : devices.length === 0 ? (
+        <div className="text-center py-12">
+          <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No devices found</h3>
+          <p className="text-gray-500">You haven't purchased any devices yet.</p>
+        </div>
+      ) : (
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-1 gap-6"
+        >
+          {groupedByContract.map(group => (
+            <motion.div key={group.key} variants={itemVariants}>
+              <Card className="hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <CardTitle className="text-xl">
+                        {group.contractId !== undefined
+                          ? `Contract #${group.contractId}`
+                          : 'Unassigned Devices'}
+                      </CardTitle>
+                      <CardDescription>
+                        {group.contract
+                          ? `${group.contract.title} • ${group.contract.contractNumber}`
+                          : 'Devices not linked to any contract'}
+                      </CardDescription>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Price:</span>
-                        <span className="font-medium">{formatPrice(device.devicePrice)}</span>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Warranty:</span>
-                        <div className="flex items-center gap-1">
-                          <WarrantyIcon className={`h-4 w-4 ${warrantyStatus.color}`} />
-                          <span className={`text-sm ${warrantyStatus.color}`}>
-                            {warrantyStatus.text}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      {device.warrantyEnd && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Warranty Until:</span>
-                          <span className="text-sm">{formatDate(device.warrantyEnd)}</span>
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Purchased:</span>
-                        <span className="text-sm">{formatDate(device.createdAt)}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )
-          })
-        )}
-      </motion.div>
+                    <Badge variant="secondary">{group.devices.length} devices</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {group.devices.map(device => {
+                      const StatusIcon = STATUS_ICONS[device.status as keyof typeof STATUS_ICONS] || CheckCircle
+                      const warrantyStatus = getWarrantyStatus(device)
+                      const WarrantyIcon = warrantyStatus.icon
+                      return (
+                        <motion.div key={device.id} variants={itemVariants}>
+                          <Card
+                            className="h-full hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+                            onClick={() => router.push(`/my-devices/${device.id}`)}
+                          >
+                            <CardHeader>
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <CardTitle className="text-lg mb-1">{device.deviceName}</CardTitle>
+                                  {device.customerDeviceCode && (
+                                    <div className="text-xs text-gray-500 font-mono">Code: {device.customerDeviceCode}</div>
+                                  )}
+                                  <CardDescription>
+                                    {device.deviceModel && `${device.deviceModel}`}
+                                    {device.serialNumber && ` • SN: ${device.serialNumber}`}
+                                  </CardDescription>
+                                </div>
+                                <Badge className={STATUS_COLORS[device.status as keyof typeof STATUS_COLORS] || 'bg-gray-100 text-gray-800'}>
+                                  <StatusIcon className="h-3 w-3 mr-1" />
+                                  {device.status}
+                                </Badge>
+                              </div>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm text-gray-600">Price:</span>
+                                  <span className="font-medium">{formatPrice(device.devicePrice)}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm text-gray-600">Warranty:</span>
+                                  <div className="flex items-center gap-1">
+                                    <WarrantyIcon className={`h-4 w-4 ${warrantyStatus.color}`} />
+                                    <span className={`text-sm ${warrantyStatus.color}`}>{warrantyStatus.text}</span>
+                                  </div>
+                                </div>
+                                {device.warrantyEnd && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-600">Warranty Until:</span>
+                                    <span className="text-sm">{formatDate(device.warrantyEnd)}</span>
+                                  </div>
+                                )}
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm text-gray-600">Purchased:</span>
+                                  <span className="text-sm">{formatDate(device.createdAt)}</span>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (

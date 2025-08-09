@@ -101,7 +101,8 @@ export default function EditContractPage({ params }: Props) {
           ? Number(value) 
           : updatedDetails[index].unitPrice
           
-        updatedDetails[index].totalPrice = quantity * unitPrice
+        // totalPrice is derived; use a temporary property in state via type assertion
+        ;(updatedDetails[index] as any).totalPrice = quantity * unitPrice
       }
       
       return { ...prev, contractDetails: updatedDetails }
@@ -111,7 +112,7 @@ export default function EditContractPage({ params }: Props) {
   // Calculate total contract value from detail items
   function calculateTotalValue(): number {
     return formData.contractDetails?.reduce(
-      (sum, detail) => sum + (detail.totalPrice || detail.quantity * detail.unitPrice), 
+      (sum, detail) => sum + (((detail as any).totalPrice) || detail.quantity * detail.unitPrice), 
       0
     ) || 0
   }
@@ -379,16 +380,7 @@ export default function EditContractPage({ params }: Props) {
                     />
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Service Name</label>
-                    <input
-                      type="text"
-                      value={detail.serviceName}
-                      onChange={(e) => handleDetailChange(index, 'serviceName', e.target.value)}
-                      className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary"
-                      required
-                    />
-                  </div>
+                  {/* Optional display name not in backend type; use workCode/description instead */}
                   
                   <div className="col-span-1 md:col-span-2">
                     <label className="block text-sm font-medium mb-1">Description</label>

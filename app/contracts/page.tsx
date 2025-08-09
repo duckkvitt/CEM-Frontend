@@ -295,6 +295,7 @@ export default function ContractsPage() {
         customersLoading={customersLoading}
         onSearch={handleSearch}
         onClearFilters={clearFilters}
+        userRole={userRole}
       />
 
       {/* Error message */}

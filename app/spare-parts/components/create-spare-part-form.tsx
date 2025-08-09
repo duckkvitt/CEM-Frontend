@@ -37,9 +37,7 @@ export function CreateSparePartForm() {
         partCode: payload.partCode as string,
         description: payload.description as string,
         compatibleDevices: payload.compatibleDevices as string,
-        quantityInStock: Number(payload.quantityInStock ?? 0),
         unitOfMeasurement: payload.unitOfMeasurement as string,
-        supplier: payload.supplier as string,
       });
 
       router.push('/spare-parts');
@@ -65,11 +63,6 @@ export function CreateSparePartForm() {
           {errors?.partCode && <p className="text-sm text-red-500">{errors.partCode.join(', ')}</p>}
         </div>
         <div>
-          <Label htmlFor="quantityInStock">Quantity in Stock</Label>
-          <Input id="quantityInStock" name="quantityInStock" type="number" defaultValue="0" />
-           {errors?.quantityInStock && <p className="text-sm text-red-500">{errors.quantityInStock.join(', ')}</p>}
-        </div>
-        <div>
           <Label htmlFor="unitOfMeasurement">Unit of Measurement</Label>
           <Input id="unitOfMeasurement" name="unitOfMeasurement" placeholder="e.g., piece, set" />
            {errors?.unitOfMeasurement && <p className="text-sm text-red-500">{errors.unitOfMeasurement.join(', ')}</p>}
@@ -78,11 +71,6 @@ export function CreateSparePartForm() {
             <Label htmlFor="compatibleDevices">Compatible Devices</Label>
             <Input id="compatibleDevices" name="compatibleDevices" placeholder="e.g., Model X, Model Y" />
             {errors?.compatibleDevices && <p className="text-sm text-red-500">{errors.compatibleDevices.join(', ')}</p>}
-        </div>
-        <div>
-            <Label htmlFor="supplier">Supplier (optional)</Label>
-            <Input id="supplier" name="supplier" />
-            {errors?.supplier && <p className="text-sm text-red-500">{errors.supplier.join(', ')}</p>}
         </div>
       </div>
        <div>

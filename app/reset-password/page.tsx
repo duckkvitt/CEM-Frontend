@@ -1,4 +1,5 @@
 'use client'
+import { Suspense } from 'react'
 
 import { useState, FormEvent, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -9,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { AUTH_SERVICE_URL } from '@/lib/api'
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
@@ -114,4 +115,12 @@ export default function ResetPasswordPage() {
       </Card>
     </div>
   )
-} 
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense>
+      <ResetPasswordContent />
+    </Suspense>
+  )
+}

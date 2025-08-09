@@ -6,9 +6,7 @@ export interface SparePart {
   partCode: string;
   description: string;
   compatibleDevices: string;
-  quantityInStock: number;
   unitOfMeasurement: string;
-  supplier: string;
   status: SparePartStatus;
   createdAt: string; // Assuming ISO string format
   updatedAt: string; // Assuming ISO string format

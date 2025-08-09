@@ -367,7 +367,9 @@ export async function submitSignature(contractId: number, signatureData: Signatu
 
 // Get all contracts for the current user (could be any role)
 export async function getContractsForCurrentUser(): Promise<ContractResponse[]> {
-  return authenticatedFetch<ContractResponse[]>(`${CONTRACT_SERVICE_URL}/`);
+  // Use paginated endpoint and return content list for current user
+  const result = await getContractsWithFilters(0, 100)
+  return result.content
 }
 
 // Get contracts with pagination and filtering

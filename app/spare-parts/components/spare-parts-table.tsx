@@ -32,13 +32,13 @@ export function SparePartsTable() {
   useEffect(() => {
     startTransition(async () => {
       try {
-        const result = await getAllSpareParts(page, size, sortBy, sortDir); // Note: backend doesn't support keyword search yet
+        const result = await getAllSpareParts(page, size, sortBy, sortDir, keyword || undefined);
         setData(result);
       } catch (err: any) {
         setError(err.message);
       }
     });
-  }, [page, size, sortBy, sortDir]);
+  }, [page, size, sortBy, sortDir, keyword]);
   
   const handleSort = (newSortBy: string) => {
     const newSortDir = sortBy === newSortBy && sortDir === 'asc' ? 'desc' : 'asc';
@@ -100,29 +100,25 @@ export function SparePartsTable() {
                 <TableRow>
                 <TableHead onClick={() => handleSort('partName')}>Part Name</TableHead>
                 <TableHead onClick={() => handleSort('partCode')}>Part Code</TableHead>
-                <TableHead onClick={() => handleSort('quantityInStock')}>Quantity</TableHead>
                 <TableHead>Unit</TableHead>
                 <TableHead onClick={() => handleSort('status')}>Status</TableHead>
-                <TableHead onClick={() => handleSort('supplier')}>Supplier</TableHead>
                 <TableHead>Actions</TableHead>
                 </TableRow>
             </TableHeader>
             <motion.tbody variants={containerVariants} initial="hidden" animate="visible">
                 {isPending ? (
-                    <TableRow><TableCell colSpan={7}>Loading...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5}>Loading...</TableCell></TableRow>
                 ) : (
                 data?.content.map((part) => (
                     <motion.tr key={part.id} variants={itemVariants} className="hover:bg-muted/50">
                     <TableCell>{part.partName}</TableCell>
                     <TableCell>{part.partCode}</TableCell>
-                    <TableCell>{part.quantityInStock}</TableCell>
                     <TableCell>{part.unitOfMeasurement}</TableCell>
                     <TableCell>
                         <Badge variant={part.status === 'ACTIVE' ? 'default' : 'destructive'}>
                         {part.status}
                         </Badge>
                     </TableCell>
-                    <TableCell>{part.supplier}</TableCell>
                     <TableCell>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>

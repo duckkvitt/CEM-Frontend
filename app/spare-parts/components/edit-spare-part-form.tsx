@@ -37,9 +37,7 @@ export function EditSparePartForm({ part }: { part: SparePart }) {
         partName: payload.partName as string,
         description: payload.description as string,
         compatibleDevices: payload.compatibleDevices as string,
-        quantityInStock: Number(payload.quantityInStock ?? 0),
         unitOfMeasurement: payload.unitOfMeasurement as string,
-        supplier: payload.supplier as string,
         status: payload.status as 'ACTIVE' | 'INACTIVE',
       });
 
@@ -61,11 +59,6 @@ export function EditSparePartForm({ part }: { part: SparePart }) {
           {errors?.partName && <p className="text-sm text-red-500">{errors.partName.join(', ')}</p>}
         </div>
         <div>
-          <Label htmlFor="quantityInStock">Quantity in Stock</Label>
-          <Input id="quantityInStock" name="quantityInStock" type="number" defaultValue={part.quantityInStock} />
-           {errors?.quantityInStock && <p className="text-sm text-red-500">{errors.quantityInStock.join(', ')}</p>}
-        </div>
-        <div>
           <Label htmlFor="unitOfMeasurement">Unit of Measurement</Label>
           <Input id="unitOfMeasurement" name="unitOfMeasurement" defaultValue={part.unitOfMeasurement} />
            {errors?.unitOfMeasurement && <p className="text-sm text-red-500">{errors.unitOfMeasurement.join(', ')}</p>}
@@ -74,11 +67,6 @@ export function EditSparePartForm({ part }: { part: SparePart }) {
             <Label htmlFor="compatibleDevices">Compatible Devices</Label>
             <Input id="compatibleDevices" name="compatibleDevices" defaultValue={part.compatibleDevices} />
             {errors?.compatibleDevices && <p className="text-sm text-red-500">{errors.compatibleDevices.join(', ')}</p>}
-        </div>
-        <div>
-            <Label htmlFor="supplier">Supplier (optional)</Label>
-            <Input id="supplier" name="supplier" defaultValue={part.supplier} />
-            {errors?.supplier && <p className="text-sm text-red-500">{errors.supplier.join(', ')}</p>}
         </div>
          <div>
           <Label htmlFor="status">Status</Label>

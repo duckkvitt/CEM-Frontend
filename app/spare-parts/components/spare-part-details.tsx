@@ -4,20 +4,7 @@ import { useEffect, useState } from 'react';
 import { getSparePartById } from '@/lib/spare-parts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
-interface SparePart {
-  id: number;
-  partName: string;
-  partCode: string;
-  description?: string;
-  compatibleDevices?: string;
-  quantityInStock: number;
-  unitOfMeasurement: string;
-  supplier?: string;
-  status: 'ACTIVE' | 'INACTIVE';
-  createdAt: string;
-  updatedAt: string;
-}
+import { SparePart } from '@/types/spare-part';
 
 export function SparePartDetails({ id }: { id: number }) {
   const [part, setPart] = useState<SparePart | null>(null);
@@ -27,7 +14,7 @@ export function SparePartDetails({ id }: { id: number }) {
     (async () => {
       try {
         const data = await getSparePartById(id);
-        setPart(data as unknown as SparePart);
+        setPart(data);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Unexpected error');
       }
@@ -54,12 +41,9 @@ export function SparePartDetails({ id }: { id: number }) {
             </Badge>
           </div>
           <div>
-            <strong>Quantity:</strong> {part.quantityInStock} {part.unitOfMeasurement}
+            <strong>Unit of Measurement:</strong> {part.unitOfMeasurement}
           </div>
           <div>
-            <strong>Supplier:</strong> {part.supplier || 'N/A'}
-          </div>
-          <div className="col-span-2">
             <strong>Compatible Devices:</strong> {part.compatibleDevices || 'N/A'}
           </div>
         </div>

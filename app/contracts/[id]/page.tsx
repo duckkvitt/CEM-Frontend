@@ -107,7 +107,7 @@ export default function ContractDetailPage({ params }: Props) {
         URL.revokeObjectURL(blobUrl);
       }
     };
-  }, [contract, contract?.digitalSigned, contract?.signedAt]); // Re-fetch when signature status changes
+  }, [contract]);
 
 
   // Handle hide contract
@@ -351,7 +351,7 @@ export default function ContractDetailPage({ params }: Props) {
 
           {contract.filePath && (
             <button
-              onClick={() => handleDownloadFile(contract.filePath)}
+              onClick={() => contract.filePath && handleDownloadFile(contract.filePath)}
               className="flex items-center gap-1 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
               <Download size={16} />

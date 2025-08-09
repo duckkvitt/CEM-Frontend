@@ -4,6 +4,7 @@ import Sidebar from '@/components/sidebar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AUTH_SERVICE_URL } from '@/lib/api'
 import { getAccessToken } from '@/lib/auth'
 import Link from 'next/link'
@@ -109,6 +110,42 @@ export default function UserManagementPage () {
     }
   }
 
+  const activateUser = async (id: number) => {
+    if (!confirm('Are you sure you want to activate this user?')) return
+    try {
+      const res = await fetch(`${AUTH_SERVICE_URL}/v1/auth/admin/users/${id}/activate`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${getAccessToken()}` }
+      })
+      const json: ApiResponse<User> = await res.json()
+      if (!json.success) throw new Error(json.message || 'Failed')
+      // refresh list
+      fetchUsers()
+    } catch (e) {
+      alert((e as Error).message)
+    }
+  }
+
+  const updateUserRole = async (userId: number, roleId: number) => {
+    if (!confirm('Are you sure you want to change this user\'s role?')) return
+    try {
+      const res = await fetch(`${AUTH_SERVICE_URL}/v1/auth/admin/users/${userId}/role`, {
+        method: 'PUT',
+        headers: { 
+          Authorization: `Bearer ${getAccessToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ roleId })
+      })
+      const json: ApiResponse<User> = await res.json()
+      if (!json.success) throw new Error(json.message || 'Failed to update user role')
+      // refresh list
+      fetchUsers()
+    } catch (e) {
+      alert((e as Error).message)
+    }
+  }
+
   useEffect(() => {
     fetchRoles()
   }, [])
@@ -167,22 +204,41 @@ export default function UserManagementPage () {
                 <th className="px-4 py-2 text-left">Email</th>
                 <th className="px-4 py-2 text-left">Role</th>
                 <th className="px-4 py-2 text-left">Status</th>
+                <th className="px-4 py-2 text-left">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="px-4 py-6 text-center">Loading...</td></tr>
+                <tr><td colSpan={6} className="px-4 py-6 text-center">Loading...</td></tr>
               ) : filteredUsers.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-6 text-center">No users found</td></tr>
+                <tr><td colSpan={6} className="px-4 py-6 text-center">No users found</td></tr>
               ) : filteredUsers.map(u => (
                 <tr key={u.id} className="border-t">
                   <td className="px-4 py-2">{u.id}</td>
                   <td className="px-4 py-2">{u.fullName}</td>
                   <td className="px-4 py-2">{u.email}</td>
-                  <td className="px-4 py-2">{u.role?.name}</td>
-                  <td className="px-4 py-2 flex items-center gap-2">
-                    <span>{u.status}</span>
-                    {u.status !== 'INACTIVE' && (
+                  <td className="px-4 py-2">
+                    <Select 
+                      value={u.role?.id.toString() || ''} 
+                      onValueChange={(value) => updateUserRole(u.id, parseInt(value))}
+                    >
+                      <SelectTrigger className="w-40">
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredRoles.map(role => (
+                          <SelectItem key={role.id} value={role.id.toString()}>
+                            {role.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                  <td className="px-4 py-2">{u.status}</td>
+                  <td className="px-4 py-2">
+                    {u.status === 'INACTIVE' ? (
+                      <button onClick={() => activateUser(u.id)} className="text-xs text-green-600 underline">Activate</button>
+                    ) : (
                       <button onClick={() => deactivateUser(u.id)} className="text-xs text-red-600 underline">Deactivate</button>
                     )}
                   </td>

@@ -405,18 +405,33 @@ export default function DeviceDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Device ID */}
+          {/* Device Identity */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Hash className="h-5 w-5" />
-                Device ID
+                Device Identity
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="font-mono text-sm bg-gray-100 p-2 rounded">
-                {device.id}
-              </p>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">Customer Device ID</span>
+                  <span className="font-mono text-sm">{device.id}</span>
+                </div>
+                {device.customerDeviceCode && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Device Code</span>
+                    <span className="font-mono text-sm">{device.customerDeviceCode}</span>
+                  </div>
+                )}
+                {device.contractId !== undefined && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Contract</span>
+                    <span className="font-mono text-sm">#{device.contractId}</span>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 

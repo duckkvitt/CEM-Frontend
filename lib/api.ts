@@ -9,6 +9,7 @@ export const CUSTOMER_SERVICE_URL = `${API_BASE}/customer`
 export const DEVICE_SERVICE_URL = `${API_BASE}/device`
 export const CONTRACT_SERVICE_URL = `${API_BASE}/contract`
 export const SPARE_PARTS_SERVICE_URL = `${API_BASE}/spare-parts`
+export const SUPPLIERS_SERVICE_URL = `${API_BASE}/suppliers`
 
 // API helper functions
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {

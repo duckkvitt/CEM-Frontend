@@ -4,12 +4,14 @@ import { getAccessToken } from './auth'
 export interface CustomerDevice {
   id: number
   customerId: number
+  contractId?: number
   deviceId: number
   deviceName: string
   deviceModel?: string
   serialNumber?: string
   devicePrice?: number
   deviceUnit?: string
+  customerDeviceCode?: string
   warrantyEnd?: string
   status: string
   warrantyExpired: boolean
@@ -49,6 +51,7 @@ export async function getCustomerDevices(params: {
   keyword?: string
   status?: string
   warrantyExpired?: boolean
+  contractId?: number
   page?: number
   size?: number
 }): Promise<Page<CustomerDevice>> {
@@ -59,6 +62,7 @@ export async function getCustomerDevices(params: {
   if (params.warrantyExpired !== undefined) searchParams.append('warrantyExpired', params.warrantyExpired.toString())
   if (params.page !== undefined) searchParams.append('page', params.page.toString())
   if (params.size !== undefined) searchParams.append('size', params.size.toString())
+  if (params.contractId !== undefined) searchParams.append('contractId', params.contractId.toString())
   
   const url = `${DEVICE_SERVICE_URL}/customer-devices?${searchParams.toString()}`
   

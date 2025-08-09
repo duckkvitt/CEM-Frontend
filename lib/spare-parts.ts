@@ -18,18 +18,14 @@ export interface CreateSparePartRequest {
     partCode: string;
     description?: string;
     compatibleDevices?: string;
-    quantityInStock: number;
     unitOfMeasurement: string;
-    supplier?: string;
 }
 
 export interface UpdateSparePartRequest {
     partName?: string;
     description?: string;
     compatibleDevices?: string;
-    quantityInStock?: number;
     unitOfMeasurement?: string;
-    supplier?: string;
     status?: 'ACTIVE' | 'INACTIVE';
 }
 
@@ -81,13 +77,18 @@ async function authenticatedFetch<T>(url: string, options?: RequestInit): Promis
 }
 
 // Service functions
-export async function getAllSpareParts(page = 0, size = 10, sortBy = 'id', sortDir = 'asc'): Promise<PagedSparePartsResponse> {
+export async function getAllSpareParts(page = 0, size = 10, sortBy = 'id', sortDir = 'asc', keyword?: string): Promise<PagedSparePartsResponse> {
     const params = new URLSearchParams({
         page: page.toString(),
         size: size.toString(),
         sortBy,
         sortDir,
     });
+    
+    if (keyword && keyword.trim()) {
+        params.append('keyword', keyword.trim());
+    }
+    
     return authenticatedFetch<PagedSparePartsResponse>(`${SPARE_PARTS_SERVICE_URL}?${params.toString()}`);
 }
 

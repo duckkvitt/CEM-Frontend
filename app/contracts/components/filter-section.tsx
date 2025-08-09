@@ -13,6 +13,7 @@ interface FilterSectionProps {
   customersLoading: boolean
   onSearch: (e: React.FormEvent) => void
   onClearFilters: () => void
+  userRole: string | null
 }
 
 export default function FilterSection({
@@ -23,7 +24,8 @@ export default function FilterSection({
   customers,
   customersLoading,
   onSearch,
-  onClearFilters
+  onClearFilters,
+  userRole
 }: FilterSectionProps) {
   const [showFilters, setShowFilters] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
@@ -91,27 +93,39 @@ export default function FilterSection({
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Customer</label>
-              <select
-                value={selectedCustomer || ''}
-                onChange={(e) => handleCustomerChange(e.target.value)}
-                className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">All Customers</option>
-                {!customersLoading && Array.isArray(customers) && customers.length > 0 && customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name} ({customer.email})
-                  </option>
-                ))}
-                {customersLoading && (
-                  <option value="" disabled>Loading customers...</option>
-                )}
-                {!customersLoading && (!Array.isArray(customers) || customers.length === 0) && (
-                  <option value="" disabled>No customers available</option>
-                )}
-              </select>
-            </div>
+            {/* Only show customer filter for non-customer users */}
+            {userRole && userRole !== 'CUSTOMER' && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Customer</label>
+                <select
+                  value={selectedCustomer || ''}
+                  onChange={(e) => handleCustomerChange(e.target.value)}
+                  className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">All Customers</option>
+                  {!customersLoading && Array.isArray(customers) && customers.length > 0 && customers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name} ({customer.email})
+                    </option>
+                  ))}
+                  {customersLoading && (
+                    <option value="" disabled>Loading customers...</option>
+                  )}
+                  {!customersLoading && (!Array.isArray(customers) || customers.length === 0) && (
+                    <option value="" disabled>No customers available</option>
+                  )}
+                </select>
+              </div>
+            )}
+            
+            {/* For customers, show alternative filters */}
+            {userRole === 'CUSTOMER' && (
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Showing your contracts. Use the search bar above to find specific contracts.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

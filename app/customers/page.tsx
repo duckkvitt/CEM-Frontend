@@ -140,13 +140,13 @@ export default function CustomerManagementPage() {
   )
 
   useEffect(() => {
-    fetchCustomers(page, size, searchTerm)
-  }, [page, size, fetchCustomers, searchTerm])
+    fetchCustomers(page, size)
+  }, [page, size, fetchCustomers])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     setPage(0)
-    // Fetch is triggered by searchTerm state change in useEffect
+    fetchCustomers(0, size, searchTerm)
   }
   
   const hideCustomer = async (id: number, hide: boolean) => {
@@ -194,16 +194,19 @@ export default function CustomerManagementPage() {
           <CardDescription>
             Browse and manage your company's customers.
           </CardDescription>
-          <div className="relative mt-4">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search by customer name..."
-              className="w-full appearance-none bg-background pl-8 shadow-none md:w-1/3"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+          <form onSubmit={handleSearch} className="flex gap-2 mt-4">
+            <div className="relative flex-1 md:w-1/3">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search by customer name..."
+                className="w-full appearance-none bg-background pl-8 shadow-none"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Button type="submit">Search</Button>
+          </form>
         </CardHeader>
         <CardContent>
           {error && <p className="text-destructive mb-4">{error}</p>}
