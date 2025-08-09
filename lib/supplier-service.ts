@@ -119,6 +119,24 @@ export async function deactivateSupplier(id: number): Promise<string> {
   }
 }
 
+export async function activateSupplier(id: number): Promise<string> {
+  try {
+    const response = await authenticatedFetch<any>(`${SUPPLIERS_SERVICE_URL}/${id}/activate`, {
+      method: 'PATCH',
+    });
+    
+    if (typeof response === 'string') {
+      return response;
+    } else if (response && typeof response === 'object') {
+      return response.message || response.data || 'Supplier activated successfully';
+    } else {
+      return 'Supplier activated successfully';
+    }
+  } catch (error) {
+    throw error;
+  }
+}
+
 export async function deleteSupplier(id: number): Promise<string> {
   try {
     const response = await authenticatedFetch<any>(`${SUPPLIERS_SERVICE_URL}/${id}`, {

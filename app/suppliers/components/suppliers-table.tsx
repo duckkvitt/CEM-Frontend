@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { PagedSuppliersResponse, SupplierStatus } from '@/types/supplier';
-import { getAllSuppliers, deactivateSupplier, deleteSupplier } from '@/lib/supplier-service';
+import { getAllSuppliers, deactivateSupplier, activateSupplier, deleteSupplier } from '@/lib/supplier-service';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -80,6 +80,19 @@ export function SuppliersTable() {
       window.location.reload();
     } catch (err: any) {
       toast.error(`Failed to deactivate supplier: ${err.message}`);
+    }
+  };
+
+  const handleActivate = async (id: number, companyName: string) => {
+    if (!confirm(`Are you sure you want to activate ${companyName}?`)) return;
+    
+    try {
+      await activateSupplier(id);
+      toast.success('Supplier activated successfully');
+      // Refresh data
+      window.location.reload();
+    } catch (err: any) {
+      toast.error(`Failed to activate supplier: ${err.message}`);
     }
   };
 
@@ -237,6 +250,14 @@ export function SuppliersTable() {
                             className="text-yellow-600"
                           >
                             Deactivate
+                          </DropdownMenuItem>
+                        )}
+                        {supplier.status === 'INACTIVE' && (
+                          <DropdownMenuItem 
+                            onClick={() => handleActivate(supplier.id, supplier.companyName)}
+                            className="text-green-600"
+                          >
+                            Activate
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem 
