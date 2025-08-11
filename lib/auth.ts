@@ -65,6 +65,14 @@ export function getCurrentUserRole (): UserRole | null {
   return user.role.name as UserRole
 }
 
+/**
+ * Extract the user ID from the current user token/session.
+ */
+export function extractUserIdFromToken (): number | null {
+  const user = getCurrentUser()
+  return user?.id || null
+}
+
 export function isAdmin (): boolean {
   const role = getCurrentUserRole()
   return role === 'ADMIN' || role === 'SUPER_ADMIN'

@@ -19,6 +19,12 @@ import {
   MessageCircle,
   Package,
   Store,
+  ClipboardList,
+  Calendar,
+  Users,
+  UserCog,
+  CheckSquare,
+  Clock,
 } from 'lucide-react'
 
 interface NavItem {
@@ -44,23 +50,57 @@ export default function Sidebar() {
       href: '/dashboard',
       icon: <LayoutDashboard size={20} />,
     },
+    // Support Team Menu Items
     {
-      name: 'Customer Support',
-      href: '/support',
+      name: 'Service Request Management',
+      href: '/support/service-requests',
       icon: <MessageCircle size={20} />,
-      roles: ['SUPPORT_TEAM'],
+      roles: ['SUPPORT_TEAM', 'MANAGER', 'ADMIN'],
     },
+    {
+      name: 'Task Management',
+      href: '/support/tasks',
+      icon: <ClipboardList size={20} />,
+      roles: ['SUPPORT_TEAM', 'MANAGER', 'ADMIN'],
+    },
+    // TechLead Menu Items
+    {
+      name: 'Task Assignment',
+      href: '/techlead/tasks',
+      icon: <UserCog size={20} />,
+      roles: ['LEAD_TECH', 'ADMIN'],
+    },
+    {
+      name: 'Technician Management',
+      href: '/techlead/technicians',
+      icon: <Users size={20} />,
+      roles: ['LEAD_TECH', 'ADMIN'],
+    },
+    // Technician Menu Items
+    {
+      name: 'Work Schedule',
+      href: '/technician/schedule',
+      icon: <Calendar size={20} />,
+      roles: ['TECHNICIAN'],
+    },
+    {
+      name: 'My Tasks',
+      href: '/technician/tasks',
+      icon: <CheckSquare size={20} />,
+      roles: ['TECHNICIAN'],
+    },
+    // General Management Items
     {
       name: 'Customer Management',
       href: '/customers',
       icon: <UsersRound size={20} />,
-      roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'TECH_LEAD', 'TECHNICIAN'],
+      roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'LEAD_TECH', 'TECHNICIAN'],
     },
     {
       name: 'Device Management',
       href: '/devices',
       icon: <Database size={20} />,
-      roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'TECH_LEAD', 'TECHNICIAN'],
+      roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'LEAD_TECH', 'TECHNICIAN'],
     },
     {
       name: 'Spare Part Management',
@@ -80,6 +120,7 @@ export default function Sidebar() {
       icon: <FileText size={20} />,
       roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'CUSTOMER'],
     },
+    // Customer Menu Items
     {
       name: 'My Devices',
       href: '/my-devices',
@@ -89,10 +130,16 @@ export default function Sidebar() {
     {
       name: 'Service Requests',
       href: '/service-requests',
-      icon: <Wrench size={20} />,
+      icon: <Clock size={20} />,
       roles: ['CUSTOMER'],
     },
-    { name: 'Maintenance', href: '/maintenance', icon: <Wrench size={20} /> },
+    // Other Items
+    { 
+      name: 'Maintenance', 
+      href: '/maintenance', 
+      icon: <Wrench size={20} />,
+      roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'LEAD_TECH', 'TECHNICIAN'],
+    },
     {
       name: 'Notifications',
       href: '/notifications',
@@ -138,6 +185,18 @@ export default function Sidebar() {
       isActive = pathname === item.href
     } else if (item.href === '/users/customers') {
       isActive = pathname === item.href
+    } else if (item.href === '/support/service-requests') {
+      isActive = pathname.startsWith('/support/service-requests')
+    } else if (item.href === '/support/tasks') {
+      isActive = pathname.startsWith('/support/tasks')
+    } else if (item.href === '/techlead/tasks') {
+      isActive = pathname.startsWith('/techlead/tasks')
+    } else if (item.href === '/techlead/technicians') {
+      isActive = pathname.startsWith('/techlead/technicians')
+    } else if (item.href === '/technician/schedule') {
+      isActive = pathname.startsWith('/technician/schedule')
+    } else if (item.href === '/technician/tasks') {
+      isActive = pathname.startsWith('/technician/tasks')
     } else {
       isActive = pathname.startsWith(item.href)
     }

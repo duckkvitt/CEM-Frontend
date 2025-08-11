@@ -10,7 +10,7 @@ export interface ServiceRequest {
   deviceModel?: string
   serialNumber?: string
   type: 'MAINTENANCE' | 'WARRANTY'
-  status: 'PENDING' | 'APPROVED' | 'IN_PROGRESS' | 'COMPLETED'
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'IN_PROGRESS' | 'COMPLETED'
   description: string
   preferredDateTime?: string
   attachments?: string[]
@@ -27,7 +27,7 @@ export interface ServiceRequest {
 
 export interface ServiceRequestHistory {
   id: number
-  status: 'PENDING' | 'APPROVED' | 'IN_PROGRESS' | 'COMPLETED'
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'IN_PROGRESS' | 'COMPLETED'
   comment: string
   updatedBy: string
   createdAt: string
@@ -37,6 +37,7 @@ export interface ServiceRequestStatistics {
   totalRequests: number
   pendingRequests: number
   approvedRequests: number
+  rejectedRequests: number
   inProgressRequests: number
   completedRequests: number
   maintenanceRequests: number
@@ -413,6 +414,176 @@ export async function getServiceRequestsByStatus(status: 'PENDING' | 'APPROVED' 
   
   if (!data.success) {
     throw new Error(data.message || 'Failed to fetch service requests by status')
+  }
+  
+  return data.data
+}
+
+// ========== Staff Functions ==========
+
+/**
+ * Get all service requests for staff (Support Team, Manager, Admin)
+ */
+export async function getAllServiceRequestsForStaff(params: {
+  keyword?: string
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'IN_PROGRESS' | 'COMPLETED'
+  type?: 'MAINTENANCE' | 'WARRANTY'
+  customerId?: number
+  page?: number
+  size?: number
+  sortBy?: string
+  sortDir?: string
+} = {}): Promise<Page<ServiceRequest>> {
+  const searchParams = new URLSearchParams()
+  
+  if (params.keyword) searchParams.set('keyword', params.keyword)
+  if (params.status) searchParams.set('status', params.status)
+  if (params.type) searchParams.set('type', params.type)
+  if (params.customerId) searchParams.set('customerId', params.customerId.toString())
+  if (params.page !== undefined) searchParams.set('page', params.page.toString())
+  if (params.size !== undefined) searchParams.set('size', params.size.toString())
+  if (params.sortBy) searchParams.set('sortBy', params.sortBy)
+  if (params.sortDir) searchParams.set('sortDir', params.sortDir)
+
+  const url = `${DEVICE_SERVICE_URL}/api/service-requests/all?${searchParams}`
+  
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${getAccessToken()}`,
+      'Content-Type': 'application/json'
+    },
+    cache: 'no-store'
+  })
+  
+  if (!response.ok) {
+    await handleErrorResponse(response)
+  }
+  
+  const data: ApiResponse<Page<ServiceRequest>> = await response.json()
+  
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to fetch service requests')
+  }
+  
+  return data.data
+}
+
+/**
+ * Get service request by ID for staff
+ */
+export async function getServiceRequestByIdForStaff(id: number): Promise<ServiceRequest> {
+  const url = `${DEVICE_SERVICE_URL}/api/service-requests/staff/${id}`
+  
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${getAccessToken()}`,
+      'Content-Type': 'application/json'
+    },
+    cache: 'no-store'
+  })
+  
+  if (!response.ok) {
+    await handleErrorResponse(response)
+  }
+  
+  const data: ApiResponse<ServiceRequest> = await response.json()
+  
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to fetch service request')
+  }
+  
+  return data.data
+}
+
+/**
+ * Get pending service requests for Support Team
+ */
+export async function getPendingServiceRequests(params: {
+  page?: number
+  size?: number
+  sortBy?: string
+  sortDir?: string
+} = {}): Promise<Page<ServiceRequest>> {
+  const searchParams = new URLSearchParams()
+  
+  if (params.page !== undefined) searchParams.set('page', params.page.toString())
+  if (params.size !== undefined) searchParams.set('size', params.size.toString())
+  if (params.sortBy) searchParams.set('sortBy', params.sortBy)
+  if (params.sortDir) searchParams.set('sortDir', params.sortDir)
+
+  const url = `${DEVICE_SERVICE_URL}/api/service-requests/pending?${searchParams}`
+  
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${getAccessToken()}`,
+      'Content-Type': 'application/json'
+    },
+    cache: 'no-store'
+  })
+  
+  if (!response.ok) {
+    await handleErrorResponse(response)
+  }
+  
+  const data: ApiResponse<Page<ServiceRequest>> = await response.json()
+  
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to fetch pending service requests')
+  }
+  
+  return data.data
+}
+
+/**
+ * Update service request staff notes
+ */
+export async function updateServiceRequestStaffNotes(id: number, staffNotes: string): Promise<ServiceRequest> {
+  const url = `${DEVICE_SERVICE_URL}/api/service-requests/staff/${id}/notes`
+  
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${getAccessToken()}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ staffNotes })
+  })
+  
+  if (!response.ok) {
+    await handleErrorResponse(response)
+  }
+  
+  const data: ApiResponse<ServiceRequest> = await response.json()
+  
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to update staff notes')
+  }
+  
+  return data.data
+}
+
+/**
+ * Get service request statistics for staff dashboard
+ */
+export async function getAllServiceRequestStatistics(): Promise<ServiceRequestStatistics> {
+  const url = `${DEVICE_SERVICE_URL}/api/service-requests/statistics/all`
+  
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${getAccessToken()}`,
+      'Content-Type': 'application/json'
+    },
+    cache: 'no-store'
+  })
+  
+  if (!response.ok) {
+    await handleErrorResponse(response)
+  }
+  
+  const data: ApiResponse<ServiceRequestStatistics> = await response.json()
+  
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to fetch service request statistics')
   }
   
   return data.data
