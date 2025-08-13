@@ -39,6 +39,7 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
   } | null>(null)
   const [estimatedWaitTime, setEstimatedWaitTime] = useState<number>(-1)
   const [isHydrated, setIsHydrated] = useState(false)
+  const [hasDismissed, setHasDismissed] = useState(false)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -48,6 +49,10 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
   // Handle client-side hydration
   useEffect(() => {
     setIsHydrated(true)
+    try {
+      const dismissed = sessionStorage.getItem('customer_chat_dismissed') === '1'
+      if (dismissed) setHasDismissed(true)
+    } catch {}
   }, [])
 
   // Check for existing active chat session when component mounts
@@ -56,7 +61,8 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
       const checkExistingChat = async () => {
         try {
           const existingSession = await chatService.getCustomerChatSession(currentUser.id.toString())
-          if (existingSession && existingSession.status !== 'closed') {
+          const dismissed = (() => { try { return sessionStorage.getItem('customer_chat_dismissed') === '1' } catch { return false } })()
+          if (existingSession && existingSession.status !== 'closed' && !dismissed && !hasDismissed) {
             console.log('Found existing chat session:', existingSession)
             setChatSession(existingSession)
             setIsOpen(true)
@@ -80,7 +86,7 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
       
       checkExistingChat()
     }
-  }, [isHydrated, currentUser, userRole])
+  }, [isHydrated, currentUser, userRole, hasDismissed])
 
   useEffect(() => {
     if (isOpen && chatSession) {
@@ -130,6 +136,12 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
       toast.error('Please log in to start a chat')
       return
     }
+
+    // User explicitly starts chat again; clear dismissed flag
+    try {
+      sessionStorage.removeItem('customer_chat_dismissed')
+    } catch {}
+    setHasDismissed(false)
 
     setIsConnecting(true)
 
@@ -209,6 +221,15 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
     }
   }
 
+  const handleCloseChat = () => {
+    setIsOpen(false)
+    setIsMinimized(false)
+    setHasDismissed(true)
+    try {
+      sessionStorage.setItem('customer_chat_dismissed', '1')
+    } catch {}
+  }
+
   const handleStartNewChat = async () => {
     // Reset chat state completely
     setChatSession(null)
@@ -236,17 +257,19 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
 
     try {
       let messageType: 'text' | 'link' = 'text'
-      let linkPreview = null
+      let linkPreview: ChatMessage['linkPreview'] = undefined
 
       // Check if message contains URLs
       if (isUrl(content)) {
         messageType = 'link'
-        linkPreview = await getLinkPreview(content)
+        const preview = await getLinkPreview(content)
+        linkPreview = preview ?? undefined
       } else {
         const urls = extractUrls(content)
         if (urls.length > 0) {
           messageType = 'link'
-          linkPreview = await getLinkPreview(urls[0])
+          const preview = await getLinkPreview(urls[0])
+          linkPreview = preview ?? undefined
         }
       }
 
@@ -595,7 +618,7 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setIsMinimized(!isMinimized)}
+                      onClick={handleCloseChat}
                       className="h-8 w-8 p-0 text-white hover:bg-white/20"
                     >
                       <X className="h-4 w-4" />

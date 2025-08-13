@@ -8,9 +8,6 @@ import { useEffect, useState } from 'react'
 import {
   LayoutDashboard,
   UsersRound,
-  Bell,
-  Settings,
-  HelpCircle,
   Database,
   FileText,
   BotMessageSquare,
@@ -52,29 +49,35 @@ export default function Sidebar() {
     },
     // Support Team Menu Items
     {
+      name: 'Support Chat',
+      href: '/support',
+      icon: <MessageCircle size={20} />,
+      roles: ['SUPPORT_TEAM'],
+    },
+    {
       name: 'Service Request Management',
       href: '/support/service-requests',
       icon: <MessageCircle size={20} />,
-      roles: ['SUPPORT_TEAM', 'MANAGER', 'ADMIN'],
+      roles: ['SUPPORT_TEAM'],
     },
     {
       name: 'Task Management',
       href: '/support/tasks',
       icon: <ClipboardList size={20} />,
-      roles: ['SUPPORT_TEAM', 'MANAGER', 'ADMIN'],
+      roles: ['SUPPORT_TEAM'],
     },
     // TechLead Menu Items
     {
       name: 'Task Assignment',
       href: '/techlead/tasks',
       icon: <UserCog size={20} />,
-      roles: ['LEAD_TECH', 'ADMIN'],
+      roles: ['LEAD_TECH'],
     },
     {
       name: 'Technician Management',
       href: '/techlead/technicians',
       icon: <Users size={20} />,
-      roles: ['LEAD_TECH', 'ADMIN'],
+      roles: ['LEAD_TECH'],
     },
     // Technician Menu Items
     {
@@ -134,21 +137,9 @@ export default function Sidebar() {
       roles: ['CUSTOMER'],
     },
     // Other Items
-    { 
-      name: 'Maintenance', 
-      href: '/maintenance', 
-      icon: <Wrench size={20} />,
-      roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'LEAD_TECH', 'TECHNICIAN'],
-    },
-    {
-      name: 'Notifications',
-      href: '/notifications',
-      icon: <Bell size={20} />,
-    },
   ]
 
   const others: NavItem[] = [
-    { name: 'Settings', href: '/settings', icon: <Settings size={20} /> },
     {
       name: 'User Management',
       href: '/users',
@@ -161,7 +152,6 @@ export default function Sidebar() {
       icon: <UsersRound size={20} />,
       roles: ['ADMIN', 'SUPER_ADMIN'],
     },
-    { name: 'Help', href: '/help', icon: <HelpCircle size={20} /> },
     { name: 'Bot', href: '/bot', icon: <BotMessageSquare size={20} /> },
   ]
 
@@ -189,6 +179,8 @@ export default function Sidebar() {
       isActive = pathname.startsWith('/support/service-requests')
     } else if (item.href === '/support/tasks') {
       isActive = pathname.startsWith('/support/tasks')
+    } else if (item.href === '/support') {
+      isActive = pathname === '/support'
     } else if (item.href === '/techlead/tasks') {
       isActive = pathname.startsWith('/techlead/tasks')
     } else if (item.href === '/techlead/technicians') {
