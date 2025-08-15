@@ -22,6 +22,11 @@ import {
   UserCog,
   CheckSquare,
   Clock,
+  Warehouse,
+  BarChart3,
+  PackageOpen,
+  Truck,
+  History,
 } from 'lucide-react'
 
 interface NavItem {
@@ -92,6 +97,12 @@ export default function Sidebar() {
       icon: <CheckSquare size={20} />,
       roles: ['TECHNICIAN'],
     },
+    {
+      name: 'Request Spare Parts',
+      href: '/technician/spare-part-requests',
+      icon: <PackageOpen size={20} />,
+      roles: ['TECHNICIAN'],
+    },
     // General Management Items
     {
       name: 'Customer Management',
@@ -122,6 +133,37 @@ export default function Sidebar() {
       href: '/contracts',
       icon: <FileText size={20} />,
       roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'CUSTOMER'],
+    },
+    // Warehouse Management Items
+    {
+      name: 'Warehouse Dashboard',
+      href: '/warehouse',
+      icon: <Warehouse size={20} />,
+      roles: ['MANAGER'],
+    },
+    {
+      name: 'Inventory Overview',
+      href: '/warehouse/inventory',
+      icon: <BarChart3 size={20} />,
+      roles: ['MANAGER', 'STAFF'],
+    },
+    {
+      name: 'Import Requests',
+      href: '/warehouse/import-requests',
+      icon: <Truck size={20} />,
+      roles: ['MANAGER', 'STAFF'],
+    },
+    {
+      name: 'Export Requests',
+      href: '/warehouse/export-requests',
+      icon: <PackageOpen size={20} />,
+      roles: ['MANAGER', 'STAFF'],
+    },
+    {
+      name: 'Inventory Transactions',
+      href: '/warehouse/transactions',
+      icon: <History size={20} />,
+      roles: ['MANAGER', 'STAFF'],
     },
     // Customer Menu Items
     {
@@ -189,6 +231,12 @@ export default function Sidebar() {
       isActive = pathname.startsWith('/technician/schedule')
     } else if (item.href === '/technician/tasks') {
       isActive = pathname.startsWith('/technician/tasks')
+    } else if (item.href === '/technician/spare-part-requests') {
+      isActive = pathname.startsWith('/technician/spare-part-requests')
+    } else if (item.href === '/warehouse') {
+      isActive = pathname === '/warehouse'
+    } else if (item.href.startsWith('/warehouse/')) {
+      isActive = pathname.startsWith(item.href)
     } else {
       isActive = pathname.startsWith(item.href)
     }
