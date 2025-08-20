@@ -17,6 +17,7 @@ import { getCurrentUser, getCurrentUserRole } from '@/lib/auth'
 import { ChatMessage, ChatSession } from '@/types/chat'
 import { getLinkPreview, extractUrls, isUrl } from '@/lib/link-preview'
 import { cn } from '@/lib/utils'
+import { askGemini, type AIMessage } from '@/lib/ai/client'
 
 interface CustomerChatBubbleProps {
   className?: string
@@ -27,11 +28,15 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
   const [isConnecting, setIsConnecting] = useState(false)
   const [chatSession, setChatSession] = useState<ChatSession | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [isBotMode, setIsBotMode] = useState<boolean>(false)
+  const [aiMessages, setAiMessages] = useState<AIMessage[]>([])
+  const [isAiThinking, setIsAiThinking] = useState<boolean>(false)
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [isMinimized, setIsMinimized] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [isModePinned, setIsModePinned] = useState(false)
   const [supportAvailability, setSupportAvailability] = useState<{
     totalOnline: number
     totalAvailable: number
@@ -66,6 +71,7 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
             console.log('Found existing chat session:', existingSession)
             setChatSession(existingSession)
             setIsOpen(true)
+            if (!isModePinned) setIsBotMode(false)
             
             // Load existing messages
             const existingMessages = await chatService.getMessages(existingSession.id)
@@ -78,6 +84,8 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
             // Get estimated wait time
             const waitTime = await supportAssignmentService.getEstimatedWaitTime()
             setEstimatedWaitTime(waitTime)
+          } else {
+            if (!isModePinned) setIsBotMode(true)
           }
         } catch (error) {
           console.error('Error checking existing chat session:', error)
@@ -86,7 +94,7 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
       
       checkExistingChat()
     }
-  }, [isHydrated, currentUser, userRole, hasDismissed])
+  }, [isHydrated, currentUser, userRole, hasDismissed, isModePinned])
 
   useEffect(() => {
     if (isOpen && chatSession) {
@@ -152,6 +160,7 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
         console.log('Found existing active chat session:', existingSession)
         setChatSession(existingSession)
         setIsOpen(true)
+        if (!isModePinned) setIsBotMode(false)
         
         // Load existing messages
         const existingMessages = await chatService.getMessages(existingSession.id)
@@ -168,51 +177,25 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
         toast.success('Reconnected to existing chat session')
         setIsConnecting(false)
         return
-      }
-
-      // Check support team availability with retry mechanism
-      let totalOnline = 0
-      let retryCount = 0
-      const maxRetries = 3
-
-      while (totalOnline === 0 && retryCount < maxRetries) {
-        const availability = await supportAssignmentService.getSupportTeamAvailability()
-        totalOnline = availability.totalOnline
-        setSupportAvailability(availability) // Set availability state once
-        
-        if (totalOnline === 0 && retryCount < maxRetries - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second before retry
-          retryCount++
+      } else {
+        // Open in bot mode without creating a support session yet
+        setIsOpen(true)
+        setIsBotMode(true)
+        if (aiMessages.length === 0) {
+          setIsAiThinking(true)
+          try {
+            const reply = await askGemini([
+              { role: 'user', content: 'The user opened the chat. Greet them briefly and ask what they need help with.' },
+            ])
+            setAiMessages([{ role: 'assistant', content: reply }])
+          } catch (e) {
+            setAiMessages([{ role: 'assistant', content: 'Hello! How can I help you with CEM today?' }])
+          } finally {
+            setIsAiThinking(false)
+          }
         }
-      }
-
-      if (totalOnline === 0) {
-        toast.error('No support team available at the moment. Please try again later.')
-        setIsConnecting(false)
         return
       }
-
-      // Create new chat session
-      const sessionId = await chatService.createChatSession(
-        currentUser.id.toString(),
-        currentUser.fullName || `${currentUser.firstName} ${currentUser.lastName}`
-      )
-
-      // Get the created session
-      const session = await chatService.getChatSession(sessionId)
-      if (session) {
-        setChatSession(session)
-        setIsOpen(true)
-        setMessages([])
-        setInputValue('')
-        setUnreadCount(0)
-      }
-
-      // Get estimated wait time
-      const waitTime = await supportAssignmentService.getEstimatedWaitTime()
-      setEstimatedWaitTime(waitTime)
-
-      toast.success('Chat session created successfully')
     } catch (error) {
       console.error('Error starting chat:', error)
       toast.error('Failed to start chat session')
@@ -249,17 +232,31 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
   }
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || !chatSession || !currentUser) return
+    if (!inputValue.trim() || !currentUser) return
 
     const content = inputValue.trim()
     setInputValue('')
-    setIsTyping(true)
 
+    if (isBotMode) {
+      const history = [...aiMessages, { role: 'user', content } as AIMessage]
+      setAiMessages(history)
+      setIsAiThinking(true)
+      try {
+        const reply = await askGemini(history)
+        setAiMessages([...history, { role: 'assistant', content: reply }])
+      } catch (e) {
+        toast.error('AI failed to respond')
+      } finally {
+        setIsAiThinking(false)
+      }
+      return
+    }
+
+    if (!chatSession) return
+    setIsTyping(true)
     try {
       let messageType: 'text' | 'link' = 'text'
       let linkPreview: ChatMessage['linkPreview'] = undefined
-
-      // Check if message contains URLs
       if (isUrl(content)) {
         messageType = 'link'
         const preview = await getLinkPreview(content)
@@ -272,7 +269,6 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
           linkPreview = preview ?? undefined
         }
       }
-
       await chatService.sendMessage(chatSession.id, {
         senderId: currentUser.id.toString(),
         senderName: currentUser.fullName || `${currentUser.firstName} ${currentUser.lastName}`,
@@ -409,6 +405,58 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
       hour: '2-digit',
       minute: '2-digit',
     })
+  }
+
+  const handleSwitchToSupport = async () => {
+    if (!currentUser) return
+    setIsConnecting(true)
+    try {
+      setIsModePinned(true)
+      const sessionId = await chatService.createChatSession(
+        currentUser.id.toString(),
+        currentUser.fullName || `${currentUser.firstName} ${currentUser.lastName}`
+      )
+      const session = await chatService.getChatSession(sessionId)
+      if (session) {
+        setChatSession(session)
+        setIsBotMode(false)
+        setMessages([])
+        setUnreadCount(0)
+      }
+      const waitTime = await supportAssignmentService.getEstimatedWaitTime()
+      setEstimatedWaitTime(waitTime)
+      toast.success('Connecting you to a support specialist...')
+      if (session) {
+        await chatService.sendMessage(session.id, {
+          senderId: 'system',
+          senderName: 'System',
+          senderRole: 'SYSTEM',
+          content: 'Customer switched from chatbot to human support.',
+          type: 'text',
+          read: true,
+        })
+      }
+    } catch (e) {
+      toast.error('Failed to start support chat')
+    } finally {
+      setIsConnecting(false)
+    }
+  }
+
+  const handleSwitchToBot = async () => {
+    setIsModePinned(true)
+    setIsBotMode(true)
+    setIsOpen(true)
+    if (aiMessages.length === 0) {
+      setIsAiThinking(true)
+      try {
+        const reply = await askGemini([
+          { role: 'user', content: 'The user switched back to the chatbot. Greet them briefly and ask how to help.' },
+        ])
+        setAiMessages([{ role: 'assistant', content: reply }])
+      } catch {}
+      setIsAiThinking(false)
+    }
   }
 
   const renderMessage = (message: ChatMessage) => {
@@ -588,33 +636,57 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                     </div>
                     <div>
                       <CardTitle className="text-sm font-semibold">
-                        Customer Support
+                        {isBotMode ? 'CEM Assistant' : 'Customer Support'}
                       </CardTitle>
                                               <div className="flex items-center gap-2">
                           <div className={cn(
                             "h-2 w-2 rounded-full",
-                            chatSession?.status === 'closed' ? 'bg-red-400' :
-                            chatSession?.status === 'waiting' ? 'bg-yellow-400 animate-pulse' :
-                            'bg-green-400'
+                            isBotMode ? 'bg-green-400' : (
+                              chatSession?.status === 'closed' ? 'bg-red-400' :
+                              chatSession?.status === 'waiting' ? 'bg-yellow-400 animate-pulse' :
+                              'bg-green-400'
+                            )
                           )} />
                           <span className="text-xs opacity-90">
-                            {chatSession?.status === 'waiting' ? 
-                              (supportAvailability?.totalOnline === 0 ? 
-                                'No support available' : 
-                                supportAvailability?.totalAvailable === 0 ?
-                                  'Support busy, please wait...' :
-                                  `Connecting... (${supportAvailability?.totalAvailable || 0} available)`
-                              ) : 
-                              chatSession?.status === 'closed' ?
-                                'Chat ended' :
-                                'Online'
-                            }
+                            {isBotMode ? 'Chatbot online' : (
+                              chatSession?.status === 'waiting' ? 
+                                (supportAvailability?.totalOnline === 0 ? 
+                                  'No support available' : 
+                                  supportAvailability?.totalAvailable === 0 ?
+                                    'Support busy, please wait...' :
+                                    `Connecting... (${supportAvailability?.totalAvailable || 0} available)`
+                                ) : 
+                                chatSession?.status === 'closed' ?
+                                  'Chat ended' :
+                                  'Online'
+                            )}
                           </span>
                         </div>
                     </div>
                   </div>
                   
                   <div className="flex items-center gap-1">
+                    {isBotMode ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleSwitchToSupport}
+                        className="mr-1"
+                        disabled={isConnecting}
+                      >
+                        Chat with Support Team
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleSwitchToBot}
+                        className="mr-1"
+                        disabled={isConnecting}
+                      >
+                        Back to AI Assistant
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -639,7 +711,7 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                       {/* Messages Area */}
                       <div className="h-80 overflow-y-auto px-4 py-3">
                         <div className="space-y-2">
-                          {chatSession?.status === 'waiting' && (
+                          {!isBotMode && chatSession?.status === 'waiting' && (
                             <motion.div
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
@@ -662,7 +734,7 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                             </motion.div>
                           )}
 
-                          {chatSession?.status === 'closed' && (
+                          {!isBotMode && chatSession?.status === 'closed' && (
                             <motion.div
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
@@ -690,8 +762,41 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                               </div>
                             </motion.div>
                           )}
-                          
-                          {messages.map(renderMessage)}
+                          {isBotMode ? (
+                            <>
+                              {aiMessages.map((m, idx) => (
+                                <motion.div
+                                  key={idx}
+                                  initial={{ opacity: 0, y: 20 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.2 }}
+                                  className={cn('flex gap-3 mb-4', m.role === 'user' ? 'justify-end' : 'justify-start')}
+                                >
+                                  {m.role !== 'user' && (
+                                    <Avatar className="h-8 w-8">
+                                      <AvatarImage src="/api/placeholder/32/32" />
+                                      <AvatarFallback className="text-xs">AI</AvatarFallback>
+                                    </Avatar>
+                                  )}
+                                  <div className={cn('max-w-[70%] space-y-1', m.role === 'user' ? 'order-first' : 'order-last')}>
+                                    <motion.div className={cn('rounded-2xl px-4 py-2 text-sm', m.role === 'user' ? 'bg-primary text-primary-foreground ml-auto' : 'bg-muted')}>
+                                      <p className="whitespace-pre-wrap">{m.content}</p>
+                                    </motion.div>
+                                  </div>
+                                </motion.div>
+                              ))}
+                              {isAiThinking && (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  CEM Assistant is typing…
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              {messages.map(renderMessage)}
+                            </>
+                          )}
                           <div ref={messagesEndRef} />
                         </div>
                       </div>
@@ -705,9 +810,9 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
                             onKeyPress={handleKeyPress}
-                            placeholder={chatSession?.status === 'closed' ? 'Chat has ended' : "Type your message..."}
+                            placeholder={!isBotMode && chatSession?.status === 'closed' ? 'Chat has ended' : "Type your message..."}
                             className="min-h-[60px] resize-none border-0 bg-muted/50 focus:bg-white"
-                            disabled={chatSession?.status === 'waiting' || chatSession?.status === 'closed'}
+                            disabled={!isBotMode && (chatSession?.status === 'waiting' || chatSession?.status === 'closed')}
                           />
                         </div>
                         
@@ -717,7 +822,7 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                               variant="ghost"
                               size="sm"
                               onClick={() => fileInputRef.current?.click()}
-                              disabled={isUploading || chatSession?.status === 'waiting' || chatSession?.status === 'closed'}
+                              disabled={isBotMode || isUploading || chatSession?.status === 'waiting' || chatSession?.status === 'closed'}
                               className="h-8 w-8 p-0"
                             >
                               {isUploading ? (
@@ -730,15 +835,11 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                           
                           <Button
                             onClick={handleSendMessage}
-                            disabled={!inputValue.trim() || isTyping || chatSession?.status === 'waiting' || chatSession?.status === 'closed'}
+                            disabled={!inputValue.trim() || (isBotMode ? isAiThinking : (isTyping || chatSession?.status === 'waiting' || chatSession?.status === 'closed'))}
                             size="sm"
                             className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
                           >
-                            {isTyping ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Send className="h-4 w-4" />
-                            )}
+                            {isBotMode ? (isAiThinking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />) : (isTyping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />)}
                           </Button>
                         </div>
                       </div>
