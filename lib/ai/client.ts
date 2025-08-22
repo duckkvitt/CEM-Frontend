@@ -14,7 +14,9 @@ export async function askGemini(messages: AIMessage[]): Promise<string> {
     throw new Error(`AI request failed: ${text}`)
   }
   const data = await res.json()
+  // Server returns markdown in data.reply; UI should render it as Markdown
   return data.reply as string
 }
+
 
 

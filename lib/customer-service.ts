@@ -67,6 +67,8 @@ async function authenticatedFetch<T>(
 
 // Get all customers for filtering
 export async function getAllCustomers(): Promise<CustomerResponse[]> {
+  const token = getAccessToken()
+  if (!token) return []
   const response = await authenticatedFetch<PageResponse<CustomerResponse>>(`${CUSTOMER_SERVICE_URL}/v1/customers/visible?size=1000`)
   return response.content || []
 }

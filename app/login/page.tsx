@@ -89,15 +89,17 @@ export default function LoginPage() {
       if (!accessToken) {
         throw new Error('Token not received')
       }
-      if (remember) {
+      // Persist tokens to BOTH localStorage (cross-tab) and sessionStorage (current tab)
+      try {
         localStorage.setItem('accessToken', accessToken)
-        localStorage.setItem('refreshToken', refreshToken)
+        if (refreshToken) localStorage.setItem('refreshToken', refreshToken)
         if (user) localStorage.setItem('currentUser', JSON.stringify(user))
-      } else {
+      } catch {}
+      try {
         sessionStorage.setItem('accessToken', accessToken)
-        sessionStorage.setItem('refreshToken', refreshToken)
+        if (refreshToken) sessionStorage.setItem('refreshToken', refreshToken)
         if (user) sessionStorage.setItem('currentUser', JSON.stringify(user))
-      }
+      } catch {}
       router.replace('/dashboard')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unexpected error'

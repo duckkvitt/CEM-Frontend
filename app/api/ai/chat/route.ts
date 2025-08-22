@@ -20,21 +20,44 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Gemini API key is not configured' }, { status: 500 })
     }
 
-    // Use request origin to build dev links; fall back to empty
+    // Use request origin to build environment-aware links (single URL strategy)
     const origin = (req.headers as any).get?.('origin') || ''
     const siteContext = await buildSiteContext({ origin })
 
-    // Compose system instruction to constrain scope strictly to the application domain
+    // Enhanced system instruction for comprehensive customer support
     const systemInstruction = [
-      'You are CEM Assistant, a domain-limited expert for the CEM application.',
+      'You are CEM Assistant, an expert AI guide for the CEM (Customer Equipment Management) system.',
       '',
-      'Goals:',
-      '- Answer only about CEM features, data, workflows, and navigation.',
-      '- Use the sitemap and links to guide users precisely (dev and prod).',
-      '- Be concise, practical, and accurate. Do not invent features.',
+      '## 🎯 YOUR ROLE & RESPONSIBILITIES',
+      'You are a knowledgeable, helpful, and precise assistant that helps customers navigate and use the CEM system effectively.',
       '',
-      'Sitemap and Feature Index (auto-generated):',
+      '## 📋 RESPONSE GUIDELINES',
+      '1. **ALWAYS provide step-by-step instructions** when explaining how to do something',
+      '2. **ALWAYS include exactly one environment-specific link** (use the Base URL from the knowledge; do not show both dev and prod)',
+      '3. **Be specific and actionable** - don\'t just explain, show them exactly how to do it',
+      '4. **Use the single Base URL** provided in the context for all navigation',
+      '5. **Explain what customers can and cannot do** based on their role',
+      '6. **Provide context** about why certain features exist and how they benefit customers',
+      '7. **Be patient and thorough** - customers may be new to the system',
+      '8. **Use clear, simple language** while being technically accurate',
+      '',
+      '## ✅ CANONICAL WORKFLOWS (STRICTLY FOLLOW)',
+      '- Service Request creation MUST start from: My Devices → Select Device → Request Support → Choose Maintenance/Warranty → Fill form → Submit',
+      '- Digital Contract Signing IS SUPPORTED: Contracts → Open pending contract → Sign Contract → Place signature → Submit → Verify status',
+      '',
+      '## 🔗 LINK POLICY',
+      '- Use one link only per location: based on the single Base URL in the knowledge',
+      '',
+      '## 📚 KNOWLEDGE BASE',
       siteContext,
+      '',
+      '## 🎯 RESPONSE FORMAT (MARKDOWN)',
+      '- Respond in clean, accessible, professional Markdown',
+      '- Prefer short headings, bullet points, and numbered steps',
+      '- Use inline links like [Open Service Requests](https://...)',
+      '- Avoid code blocks unless required for clarity',
+      '',
+      'Remember: You are the customer\'s guide to the entire CEM system. Make them feel confident and capable of using every feature available to them.'
     ].join('\n')
 
     const contents = messages
@@ -48,10 +71,10 @@ export async function POST(req: Request) {
       system_instruction: { parts: [{ text: systemInstruction }] },
       contents,
       generation_config: {
-        temperature: 0.2,
-        top_p: 0.8,
+        temperature: 0.1,
+        top_p: 0.9,
         top_k: 40,
-        max_output_tokens: 512,
+        max_output_tokens: 1024,
         stop_sequences: [] as string[],
       },
       safety_settings: [
@@ -85,7 +108,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ reply: 'Sorry, I could not generate a response.' })
     }
 
-    return NextResponse.json({ reply: candidateText })
+    // Return markdown directly for rendering in chat UI
+    return NextResponse.json({ reply: candidateText, format: 'markdown' })
   } catch (err: any) {
     return NextResponse.json({ error: err?.message ?? 'Unknown error' }, { status: 500 })
   }

@@ -18,6 +18,7 @@ import { ChatMessage, ChatSession } from '@/types/chat'
 import { getLinkPreview, extractUrls, isUrl } from '@/lib/link-preview'
 import { cn } from '@/lib/utils'
 import { askGemini, type AIMessage } from '@/lib/ai/client'
+import MarkdownView from '@/lib/ai/markdown'
 
 interface CustomerChatBubbleProps {
   className?: string
@@ -411,6 +412,16 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
     if (!currentUser) return
     setIsConnecting(true)
     try {
+      // Check if we already have an active support session
+      if (chatSession && chatSession.status !== 'closed') {
+        // Reuse existing session
+        setIsModePinned(true)
+        setIsBotMode(false)
+        toast.success('Switched to existing support session')
+        setIsConnecting(false)
+        return
+      }
+
       setIsModePinned(true)
       const sessionId = await chatService.createChatSession(
         currentUser.id.toString(),
@@ -447,6 +458,8 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
     setIsModePinned(true)
     setIsBotMode(true)
     setIsOpen(true)
+    // Don't close the support session, just switch UI mode
+    // The session remains active in the background
     if (aiMessages.length === 0) {
       setIsAiThinking(true)
       try {
@@ -780,7 +793,11 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                                   )}
                                   <div className={cn('max-w-[70%] space-y-1', m.role === 'user' ? 'order-first' : 'order-last')}>
                                     <motion.div className={cn('rounded-2xl px-4 py-2 text-sm', m.role === 'user' ? 'bg-primary text-primary-foreground ml-auto' : 'bg-muted')}>
-                                      <p className="whitespace-pre-wrap">{m.content}</p>
+                                      {m.role === 'user' ? (
+                                        <p className="whitespace-pre-wrap">{m.content}</p>
+                                      ) : (
+                                        <MarkdownView content={m.content} />
+                                      )}
                                     </motion.div>
                                   </div>
                                 </motion.div>
