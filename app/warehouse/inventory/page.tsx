@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Database, Wrench, Search, Package, AlertTriangle, Filter } from 'lucide-react'
+import { Database, Wrench, Search, Package, AlertTriangle, Filter, RefreshCw } from 'lucide-react'
 import Sidebar from '@/components/sidebar'
 import { getAccessToken } from '@/lib/auth'
 import { DEVICE_SERVICE_URL, SPARE_PARTS_SERVICE_URL } from '@/lib/api'
@@ -76,18 +76,22 @@ export default function InventoryOverview() {
         const deviceResponse = await fetch(`${DEVICE_SERVICE_URL}/warehouse/inventory/search?${deviceParams}`, { headers })
         if (deviceResponse.ok) {
           const deviceData = await deviceResponse.json()
+          console.log('Device inventory response:', deviceData)
           const deviceItems: InventoryItem[] = deviceData.content?.map((item: any) => ({
             id: item.device.id,
             type: 'device' as const,
-            quantityInStock: item.quantityInStock,
-            minimumStockLevel: item.minimumStockLevel,
-            maximumStockLevel: item.maximumStockLevel,
+            quantityInStock: item.quantityInStock || 0,
+            minimumStockLevel: item.minimumStockLevel || 5,
+            maximumStockLevel: item.maximumStockLevel || 100,
             device: item.device
           })) || []
           setDeviceInventory(deviceItems)
+          console.log('Processed device items:', deviceItems)
+        } else {
+          console.error('Device inventory response not ok:', deviceResponse.status, deviceResponse.statusText)
         }
       } catch (err) {
-        console.warn('Failed to load device inventory:', err)
+        console.error('Failed to load device inventory:', err)
       }
 
       // Load spare parts inventory
@@ -103,12 +107,13 @@ export default function InventoryOverview() {
         const sparePartResponse = await fetch(`${SPARE_PARTS_SERVICE_URL}/warehouse/inventory/search?${sparePartParams}`, { headers })
         if (sparePartResponse.ok) {
           const sparePartData = await sparePartResponse.json()
+          console.log('Spare parts inventory response:', sparePartData)
           const sparePartItems: InventoryItem[] = sparePartData.content?.map((item: any) => ({
             id: item.sparePartId ?? item.sparePart?.id,
             type: 'spare-part' as const,
-            quantityInStock: item.quantityInStock,
-            minimumStockLevel: item.minimumStockLevel,
-            maximumStockLevel: item.maximumStockLevel,
+            quantityInStock: item.quantityInStock || 0,
+            minimumStockLevel: item.minimumStockLevel || 10,
+            maximumStockLevel: item.maximumStockLevel || 500,
             sparePart: {
               id: item.sparePartId ?? item.sparePart?.id,
               partName: item.partName ?? item.sparePart?.partName,
@@ -117,9 +122,12 @@ export default function InventoryOverview() {
             }
           })) || []
           setSparePartInventory(sparePartItems)
+          console.log('Processed spare part items:', sparePartItems)
+        } else {
+          console.error('Spare parts inventory response not ok:', sparePartResponse.status, sparePartResponse.statusText)
         }
       } catch (err) {
-        console.warn('Failed to load spare part inventory:', err)
+        console.error('Failed to load spare part inventory:', err)
       }
 
     } catch (err) {
@@ -246,7 +254,18 @@ export default function InventoryOverview() {
               Detailed view of all inventory items
             </p>
           </div>
-          <Package className="h-8 w-8 text-primary" />
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={loadInventoryData}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
+            <Package className="h-8 w-8 text-primary" />
+          </div>
         </div>
 
         {/* Search and Filter */}

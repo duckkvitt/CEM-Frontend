@@ -19,7 +19,8 @@ import {
   AlertTriangle,
   Eye,
   Package,
-  Wrench
+  Wrench,
+  RefreshCw
 } from 'lucide-react'
 import Sidebar from '@/components/sidebar'
 import { getAccessToken, getCurrentUserRole } from '@/lib/auth'
@@ -129,11 +130,22 @@ export default function ImportRequestsManagement() {
         const spareResponse = await fetch(`${SPARE_PARTS_SERVICE_URL}/warehouse/import-requests/search?${spareParams}`, { headers })
         if (spareResponse.ok) {
           const spareData = await spareResponse.json()
+          console.log('Spare parts import requests response:', spareData)
           const mapped: ImportRequest[] = (spareData.content || []).map((req: any) => ({
             ...req,
-            type: 'spare-part' as const
+            type: 'spare-part' as const,
+            sparePart: {
+              id: req.sparePart?.id || req.sparePartId,
+              name: req.sparePart?.partName || req.sparePartName,
+              code: req.sparePart?.partCode || req.sparePartCode,
+              partName: req.sparePart?.partName || req.sparePartName,
+              partCode: req.sparePart?.partCode || req.sparePartCode
+            }
           }))
           setSparePartRequests(mapped)
+          console.log('Processed spare parts import requests:', mapped)
+        } else {
+          console.error('Spare parts import requests response not ok:', spareResponse.status, spareResponse.statusText)
         }
       } catch (err) {
         console.warn('Failed to load spare part import requests:', err)
@@ -315,6 +327,15 @@ export default function ImportRequestsManagement() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={loadImportRequests}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
             <Truck className="h-8 w-8 text-primary" />
             {userRole === 'STAFF' && (
               <div className="flex gap-2">

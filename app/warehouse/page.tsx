@@ -18,7 +18,8 @@ import {
   History,
   Warehouse as WarehouseIcon,
   Database,
-  Wrench
+  Wrench,
+  RefreshCw
 } from 'lucide-react'
 import Sidebar from '@/components/sidebar'
 import Link from 'next/link'
@@ -71,6 +72,13 @@ export default function WarehouseDashboard() {
   const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [statsLoading, setStatsLoading] = useState({
+    devices: false,
+    spareParts: false,
+    deviceImport: false,
+    sparePartExport: false,
+    lowStock: false
+  })
 
   useEffect(() => {
     loadDashboardData()
@@ -79,6 +87,7 @@ export default function WarehouseDashboard() {
   const loadDashboardData = async () => {
     try {
       setLoading(true)
+      setLowStockItems([]) // Clear existing items before loading new ones
       const token = getAccessToken()
       
       if (!token) {
@@ -93,13 +102,19 @@ export default function WarehouseDashboard() {
 
       // Load device inventory statistics
       try {
+        setStatsLoading(prev => ({ ...prev, devices: true }))
         const deviceStatsResponse = await fetch(`${DEVICE_SERVICE_URL}/warehouse/inventory/statistics`, { headers })
         if (deviceStatsResponse.ok) {
           const deviceStatsData = await deviceStatsResponse.json()
+          console.log('Device stats response:', deviceStatsData)
           setDeviceStats(deviceStatsData)
+        } else {
+          console.error('Device stats response not ok:', deviceStatsResponse.status, deviceStatsResponse.statusText)
         }
       } catch (err) {
-        console.warn('Failed to load device stats:', err)
+        console.error('Failed to load device stats:', err)
+      } finally {
+        setStatsLoading(prev => ({ ...prev, devices: false }))
       }
 
       // Load spare parts inventory statistics  
@@ -107,10 +122,13 @@ export default function WarehouseDashboard() {
         const sparePartStatsResponse = await fetch(`${SPARE_PARTS_SERVICE_URL}/warehouse/inventory/statistics`, { headers })
         if (sparePartStatsResponse.ok) {
           const sparePartStatsData = await sparePartStatsResponse.json()
+          console.log('Spare parts stats response:', sparePartStatsData)
           setSparePartStats(sparePartStatsData)
+        } else {
+          console.error('Spare parts stats response not ok:', sparePartStatsResponse.status, sparePartStatsResponse.statusText)
         }
       } catch (err) {
-        console.warn('Failed to load spare part stats:', err)
+        console.error('Failed to load spare part stats:', err)
       }
 
       // Load device import request statistics
@@ -140,17 +158,21 @@ export default function WarehouseDashboard() {
         const deviceLowStockResponse = await fetch(`${DEVICE_SERVICE_URL}/warehouse/inventory/low-stock`, { headers })
         if (deviceLowStockResponse.ok) {
           const deviceLowStockData = await deviceLowStockResponse.json()
+          console.log('Device low stock response:', deviceLowStockData)
           const deviceLowStock: LowStockItem[] = deviceLowStockData.map((item: any) => ({
             id: item.device.id,
             name: item.device.name,
-            currentStock: item.quantityInStock,
-            minimumLevel: item.minimumStockLevel,
+            currentStock: item.quantityInStock || 0,
+            minimumLevel: item.minimumStockLevel || 5,
             type: 'device' as const
           }))
+          console.log('Processed device low stock items:', deviceLowStock)
           setLowStockItems(prev => [...prev, ...deviceLowStock])
+        } else {
+          console.error('Device low stock response not ok:', deviceLowStockResponse.status, deviceLowStockResponse.statusText)
         }
       } catch (err) {
-        console.warn('Failed to load device low stock items:', err)
+        console.error('Failed to load device low stock items:', err)
       }
 
       // Load low stock items (spare parts)
@@ -158,6 +180,7 @@ export default function WarehouseDashboard() {
         const sparePartLowStockResponse = await fetch(`${SPARE_PARTS_SERVICE_URL}/warehouse/inventory/low-stock`, { headers })
         if (sparePartLowStockResponse.ok) {
           const sparePartLowStockData = await sparePartLowStockResponse.json()
+          console.log('Spare parts low stock response:', sparePartLowStockData)
           // API returns flat DTO from spare-parts service: { inventoryId, sparePartId, sparePartName, sparePartCode, quantityInStock, minimumStockLevel }
           const sparePartLowStock: LowStockItem[] = sparePartLowStockData.map((item: any) => {
             const nested = item?.sparePart
@@ -166,8 +189,8 @@ export default function WarehouseDashboard() {
                 id: nested.id,
                 partName: nested.partName,
                 partCode: nested.partCode,
-                currentStock: item.quantityInStock,
-                minimumLevel: item.minimumStockLevel,
+                currentStock: item.quantityInStock || 0,
+                minimumLevel: item.minimumStockLevel || 10,
                 type: 'spare-part' as const
               }
             }
@@ -175,15 +198,18 @@ export default function WarehouseDashboard() {
               id: item.sparePartId,
               partName: item.sparePartName,
               partCode: item.sparePartCode,
-              currentStock: item.quantityInStock,
-              minimumLevel: item.minimumStockLevel,
+              currentStock: item.quantityInStock || 0,
+              minimumLevel: item.minimumStockLevel || 10,
               type: 'spare-part' as const
             }
           })
+          console.log('Processed spare parts low stock items:', sparePartLowStock)
           setLowStockItems(prev => [...prev, ...sparePartLowStock])
+        } else {
+          console.error('Spare parts low stock response not ok:', sparePartLowStockResponse.status, sparePartLowStockResponse.statusText)
         }
       } catch (err) {
-        console.warn('Failed to load spare part low stock items:', err)
+        console.error('Failed to load spare part low stock items:', err)
       }
 
     } catch (err) {
@@ -224,9 +250,17 @@ export default function WarehouseDashboard() {
     )
   }
 
-  const totalLowStockCount = (deviceStats?.lowStockCount || 0) + (sparePartStats?.lowStockCount || 0)
-  const totalOutOfStockCount = (deviceStats?.outOfStockCount || 0) + (sparePartStats?.outOfStockCount || 0)
-  const totalPendingRequests = (deviceImportStats?.pendingCount || 0) + (sparePartExportStats?.pendingCount || 0)
+  // Helper function to safely get numeric values
+  const safeNumber = (value: any, defaultValue: number = 0) => {
+    if (value === null || value === undefined || isNaN(Number(value))) {
+      return defaultValue
+    }
+    return Number(value)
+  }
+
+  const totalLowStockCount = safeNumber(deviceStats?.lowStockCount, 0) + safeNumber(sparePartStats?.lowStockCount, 0)
+  const totalOutOfStockCount = safeNumber(deviceStats?.outOfStockCount, 0) + safeNumber(sparePartStats?.outOfStockCount, 0)
+  const totalPendingRequests = safeNumber(deviceImportStats?.pendingCount, 0) + safeNumber(sparePartExportStats?.pendingCount, 0)
 
   return (
     <div className="flex min-h-screen w-full">
@@ -241,6 +275,15 @@ export default function WarehouseDashboard() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={loadDashboardData}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
             <WarehouseIcon className="h-8 w-8 text-primary" />
             <Badge variant="outline" className="text-lg px-3 py-1">
               Management View
@@ -256,12 +299,20 @@ export default function WarehouseDashboard() {
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {(deviceStats?.totalItems || 0) + (sparePartStats?.totalItems || 0)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {deviceStats?.totalItems || 0} devices, {sparePartStats?.totalItems || 0} spare parts
-              </p>
+              {statsLoading.devices || statsLoading.spareParts ? (
+                <div className="flex items-center justify-center h-16">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">
+                    {safeNumber(deviceStats?.totalItems, 0) + safeNumber(sparePartStats?.totalItems, 0)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {safeNumber(deviceStats?.totalItems, 0)} devices, {safeNumber(sparePartStats?.totalItems, 0)} spare parts
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -320,24 +371,24 @@ export default function WarehouseDashboard() {
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Total Devices</span>
-                <Badge>{deviceStats?.totalItems || 0}</Badge>
+                <Badge>{safeNumber(deviceStats?.totalItems, 0)}</Badge>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Total Quantity</span>
-                <Badge variant="secondary">{deviceStats?.totalQuantity || 0}</Badge>
+                <Badge variant="secondary">{safeNumber(deviceStats?.totalQuantity, 0)}</Badge>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Low Stock</span>
-                <Badge variant="destructive">{deviceStats?.lowStockCount || 0}</Badge>
+                <Badge variant="destructive">{safeNumber(deviceStats?.lowStockCount, 0)}</Badge>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Out of Stock</span>
-                <Badge variant="destructive">{deviceStats?.outOfStockCount || 0}</Badge>
+                <Badge variant="destructive">{safeNumber(deviceStats?.outOfStockCount, 0)}</Badge>
               </div>
               {deviceStats?.totalValue && (
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Total Value</span>
-                  <Badge variant="outline">${deviceStats.totalValue.toLocaleString()}</Badge>
+                  <Badge variant="outline">${safeNumber(deviceStats.totalValue, 0).toLocaleString()}</Badge>
                 </div>
               )}
             </CardContent>
@@ -356,19 +407,19 @@ export default function WarehouseDashboard() {
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Total Spare Parts</span>
-                <Badge>{sparePartStats?.totalItems || 0}</Badge>
+                <Badge>{safeNumber(sparePartStats?.totalItems, 0)}</Badge>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Total Quantity</span>
-                <Badge variant="secondary">{sparePartStats?.totalQuantity || 0}</Badge>
+                <Badge variant="secondary">{safeNumber(sparePartStats?.totalQuantity, 0)}</Badge>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Low Stock</span>
-                <Badge variant="destructive">{sparePartStats?.lowStockCount || 0}</Badge>
+                <Badge variant="destructive">{safeNumber(sparePartStats?.lowStockCount, 0)}</Badge>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Out of Stock</span>
-                <Badge variant="destructive">{sparePartStats?.outOfStockCount || 0}</Badge>
+                <Badge variant="destructive">{safeNumber(sparePartStats?.outOfStockCount, 0)}</Badge>
               </div>
             </CardContent>
           </Card>
@@ -461,8 +512,8 @@ export default function WarehouseDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {lowStockItems.slice(0, 5).map((item) => (
-                  <div key={`${item.type}-${item.id}`} className="flex items-center justify-between p-3 border rounded-lg">
+                {lowStockItems.slice(0, 5).map((item, index) => (
+                  <div key={`${item.type}-${item.id}-${index}`} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
                       {item.type === 'device' ? (
                         <Database className="h-4 w-4 text-blue-500" />
@@ -493,6 +544,43 @@ export default function WarehouseDashboard() {
                     ... and {lowStockItems.length - 5} more items
                   </p>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Debug Panel - Remove in production */}
+        {process.env.NODE_ENV === 'development' && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="text-sm text-muted-foreground">Debug Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <h4 className="font-medium mb-2">Device Stats:</h4>
+                  <pre className="bg-muted p-2 rounded overflow-auto">
+                    {JSON.stringify(deviceStats, null, 2)}
+                  </pre>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-2">Spare Parts Stats:</h4>
+                  <pre className="bg-muted p-2 rounded overflow-auto">
+                    {JSON.stringify(sparePartStats, null, 2)}
+                  </pre>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-2">Low Stock Items:</h4>
+                  <pre className="bg-muted p-2 rounded overflow-auto">
+                    {JSON.stringify(lowStockItems, null, 2)}
+                  </pre>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-2">Loading States:</h4>
+                  <pre className="bg-muted p-2 rounded overflow-auto">
+                    {JSON.stringify(statsLoading, null, 2)}
+                  </pre>
+                </div>
               </div>
             </CardContent>
           </Card>

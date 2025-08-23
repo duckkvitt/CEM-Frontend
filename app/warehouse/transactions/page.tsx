@@ -19,7 +19,8 @@ import {
   TrendingDown,
   RotateCcw,
   Database,
-  Wrench
+  Wrench,
+  RefreshCw
 } from 'lucide-react'
 import Sidebar from '@/components/sidebar'
 import { getAccessToken } from '@/lib/auth'
@@ -89,14 +90,18 @@ export default function InventoryTransactions() {
         const deviceResponse = await fetch(`${DEVICE_SERVICE_URL}/warehouse/transactions/search?${deviceParams}`, { headers })
         if (deviceResponse.ok) {
           const deviceData = await deviceResponse.json()
+          console.log('Device transactions response:', deviceData)
           const deviceTransactionsWithType: Transaction[] = (deviceData.content || []).map((txn: any) => ({
             ...txn,
             type: 'device' as const
           }))
           setDeviceTransactions(deviceTransactionsWithType)
+          console.log('Processed device transactions:', deviceTransactionsWithType)
+        } else {
+          console.error('Device transactions response not ok:', deviceResponse.status, deviceResponse.statusText)
         }
       } catch (err) {
-        console.warn('Failed to load device transactions:', err)
+        console.error('Failed to load device transactions:', err)
       }
 
       // Load spare part transactions
@@ -111,14 +116,18 @@ export default function InventoryTransactions() {
         const sparePartResponse = await fetch(`${SPARE_PARTS_SERVICE_URL}/warehouse/transactions/search?${sparePartParams}`, { headers })
         if (sparePartResponse.ok) {
           const sparePartData = await sparePartResponse.json()
+          console.log('Spare parts transactions response:', sparePartData)
           const sparePartTransactionsWithType: Transaction[] = (sparePartData.content || []).map((txn: any) => ({
             ...txn,
             type: 'spare-part' as const
           }))
           setSparePartTransactions(sparePartTransactionsWithType)
+          console.log('Processed spare parts transactions:', sparePartTransactionsWithType)
+        } else {
+          console.error('Spare parts transactions response not ok:', sparePartResponse.status, sparePartResponse.statusText)
         }
       } catch (err) {
-        console.warn('Failed to load spare part transactions:', err)
+        console.error('Failed to load spare part transactions:', err)
       }
 
     } catch (err) {
@@ -279,7 +288,18 @@ export default function InventoryTransactions() {
               Complete history of all inventory changes
             </p>
           </div>
-          <History className="h-8 w-8 text-primary" />
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={loadTransactions}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
+            <History className="h-8 w-8 text-primary" />
+          </div>
         </div>
 
         {/* Summary Stats */}
