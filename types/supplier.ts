@@ -15,6 +15,8 @@ export interface Supplier {
   website?: string;
   description?: string;
   spareParts: SparePart[];
+  suppliesDevices: boolean;
+  suppliesSpareParts: boolean;
   status: SupplierStatus;
   createdAt: string;
   updatedAt: string;

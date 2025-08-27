@@ -89,6 +89,8 @@ export async function getAllSpareParts(page = 0, size = 10, sortBy = 'id', sortD
         params.append('keyword', keyword.trim());
     }
     
+    // SPARE_PARTS_SERVICE_URL already points to gateway /api/spare-parts
+    // Backend controller for listing is mapped at '/spare-parts'
     return authenticatedFetch<PagedSparePartsResponse>(`${SPARE_PARTS_SERVICE_URL}?${params.toString()}`);
 }
 
