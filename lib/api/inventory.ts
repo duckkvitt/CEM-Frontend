@@ -263,8 +263,8 @@ export const getSparePartsInventory = async (): Promise<SparePart[]> => {
 // Get Spare Parts with Inventory Data
 export const getSparePartsWithInventory = async (): Promise<SparePartInventory[]> => {
   try {
-    console.log('Fetching spare parts with inventory from:', '/api/v1/spare-part-inventory/all-with-inventory')
-    const response = await apiFetch('/api/v1/spare-part-inventory/all-with-inventory?size=1000')
+    console.log('Fetching spare parts with inventory from:', '/v1/spare-part-inventory/all-with-inventory')
+    const response = await apiFetch('/v1/spare-part-inventory/all-with-inventory?size=1000')
     console.log('Response status:', response.status)
     console.log('Response ok:', response.ok)
     
@@ -279,30 +279,44 @@ export const getSparePartsWithInventory = async (): Promise<SparePartInventory[]
     
     // Backend returns ApiResponse<PagedResponse<SparePartInventoryResponse>>
     const paged = data?.data
-    if (paged && Array.isArray(paged.content)) {
-      // Map SparePartInventoryResponse to SparePartInventory interface
-      return paged.content.map((item: any) => ({
-        id: item.id,
-        sparePartId: item.sparePart.id,
-        sparePartName: item.sparePart.partName,
-        sparePartModel: item.sparePart.partCode,
-        quantityInStock: item.quantityInStock || 0,
-        minimumStockLevel: item.minimumStockLevel || 5,
-        maximumStockLevel: item.maximumStockLevel || 100,
-        reorderPoint: item.reorderPoint || 10,
-        unitCost: item.unitCost || 0,
-        warehouseLocation: item.warehouseLocation || 'Main Warehouse',
-        notes: item.notes || '',
-        isLowStock: (item.quantityInStock || 0) <= (item.reorderPoint || 10),
-        needsReorder: (item.quantityInStock || 0) <= (item.reorderPoint || 10),
-        isOutOfStock: (item.quantityInStock || 0) === 0,
-        createdBy: item.createdBy || 'system',
-        createdAt: item.createdAt || new Date().toISOString(),
-        updatedAt: item.updatedAt || new Date().toISOString()
-      }))
-    }
-    
-    return []
+    const content: any[] = (paged && Array.isArray(paged.content))
+      ? paged.content
+      : Array.isArray(data?.data)
+        ? data.data
+        : []
+
+    return content
+      .filter((item: any) => item)
+      .map((item: any, index: number) => {
+        const sp = item.sparePart || item.sparePartResponse || null
+        const sparePartId = item.sparePartId ?? sp?.id ?? sp?.sparePartId ?? null
+        const sparePartName = item.sparePartName ?? sp?.partName ?? item.partName ?? 'Unknown Spare Part'
+        const sparePartModel = item.sparePartModel ?? sp?.partCode ?? item.partCode ?? ''
+
+        const quantityInStock = Number(item.quantityInStock ?? 0)
+        const reorderPoint = Number(item.reorderPoint ?? 10)
+
+        return {
+          id: item.id ?? sparePartId ?? index + 1,
+          sparePartId: sparePartId ?? 0,
+          sparePartName,
+          sparePartModel,
+          quantityInStock,
+          minimumStockLevel: Number(item.minimumStockLevel ?? 5),
+          maximumStockLevel: Number(item.maximumStockLevel ?? 100),
+          reorderPoint,
+          unitCost: Number(item.unitCost ?? 0),
+          warehouseLocation: item.warehouseLocation || 'Main Warehouse',
+          notes: item.notes || '',
+          isLowStock: quantityInStock <= reorderPoint,
+          needsReorder: quantityInStock <= reorderPoint,
+          isOutOfStock: quantityInStock === 0,
+          createdBy: item.createdBy || 'system',
+          createdAt: item.createdAt || new Date().toISOString(),
+          updatedAt: item.updatedAt || new Date().toISOString()
+        } as SparePartInventory
+      })
+      .filter((i: SparePartInventory) => typeof i.sparePartId === 'number')
   } catch (error) {
     console.error('Error fetching spare parts with inventory:', error)
     // Fallback to basic spare parts data
