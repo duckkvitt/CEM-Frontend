@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Edit, Trash2, Mail, Phone, FileText as Fax, Globe, Building, MapPin, FileText, Package, Calendar, AlertCircle, CheckCircle, Clock } from 'lucide-react'
+import { ArrowLeft, Edit, Trash2, Mail, Phone, FileText as Fax, Globe, Building, MapPin, FileText, Package, Calendar, AlertCircle, CheckCircle, Clock, Server } from 'lucide-react'
 import { getSupplierById, deleteSupplier } from '@/lib/supplier-service'
 import { getCurrentUserRole } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,7 @@ import { toast } from 'sonner'
 import { formatDate } from '@/lib/utils'
 import { Supplier, SupplierStatus } from '@/types/supplier'
 import Link from 'next/link'
+import { getSupplierDevices } from '@/lib/api/inventory'
 
 interface Props {
   params: Promise<{
@@ -71,6 +72,7 @@ export default function SupplierDetailPage({ params }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [devices, setDevices] = useState<{ id: number; name: string; model: string }[]>([])
 
   useEffect(() => {
     setUserRole(getCurrentUserRole())
@@ -80,8 +82,13 @@ export default function SupplierDetailPage({ params }: Props) {
     async function fetchSupplier() {
       try {
         setLoading(true)
-        const data = await getSupplierById(parseInt(resolvedParams.id))
+        const idNum = parseInt(resolvedParams.id)
+        const [data, supplierDevices] = await Promise.all([
+          getSupplierById(idNum),
+          getSupplierDevices(idNum)
+        ])
         setSupplier(data)
+        setDevices(supplierDevices.map(d => ({ id: d.id, name: d.name, model: d.model })))
       } catch (err) {
         console.error('Error fetching supplier:', err)
         setError(err instanceof Error ? err.message : 'Failed to load supplier details')
@@ -415,6 +422,35 @@ export default function SupplierDetailPage({ params }: Props) {
                 </div>
               ) : (
                 <p className="text-gray-500 italic">No spare parts specified</p>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Devices */}
+        <motion.div variants={cardVariants}>
+          <Card className="h-full transition-all duration-200 hover:shadow-md">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Server className="h-5 w-5 text-teal-600" />
+                Devices
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {devices.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {devices.map((d) => (
+                    <Badge 
+                      key={d.id} 
+                      variant="secondary"
+                      className="bg-teal-100 text-teal-800 border-teal-200 hover:bg-teal-200 transition-colors duration-200"
+                    >
+                      {d.name} - {d.model}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 italic">No devices specified</p>
               )}
             </CardContent>
           </Card>

@@ -24,9 +24,9 @@ import {
   Clock,
   Warehouse,
   BarChart3,
-  PackageOpen,
-  Truck,
   History,
+  Upload,
+  Download
 } from 'lucide-react'
 
 interface NavItem {
@@ -97,12 +97,7 @@ export default function Sidebar() {
       icon: <CheckSquare size={20} />,
       roles: ['TECHNICIAN'],
     },
-    {
-      name: 'Request Spare Parts',
-      href: '/technician/spare-part-requests',
-      icon: <PackageOpen size={20} />,
-      roles: ['TECHNICIAN'],
-    },
+
     // General Management Items
     {
       name: 'Customer Management',
@@ -134,37 +129,33 @@ export default function Sidebar() {
       icon: <FileText size={20} />,
       roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'CUSTOMER'],
     },
-    // Warehouse Management Items
-    {
-      name: 'Warehouse Dashboard',
-      href: '/warehouse',
-      icon: <Warehouse size={20} />,
-      roles: ['MANAGER'],
-    },
+
+    // Inventory Management Items
     {
       name: 'Inventory Overview',
-      href: '/warehouse/inventory',
-      icon: <BarChart3 size={20} />,
-      roles: ['MANAGER', 'STAFF'],
+      href: '/inventory',
+      icon: <Warehouse size={20} />,
+      roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'LEAD_TECH'],
     },
     {
-      name: 'Import Requests',
-      href: '/warehouse/import-requests',
-      icon: <Truck size={20} />,
-      roles: ['MANAGER', 'STAFF'],
-    },
-    {
-      name: 'Export Requests',
-      href: '/warehouse/export-requests',
-      icon: <PackageOpen size={20} />,
-      roles: ['MANAGER', 'STAFF'],
+      name: 'Import Inventory',
+      href: '/inventory/import',
+      icon: <Upload size={20} />,
+      roles: ['STAFF'],
     },
     {
       name: 'Inventory Transactions',
-      href: '/warehouse/transactions',
+      href: '/inventory/transactions',
       icon: <History size={20} />,
-      roles: ['MANAGER', 'STAFF'],
+      roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'LEAD_TECH'],
     },
+    {
+      name: 'Warehouse Dashboard',
+      href: '/inventory/dashboard',
+      icon: <BarChart3 size={20} />,
+      roles: ['MANAGER', 'LEAD_TECH', 'SUPPORT_TEAM'],
+    },
+
     // Customer Menu Items
     {
       name: 'My Devices',
@@ -231,12 +222,9 @@ export default function Sidebar() {
       isActive = pathname.startsWith('/technician/schedule')
     } else if (item.href === '/technician/tasks') {
       isActive = pathname.startsWith('/technician/tasks')
-    } else if (item.href === '/technician/spare-part-requests') {
-      isActive = pathname.startsWith('/technician/spare-part-requests')
-    } else if (item.href === '/warehouse') {
-      isActive = pathname === '/warehouse'
-    } else if (item.href.startsWith('/warehouse/')) {
-      isActive = pathname.startsWith(item.href)
+    } else if (item.href === '/inventory') {
+      // Only highlight Inventory Overview on the exact overview route
+      isActive = pathname === '/inventory'
     } else {
       isActive = pathname.startsWith(item.href)
     }

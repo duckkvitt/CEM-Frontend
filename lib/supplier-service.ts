@@ -1,7 +1,7 @@
 import { SUPPLIERS_SERVICE_URL } from './api';
 import { getAccessToken } from './auth';
 import { 
-  Supplier, 
+  Supplier,  
   PagedSuppliersResponse, 
   CreateSupplierRequest, 
   UpdateSupplierRequest, 

@@ -8,12 +8,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ChevronLeft, ChevronRight, MoreHorizontal, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MoreHorizontal, Search, Package, Wrench } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { getSupplierDevices } from '@/lib/api/inventory';
+
+interface SupplierDeviceItem { id: number; name: string; model: string }
 
 export function SuppliersTable() {
   const searchParams = useSearchParams();
@@ -23,6 +26,7 @@ export function SuppliersTable() {
 
   const [data, setData] = useState<PagedSuppliersResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [supplierDevices, setSupplierDevices] = useState<Record<number, SupplierDeviceItem[]>>({});
 
   const page = Number(searchParams.get('page') || '0');
   const size = Number(searchParams.get('size') || '10');
@@ -34,8 +38,15 @@ export function SuppliersTable() {
   useEffect(() => {
     startTransition(async () => {
       try {
-        const result = await getAllSuppliers(page, size, sortBy, sortDir, keyword || undefined, status);
-        setData(result);
+        const suppliersResult = await getAllSuppliers(page, size, sortBy, sortDir, keyword || undefined, status);
+        setData(suppliersResult);
+        // load devices per supplier (first page worth only)
+        const mapping: Record<number, SupplierDeviceItem[]> = {};
+        await Promise.all((suppliersResult.content || []).map(async (s) => {
+          const list = await getSupplierDevices(s.id);
+          mapping[s.id] = list.map(d => ({ id: d.id, name: d.name, model: d.model }));
+        }));
+        setSupplierDevices(mapping);
       } catch (err: any) {
         setError(err.message);
       }
@@ -109,6 +120,8 @@ export function SuppliersTable() {
     }
   };
 
+  const getDevicesForSupplier = (supplierId: number) => supplierDevices[supplierId] || [];
+
   if (error) return <div>Error: {error}</div>;
 
   const containerVariants = {
@@ -174,14 +187,15 @@ export function SuppliersTable() {
               <TableHead onClick={() => handleSort('status')} className="cursor-pointer hover:bg-muted/50">
                 Status
               </TableHead>
-              <TableHead>Spare Part Types</TableHead>
+              <TableHead>Spare Parts</TableHead>
+              <TableHead>Device Types</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <motion.tbody variants={containerVariants} initial="hidden" animate="visible">
             {isPending ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
+                <TableCell colSpan={8} className="text-center py-8">
                   <div className="flex justify-center items-center">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                     <span className="ml-2">Loading...</span>
@@ -190,87 +204,110 @@ export function SuppliersTable() {
               </TableRow>
             ) : data?.content.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No suppliers found.
                 </TableCell>
               </TableRow>
             ) : (
-              data?.content.map((supplier) => (
-                <motion.tr key={supplier.id} variants={itemVariants} className="hover:bg-muted/50">
-                  <TableCell className="font-medium">{supplier.companyName}</TableCell>
-                  <TableCell>{supplier.contactPerson}</TableCell>
-                  <TableCell>{supplier.email}</TableCell>
-                  <TableCell>{supplier.phone}</TableCell>
-                  <TableCell>
-                    <Badge 
-                      variant={
-                        supplier.status === 'ACTIVE' ? 'default' : 
-                        supplier.status === 'INACTIVE' ? 'destructive' : 'secondary'
-                      }
-                    >
-                      {supplier.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {supplier.spareParts.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {supplier.spareParts.slice(0, 2).map((sparePart) => (
-                          <Badge key={sparePart.id} variant="outline" className="text-xs">
-                            {sparePart.partName}
-                          </Badge>
-                        ))}
-                        {supplier.spareParts.length > 2 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{supplier.spareParts.length - 2} more
-                          </Badge>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">No parts specified</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/suppliers/${supplier.id}`}>View Details</Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/suppliers/${supplier.id}/edit`}>Edit</Link>
-                        </DropdownMenuItem>
-                        {supplier.status === 'ACTIVE' && (
-                          <DropdownMenuItem 
-                            onClick={() => handleDeactivate(supplier.id, supplier.companyName)}
-                            className="text-yellow-600"
-                          >
-                            Deactivate
+              data?.content.map((supplier) => {
+                const deviceList = getDevicesForSupplier(supplier.id);
+                return (
+                  <motion.tr key={supplier.id} variants={itemVariants} className="hover:bg-muted/50">
+                    <TableCell className="font-medium">{supplier.companyName}</TableCell>
+                    <TableCell>{supplier.contactPerson}</TableCell>
+                    <TableCell>{supplier.email}</TableCell>
+                    <TableCell>{supplier.phone}</TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant={
+                          supplier.status === 'ACTIVE' ? 'default' : 
+                          supplier.status === 'INACTIVE' ? 'destructive' : 'secondary'
+                        }
+                      >
+                        {supplier.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {supplier.spareParts && supplier.spareParts.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {supplier.spareParts.slice(0, 2).map((sparePart) => (
+                            <Badge key={sparePart.id} variant="outline" className="text-xs">
+                              <Wrench className="h-3 w-3 mr-1" />
+                              {sparePart.partName}
+                            </Badge>
+                          ))}
+                          {supplier.spareParts.length > 2 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{supplier.spareParts.length - 2} more
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No parts specified</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {deviceList.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {deviceList.slice(0, 2).map((device) => (
+                            <Badge key={device.id} variant="outline" className="text-xs">
+                              <Package className="h-3 w-3 mr-1" />
+                              {device.name} - {device.model}
+                            </Badge>
+                          ))}
+                          {deviceList.length > 2 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{deviceList.length - 2} more
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No devices specified</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/suppliers/${supplier.id}`}>View Details</Link>
                           </DropdownMenuItem>
-                        )}
-                        {supplier.status === 'INACTIVE' && (
-                          <DropdownMenuItem 
-                            onClick={() => handleActivate(supplier.id, supplier.companyName)}
-                            className="text-green-600"
-                          >
-                            Activate
+                          <DropdownMenuItem asChild>
+                            <Link href={`/suppliers/${supplier.id}/edit`}>Edit</Link>
                           </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem 
-                          onClick={() => handleDelete(supplier.id, supplier.companyName)}
-                          className="text-red-600"
-                        >
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </motion.tr>
-              ))
+                          {supplier.status === 'ACTIVE' && (
+                            <DropdownMenuItem 
+                              onClick={() => handleDeactivate(supplier.id, supplier.companyName)}
+                              className="text-yellow-600"
+                            >
+                              Deactivate
+                            </DropdownMenuItem>
+                          )}
+                          {supplier.status === 'INACTIVE' && (
+                            <DropdownMenuItem 
+                              onClick={() => handleActivate(supplier.id, supplier.companyName)}
+                              className="text-green-600"
+                            >
+                              Activate
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem 
+                            onClick={() => handleDelete(supplier.id, supplier.companyName)}
+                            className="text-red-600"
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </motion.tr>
+                );
+              })
             )}
           </motion.tbody>
         </Table>

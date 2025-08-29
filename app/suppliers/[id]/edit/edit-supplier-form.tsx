@@ -12,10 +12,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, X, Loader2 } from 'lucide-react';
+import { Search, X, Loader2, Plus, Trash2, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { SparePart } from '@/types/spare-part';
 import { Supplier } from '@/types/supplier';
+import { getDevicesForSelection, getSupplierDevices, replaceSupplierDevices, unlinkSupplierDevice, SimpleDevice } from '@/lib/api/inventory'
 
 interface EditSupplierFormProps {
   supplierId: number;
@@ -32,6 +33,9 @@ export function EditSupplierForm({ supplierId }: EditSupplierFormProps) {
   const [selectedSparePartIds, setSelectedSparePartIds] = useState<Set<number>>(new Set());
   const [sparePartsLoading, setSparePartsLoading] = useState(true);
   const [sparePartsFilter, setSparePartsFilter] = useState('');
+  const [devices, setDevices] = useState<SimpleDevice[]>([])
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState<Set<number>>(new Set())
+  const [deviceFilter, setDeviceFilter] = useState('')
 
   // Fetch supplier data and spare parts on component mount
   useEffect(() => {
@@ -40,9 +44,11 @@ export function EditSupplierForm({ supplierId }: EditSupplierFormProps) {
         setLoading(true);
         
         // Fetch supplier and spare parts in parallel
-        const [supplierResponse, sparePartsResponse] = await Promise.all([
+        const [supplierResponse, sparePartsResponse, allDevices, supplierDevices] = await Promise.all([
           getSupplierById(supplierId),
-          getAllSpareParts(0, 100)
+          getAllSpareParts(0, 100),
+          getDevicesForSelection(),
+          getSupplierDevices(supplierId)
         ]);
 
         setSupplier(supplierResponse);
@@ -51,6 +57,9 @@ export function EditSupplierForm({ supplierId }: EditSupplierFormProps) {
         // Set initially selected spare parts
         const initialSparePartIds = new Set(supplierResponse.spareParts.map(sp => sp.id));
         setSelectedSparePartIds(initialSparePartIds);
+
+        setDevices(allDevices)
+        setSelectedDeviceIds(new Set(supplierDevices.map(d => d.id)))
         
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -134,6 +143,9 @@ export function EditSupplierForm({ supplierId }: EditSupplierFormProps) {
         sparePartIds: Array.from(selectedSparePartIds),
       });
 
+      // persist device mapping
+      await replaceSupplierDevices(supplierId, Array.from(selectedDeviceIds))
+
       toast.success('Supplier updated successfully');
       router.push(`/suppliers/${supplierId}`);
     } catch (err: unknown) {
@@ -142,6 +154,11 @@ export function EditSupplierForm({ supplierId }: EditSupplierFormProps) {
       setSubmitting(false);
     }
   }
+
+  const filteredDevices = devices.filter(d =>
+    d.name.toLowerCase().includes(deviceFilter.toLowerCase()) ||
+    d.model.toLowerCase().includes(deviceFilter.toLowerCase())
+  )
 
   if (loading) {
     return (
@@ -374,6 +391,67 @@ export function EditSupplierForm({ supplierId }: EditSupplierFormProps) {
                 </div>
               </ScrollArea>
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Devices</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              value={deviceFilter}
+              onChange={(e) => setDeviceFilter(e.target.value)}
+              placeholder="Search devices..."
+              className="pl-10"
+            />
+          </div>
+
+          {selectedDeviceIds.size > 0 && (
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                Selected Devices ({selectedDeviceIds.size})
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {Array.from(selectedDeviceIds).map((id) => {
+                  const d = devices.find(x => x.id === id)
+                  return d ? (
+                    <Badge key={id} variant="secondary" className="flex items-center gap-1">
+                      {d.name} - {d.model}
+                      <X className="h-3 w-3 cursor-pointer hover:text-red-500" onClick={() => setSelectedDeviceIds(prev => { const n = new Set(prev); n.delete(id); return n })} />
+                    </Badge>
+                  ) : null
+                })}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">
+              Available Devices
+            </Label>
+            <ScrollArea className="h-64 border rounded-md">
+              <div className="p-4 space-y-2">
+                {filteredDevices.length > 0 ? (
+                  filteredDevices.map((d) => (
+                    <div key={d.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-md cursor-pointer" onClick={() => setSelectedDeviceIds(prev => { const n = new Set(prev); n.has(d.id) ? n.delete(d.id) : n.add(d.id); return n })}>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Checkbox checked={selectedDeviceIds.has(d.id)} onCheckedChange={() => setSelectedDeviceIds(prev => { const n = new Set(prev); n.has(d.id) ? n.delete(d.id) : n.add(d.id); return n })} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900">{d.name}</p>
+                        <p className="text-xs text-gray-500">Model: {d.model}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-4">{deviceFilter ? 'No devices match your search' : 'No devices available'}</p>
+                )}
+              </div>
+            </ScrollArea>
           </div>
         </CardContent>
       </Card>
