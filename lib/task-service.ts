@@ -30,6 +30,7 @@ export interface Task {
   createdAt: string
   updatedAt: string
   history?: TaskHistory[]
+  sparePartsUsed?: SparePartUsage[]
 }
 
 export interface TaskHistory {
@@ -595,4 +596,144 @@ export async function getTaskStatistics(): Promise<TaskStatistics> {
 
   const result = await response.json()
   return result.data
+}
+
+export interface SparePartUsage {
+  id: number
+  sparePartId: number
+  partName: string
+  partCode: string
+  quantity: number
+  unitCost: number
+  totalCost: number
+  exportedAt: string
+  exportedBy: string
+  notes?: string
+}
+
+export interface ExportSparePartRequest {
+  taskId: number
+  sparePartId: number
+  quantity: number
+  notes?: string
+  warehouseLocation?: string
+}
+
+// Spare Parts Export Functions
+export async function exportSparePartForTask(request: ExportSparePartRequest): Promise<any> {
+  const token = getAccessToken()
+  
+  // Debug log để kiểm tra request
+  console.log('ExportSparePartRequest:', request)
+  
+  const exportRequest = {
+    itemType: 'SPARE_PART' as const,
+    items: [{
+      itemId: request.sparePartId,
+      quantity: request.quantity,
+      notes: request.notes
+    }],
+    referenceType: 'TASK',
+    referenceId: Number(request.taskId),
+    notes: request.notes,
+    warehouseLocation: request.warehouseLocation || 'Main Warehouse'
+  }
+  
+  // Debug log để kiểm tra exportRequest
+  console.log('Backend exportRequest:', exportRequest)
+
+  const response = await fetch(`${DEVICE_SERVICE_URL}/api/v1/inventory/export`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(exportRequest)
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.message || 'Failed to export spare part')
+  }
+
+  const result = await response.json()
+  return result.data
+}
+
+export async function getTaskSparePartsUsed(taskId: number): Promise<SparePartUsage[]> {
+  const token = getAccessToken()
+  
+  // Debug log để kiểm tra taskId
+  console.log('Fetching spare parts usage for taskId:', taskId)
+  
+  const url = `${DEVICE_SERVICE_URL}/api/v1/inventory/transactions?referenceType=TASK&referenceId=${taskId}&transactionType=EXPORT&itemType=SPARE_PART`
+  console.log('API URL:', url)
+  
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    }
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('API response not ok:', response.status, errorText)
+    throw new Error('Failed to fetch task spare parts usage')
+  }
+
+  const result = await response.json()
+  console.log('API response result:', result)
+  console.log('API response data:', result.data)
+  console.log('API response data type:', typeof result.data)
+  console.log('API response data isArray:', Array.isArray(result.data))
+  if (Array.isArray(result.data)) {
+    console.log('First few transactions:', result.data.slice(0, 3))
+  }
+  
+  // Check if data is directly an array or has content property
+  let transactions: any[] = []
+  if (Array.isArray(result.data)) {
+    // Data is directly an array
+    transactions = result.data
+    console.log('Data is directly an array, length:', transactions.length)
+  } else if (result.data?.content && Array.isArray(result.data.content)) {
+    // Data has content property
+    transactions = result.data.content
+    console.log('Data has content property, length:', transactions.length)
+  } else {
+    console.log('Unexpected data structure:', result.data)
+    return []
+  }
+  
+  // Filter only EXPORT transactions for SPARE_PART with matching referenceId
+  const exportTransactions = transactions.filter((transaction: any) => {
+    const matches = transaction.transactionType === 'EXPORT' &&
+      transaction.itemType === 'SPARE_PART' &&
+      transaction.referenceType === 'TASK' &&
+      Number(transaction.referenceId) === Number(taskId)
+    
+    if (matches) {
+      console.log('Found matching transaction:', transaction)
+    }
+    
+    return matches
+  })
+  
+  console.log('Filtered export transactions:', exportTransactions)
+  
+  const sparePartUsages: SparePartUsage[] = exportTransactions.map((transaction: any) => ({
+    id: transaction.id,
+    sparePartId: transaction.itemId,
+    partName: transaction.itemName,
+    partCode: transaction.itemName, // Fallback, có thể cần lấy từ spare part service
+    quantity: transaction.quantity,
+    unitCost: transaction.unitPrice || 0,
+    totalCost: (transaction.unitPrice || 0) * transaction.quantity,
+    exportedAt: transaction.createdAt,
+    exportedBy: transaction.createdBy,
+    notes: transaction.notes
+  }))
+  
+  console.log('Transformed sparePartUsages:', sparePartUsages)
+  return sparePartUsages
 }

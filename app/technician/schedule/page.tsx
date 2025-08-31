@@ -46,6 +46,8 @@ import {
   TaskActionRequest,
   Page
 } from '@/lib/task-service'
+import { SparePartsExportModal } from '@/components/spare-parts-export-modal'
+import { TaskSparePartsSection } from '@/components/task-spare-parts-section'
 
 const STATUS_COLORS = {
   ASSIGNED: 'bg-blue-100 text-blue-800',
@@ -88,6 +90,7 @@ export default function TechnicianSchedulePage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [actionModalOpen, setActionModalOpen] = useState(false)
   const [viewModalOpen, setViewModalOpen] = useState(false)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
   const [actionType, setActionType] = useState<'accept' | 'reject' | 'start' | 'complete'>('accept')
   const [submitting, setSubmitting] = useState(false)
   const [actionForm, setActionForm] = useState<TaskActionRequest>({
@@ -196,6 +199,17 @@ export default function TechnicianSchedulePage() {
       setError('Failed to load task details')
       console.error('Failed to load task details:', err)
     }
+  }
+
+  const handleExportSuccess = () => {
+    // Refresh the task details to show updated spare parts usage
+    if (selectedTask) {
+      handleViewTask(selectedTask)
+    }
+  }
+
+  const openExportModal = () => {
+    setExportModalOpen(true)
   }
 
   const formatDate = (dateString: string) => {
@@ -884,6 +898,17 @@ export default function TechnicianSchedulePage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Spare Parts Export Modal */}
+      {selectedTask && (
+        <SparePartsExportModal
+          isOpen={exportModalOpen}
+          onClose={() => setExportModalOpen(false)}
+          taskId={selectedTask.id}
+          taskTitle={selectedTask.title}
+          onExportSuccess={handleExportSuccess}
+        />
+      )}
     </div>
   )
 }
