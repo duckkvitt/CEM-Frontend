@@ -305,7 +305,7 @@ export default function TechnicianTasksPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
+          {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">My Tasks</h1>
           <p className="text-gray-600">Manage and track your assigned tasks</p>
@@ -322,19 +322,19 @@ export default function TechnicianTasksPage() {
         {/* Filters and Search */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <Label htmlFor="search">Search</Label>
+                  <div>
+                    <Label htmlFor="search">Search</Label>
               <div className="relative mt-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  id="search"
-                  placeholder="Search tasks..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input
+                        id="search"
+                        placeholder="Search tasks..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
 
             <div>
               <Label htmlFor="status">Status</Label>
@@ -351,51 +351,51 @@ export default function TechnicianTasksPage() {
               </Select>
             </div>
 
-            <div>
-              <Label htmlFor="priority">Priority</Label>
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                  <div>
+                    <Label htmlFor="priority">Priority</Label>
+                    <Select value={priorityFilter} onValueChange={setPriorityFilter}>
                 <SelectTrigger className="mt-1">
                   <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
+                      </SelectTrigger>
+                      <SelectContent>
                   <SelectItem value="ALL">All Priorities</SelectItem>
-                  <SelectItem value="LOW">Low</SelectItem>
+                        <SelectItem value="LOW">Low</SelectItem>
                   <SelectItem value="NORMAL">Normal</SelectItem>
-                  <SelectItem value="MEDIUM">Medium</SelectItem>
-                  <SelectItem value="HIGH">High</SelectItem>
+                        <SelectItem value="MEDIUM">Medium</SelectItem>
+                        <SelectItem value="HIGH">High</SelectItem>
                   <SelectItem value="CRITICAL">Critical</SelectItem>
-                  <SelectItem value="URGENT">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                        <SelectItem value="URGENT">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-            <div>
-              <Label htmlFor="type">Type</Label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <div>
+                    <Label htmlFor="type">Type</Label>
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="mt-1">
                   <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
+                      </SelectTrigger>
+                      <SelectContent>
                   <SelectItem value="ALL">All Types</SelectItem>
-                  <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                        <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
                   <SelectItem value="REPAIR">Repair</SelectItem>
-                  <SelectItem value="INSTALLATION">Installation</SelectItem>
-                  <SelectItem value="INSPECTION">Inspection</SelectItem>
+                        <SelectItem value="INSTALLATION">Installation</SelectItem>
+                        <SelectItem value="INSPECTION">Inspection</SelectItem>
                   <SelectItem value="WARRANTY">Warranty</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  </div>
 
           <div className="flex justify-between items-center mt-4">
             <Button variant="outline" onClick={clearFilters}>
               Clear Filters
-            </Button>
+                    </Button>
             <div className="text-sm text-gray-500">
               {getFilteredTasks().length} of {tasks.length} tasks
             </div>
-          </div>
-        </div>
+                  </div>
+                </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
@@ -410,16 +410,16 @@ export default function TechnicianTasksPage() {
         {/* Tasks Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {getFilteredTasks().map((task) => (
-            <motion.div
-              key={task.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+                  <motion.div
+                    key={task.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow"
-            >
+                  >
               <Card>
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
                       <CardTitle className="text-lg line-clamp-2 mb-2">{task.title}</CardTitle>
                       <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
                     </div>
@@ -427,101 +427,101 @@ export default function TechnicianTasksPage() {
                   
                   <div className="flex flex-wrap gap-2 mt-3">
                     <Badge className={`text-xs ${taskStatusColors[task.status]}`}>
-                      {task.status.replace('_', ' ')}
-                    </Badge>
+                                {task.status.replace('_', ' ')}
+                              </Badge>
                     <Badge className={`text-xs ${taskPriorityColors[task.priority]}`}>
-                      {task.priority}
-                    </Badge>
+                                {task.priority}
+                              </Badge>
                     <Badge className={`text-xs ${taskTypeColors[task.type]}`}>
-                      {task.type}
-                    </Badge>
-                  </div>
+                                {task.type}
+                              </Badge>
+                            </div>
                 </CardHeader>
 
                 <CardContent className="pt-0">
                   <div className="space-y-3 text-sm">
-                    <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2">
                       <Wrench className="h-4 w-4 text-gray-400" />
                       <span className="text-gray-600">{task.deviceName}</span>
-                    </div>
+                              </div>
                     
-                    {task.preferredCompletionDate && (
-                      <div className="flex items-center gap-2">
+                              {task.preferredCompletionDate && (
+                                <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-gray-400" />
                         <span className="text-gray-600">
                           Due: {format(new Date(task.preferredCompletionDate), 'MMM dd, yyyy')}
                         </span>
-                      </div>
-                    )}
+                                </div>
+                              )}
 
-                    {task.estimatedCost && (
-                      <div className="flex items-center gap-2">
+                              {task.estimatedCost && (
+                                <div className="flex items-center gap-2">
                         <DollarSign className="h-4 w-4 text-gray-400" />
                         <span className="text-gray-600">
                           Est. Cost: ${task.estimatedCost.toFixed(2)}
                         </span>
-                      </div>
-                    )}
-                  </div>
+                                </div>
+                              )}
+                          </div>
 
                   <div className="flex gap-2 mt-4">
-                    <Button
+                            <Button
                       size="sm"
-                      variant="outline"
-                      onClick={() => handleViewTask(task)}
+                              variant="outline"
+                              onClick={() => handleViewTask(task)}
                       className="flex-1"
-                    >
+                            >
                       <Eye className="h-4 w-4 mr-2" />
-                      View
-                    </Button>
-                    
+                              View
+                            </Button>
+
                     {task.status === 'ASSIGNED' && (
                       <>
-                        <Button
-                          size="sm"
-                          onClick={() => openActionModal(task, 'accept')}
+                              <Button
+                                size="sm"
+                                onClick={() => openActionModal(task, 'accept')}
                           className="flex-1 bg-green-600 hover:bg-green-700"
-                        >
+                              >
                           <CheckCircle2 className="h-4 w-4 mr-2" />
-                          Accept
-                        </Button>
-                        <Button
-                          size="sm"
+                                Accept
+                              </Button>
+                              <Button
+                                size="sm"
                           variant="destructive"
-                          onClick={() => openActionModal(task, 'reject')}
+                                onClick={() => openActionModal(task, 'reject')}
                           className="flex-1"
-                        >
+                              >
                           <XCircle className="h-4 w-4 mr-2" />
-                          Reject
-                        </Button>
+                                Reject
+                              </Button>
                       </>
-                    )}
+                            )}
 
                     {task.status === 'ACCEPTED' && (
-                      <Button
-                        size="sm"
-                        onClick={() => openActionModal(task, 'start')}
+                              <Button
+                                size="sm"
+                                onClick={() => openActionModal(task, 'start')}
                         className="flex-1 bg-blue-600 hover:bg-blue-700"
-                      >
+                              >
                         <Play className="h-4 w-4 mr-2" />
-                        Start
-                      </Button>
-                    )}
+                                Start
+                              </Button>
+                            )}
 
                     {task.status === 'IN_PROGRESS' && (
-                      <Button
-                        size="sm"
-                        onClick={() => openActionModal(task, 'complete')}
+                              <Button
+                                size="sm"
+                                onClick={() => openActionModal(task, 'complete')}
                         className="flex-1 bg-green-600 hover:bg-green-700"
-                      >
+                              >
                         <CheckCircle2 className="h-4 w-4 mr-2" />
-                        Complete
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+                                Complete
+                              </Button>
+                            )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
           ))}
         </div>
 
@@ -541,7 +541,13 @@ export default function TechnicianTasksPage() {
         )}
 
         {/* View Task Modal */}
-        <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
+        <Dialog open={viewModalOpen} onOpenChange={(open) => {
+          // Không cho phép đóng modal khi export modal đang mở
+          if (!open && exportModalOpen) {
+            return
+          }
+          setViewModalOpen(open)
+        }}>
           <DialogContent className="sm:max-w-5xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-xl">
@@ -561,38 +567,38 @@ export default function TechnicianTasksPage() {
                     <div className="flex-1">
                       <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedTask.title}</h2>
                       <p className="text-gray-600 text-lg">{selectedTask.description}</p>
-                    </div>
+                  </div>
                     <div className="flex flex-col items-end gap-2">
                       <Badge className={`text-sm px-3 py-1 ${taskStatusColors[selectedTask.status]}`}>
-                        {selectedTask.status.replace('_', ' ')}
-                      </Badge>
+                      {selectedTask.status.replace('_', ' ')}
+                    </Badge>
                       <Badge className={`text-sm px-3 py-1 ${taskPriorityColors[selectedTask.priority]}`}>
-                        {selectedTask.priority}
-                      </Badge>
+                      {selectedTask.priority}
+                    </Badge>
                       <Badge className={`text-sm px-3 py-1 ${taskTypeColors[selectedTask.type]}`}>
-                        {selectedTask.type}
-                      </Badge>
-                    </div>
+                      {selectedTask.type}
+                    </Badge>
                   </div>
+                </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="flex items-center gap-2">
                       <User className="h-5 w-5 text-blue-600" />
-                      <div>
+                <div>
                         <p className="text-sm text-gray-500">Customer</p>
                         <p className="font-medium">{selectedTask.customerName || 'N/A'}</p>
-                      </div>
-                    </div>
+                </div>
+                </div>
                     <div className="flex items-center gap-2">
                       <Wrench className="h-5 w-5 text-green-600" />
-                      <div>
+                  <div>
                         <p className="text-sm text-gray-500">Device</p>
                         <p className="font-medium">{selectedTask.deviceName}</p>
-                      </div>
+                  </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Calendar className="h-5 w-5 text-purple-600" />
-                      <div>
+                    <div>
                         <p className="text-sm text-gray-500">Due Date</p>
                         <p className="font-medium">
                           {selectedTask.preferredCompletionDate 
@@ -633,22 +639,22 @@ export default function TechnicianTasksPage() {
                           )}
                           
                           {selectedTask.serialNumber && (
-                            <div>
+                  <div>
                               <Label className="text-sm font-medium text-gray-700">Serial Number</Label>
                               <p className="text-sm text-gray-900 font-mono bg-gray-100 px-2 py-1 rounded">
                                 {selectedTask.serialNumber}
-                              </p>
-                            </div>
-                          )}
+                    </p>
+                  </div>
+                )}
 
                           <div className="grid grid-cols-2 gap-4">
-                            <div>
+                      <div>
                               <Label className="text-sm font-medium text-gray-700">Estimated Cost</Label>
                               <p className="text-sm text-gray-900">
                                 {selectedTask.estimatedCost ? `$${selectedTask.estimatedCost.toFixed(2)}` : 'Not specified'}
                               </p>
-                            </div>
-                            <div>
+                      </div>
+                      <div>
                               <Label className="text-sm font-medium text-gray-700">Actual Cost</Label>
                               <p className="text-sm text-gray-900">
                                 {selectedTask.actualCost ? `$${selectedTask.actualCost.toFixed(2)}` : 'Not specified'}
@@ -679,12 +685,12 @@ export default function TechnicianTasksPage() {
                                   </span>
                                 </div>
                                 <p className="text-sm text-amber-700">{note.note}</p>
-                              </div>
+                      </div>
                             ))
                           ) : (
                             <p className="text-sm text-gray-500 text-center py-4">No staff notes available</p>
-                          )}
-                        </div>
+                    )}
+                  </div>
                       </CardContent>
                     </Card>
 
@@ -710,7 +716,7 @@ export default function TechnicianTasksPage() {
                                     <p className="text-sm text-gray-600 mt-1">{history.comment}</p>
                                   )}
                                 </div>
-                              </div>
+                  </div>
                             ))
                           ) : (
                             <p className="text-sm text-gray-500 text-center py-4">No task history available</p>
@@ -741,7 +747,7 @@ export default function TechnicianTasksPage() {
                   </CardHeader>
                   <CardContent className="pt-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div>
+                  <div>
                         <Label className="text-gray-600">Created</Label>
                         <p className="font-medium">
                           {selectedTask.createdAt 
@@ -749,7 +755,7 @@ export default function TechnicianTasksPage() {
                             : 'Not specified'
                           }
                         </p>
-                      </div>
+                          </div>
                       <div>
                         <Label className="text-gray-600">Last Updated</Label>
                         <p className="font-medium">
@@ -757,8 +763,8 @@ export default function TechnicianTasksPage() {
                             ? format(new Date(selectedTask.updatedAt), 'MMM dd, yyyy HH:mm')
                             : 'Not specified'
                           }
-                        </p>
-                      </div>
+                          </p>
+                        </div>
                     </div>
                   </CardContent>
                 </Card>

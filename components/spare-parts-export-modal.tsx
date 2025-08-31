@@ -229,7 +229,10 @@ export function SparePartsExportModal({
             <Button
               variant="ghost"
               size="icon"
-              onClick={onClose}
+              onClick={(e) => {
+                e.stopPropagation()
+                onClose()
+              }}
               className="text-white hover:bg-white/20"
             >
               <X className="h-5 w-5" />
@@ -274,14 +277,23 @@ export function SparePartsExportModal({
               <div className="flex gap-4 mb-4">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    placeholder="Search spare parts..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
+                                  <Input
+                  placeholder="Search spare parts..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    e.stopPropagation()
+                    setSearchTerm(e.target.value)
+                  }}
+                  className="pl-10"
+                />
                 </div>
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                  <Select 
+                    value={selectedCategory} 
+                    onValueChange={(value) => {
+                      // Prevent event propagation for select changes
+                      setSelectedCategory(value)
+                    }}
+                  >
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="All categories" />
                   </SelectTrigger>
@@ -348,14 +360,17 @@ export function SparePartsExportModal({
                           </div>
                         </div>
                         
-                        <Button
-                          onClick={() => addToExportList(part)}
-                          size="sm"
-                          className="ml-4"
-                          disabled={quantityInStock <= 0}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
+                                              <Button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          addToExportList(part)
+                        }}
+                        size="sm"
+                        className="ml-4"
+                        disabled={quantityInStock <= 0}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
                       </div>
                     </motion.div>
                   )
@@ -408,7 +423,10 @@ export function SparePartsExportModal({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => removeFromExportList(item.sparePartId)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              removeFromExportList(item.sparePartId)
+                            }}
                             className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
                           >
                             <X className="h-4 w-4" />
@@ -425,7 +443,10 @@ export function SparePartsExportModal({
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => updateExportItemQuantity(item.sparePartId, item.quantity - 1)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                updateExportItemQuantity(item.sparePartId, item.quantity - 1)
+                              }}
                               className="h-8 w-8 p-0 hover:bg-gray-100"
                             >
                               <Minus className="h-3 w-3" />
@@ -436,7 +457,10 @@ export function SparePartsExportModal({
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => updateExportItemQuantity(item.sparePartId, item.quantity + 1)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                updateExportItemQuantity(item.sparePartId, item.quantity + 1)
+                              }}
                               className="h-8 w-8 p-0 hover:bg-gray-100"
                             >
                               <Plus className="h-3 w-3" />
@@ -451,7 +475,10 @@ export function SparePartsExportModal({
                             id={`notes-${item.sparePartId}`}
                             placeholder="Add notes..."
                             value={item.notes}
-                            onChange={(e) => updateExportItemNotes(item.sparePartId, e.target.value)}
+                            onChange={(e) => {
+                              e.stopPropagation()
+                              updateExportItemNotes(item.sparePartId, e.target.value)
+                            }}
                             className="text-xs"
                             rows={2}
                           />
@@ -484,7 +511,10 @@ export function SparePartsExportModal({
 
                 {/* Export Button */}
                 <Button
-                  onClick={handleExport}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleExport()
+                  }}
                   disabled={exporting || exportItems.length === 0}
                   className="w-full"
                   size="lg"
