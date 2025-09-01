@@ -41,6 +41,17 @@ export interface CreateContractRequest {
   warrantyPeriodMonths?: number
 }
 
+export interface UploadExistContractRequest {
+  title: string
+  description?: string
+  customerId: number
+  contractDetails: ContractDetail[]
+  filePath: string
+  
+  // Điều 3: Thời gian, địa điểm, phương thức giao hàng - now managed as a table
+  deliverySchedules: DeliverySchedule[]
+}
+
 export interface UpdateContractRequest {
   title: string
   description?: string
@@ -198,6 +209,18 @@ async function authenticatedFetch<T>(
 export async function createContract(contract: CreateContractRequest): Promise<ContractResponse> {
   // Append trailing slash to avoid 302 redirect from Spring when posting to root path
   const url = CONTRACT_SERVICE_URL.endsWith('/') ? CONTRACT_SERVICE_URL : `${CONTRACT_SERVICE_URL}/`
+  return authenticatedFetch<ContractResponse>(
+    url,
+    {
+      method: 'POST',
+      body: JSON.stringify(contract),
+    }
+  );
+}
+
+// Upload an existing contract
+export async function uploadExistContract(contract: UploadExistContractRequest): Promise<ContractResponse> {
+  const url = `${CONTRACT_SERVICE_URL}/upload-exist`
   return authenticatedFetch<ContractResponse>(
     url,
     {
