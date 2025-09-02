@@ -1,12 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { 
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from '@/components/ui/pagination'
 import { 
   Search, 
   Filter,
@@ -19,6 +28,7 @@ import {
   Package,
   Wrench
 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
   getAllInventoryTransactions,
   searchInventoryTransactions,
@@ -33,6 +43,10 @@ export default function InventoryTransactionsPage() {
   const [filteredTransactions, setFilteredTransactions] = useState<InventoryTransaction[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('')
@@ -124,6 +138,27 @@ export default function InventoryTransactionsPage() {
     }
 
     setFilteredTransactions(filtered)
+    setCurrentPage(1) // Reset to first page when filters change
+  }
+
+  // Pagination logic
+  const getCurrentItems = () => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    return filteredTransactions.slice(startIndex, endIndex)
+  }
+
+  const getTotalPages = () => {
+    return Math.ceil(filteredTransactions.length / itemsPerPage)
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(parseInt(value))
+    setCurrentPage(1)
   }
 
   const getTransactionTypeBadge = (type: string) => {
@@ -217,7 +252,7 @@ export default function InventoryTransactionsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
@@ -264,14 +299,32 @@ export default function InventoryTransactionsPage() {
                 <SelectItem value="month">Last 30 Days</SelectItem>
               </SelectContent>
             </Select>
+
+            <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Items per page" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="5">5 per page</SelectItem>
+                <SelectItem value="10">10 per page</SelectItem>
+                <SelectItem value="20">20 per page</SelectItem>
+                <SelectItem value="50">50 per page</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
 
       {/* Transactions List */}
       <div className="space-y-4">
-        {filteredTransactions.map((transaction) => (
-          <Card key={transaction.id} className="hover:shadow-md transition-shadow">
+        {getCurrentItems().map((transaction) => (
+          <motion.div
+            key={transaction.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Card className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4 flex-1">
@@ -352,7 +405,8 @@ export default function InventoryTransactionsPage() {
                 </div>
               </div>
             </CardContent>
-          </Card>
+            </Card>
+          </motion.div>
         ))}
         
         {filteredTransactions.length === 0 && (
@@ -396,6 +450,72 @@ export default function InventoryTransactionsPage() {
                 </p>
                 <p className="text-sm text-muted-foreground">Other</p>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Pagination */}
+      {getTotalPages() > 1 && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length} transactions
+              </div>
+              
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        if (currentPage > 1) handlePageChange(currentPage - 1)
+                      }}
+                      className={currentPage <= 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                  
+                  {Array.from({ length: getTotalPages() }, (_, i) => i + 1).map((page) => {
+                    if (getTotalPages() <= 7 || page === 1 || page === getTotalPages() || Math.abs(page - currentPage) <= 2) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              handlePageChange(page)
+                            }}
+                            isActive={page === currentPage}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      )
+                    } else if (page === 2 || page === getTotalPages() - 1) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )
+                    }
+                    return null
+                  })}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        if (currentPage < getTotalPages()) handlePageChange(currentPage + 1)
+                      }}
+                      className={currentPage >= getTotalPages() ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
           </CardContent>
         </Card>
