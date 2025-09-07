@@ -163,17 +163,43 @@ async function handleErrors(response: Response): Promise<void> {
       const errorData = await response.json();
       // Extract error message from backend response
       if (errorData.message) {
+        // If there are validation errors in the errors object, combine them with the main message
+        if (errorData.errors && typeof errorData.errors === 'object' && !Array.isArray(errorData.errors)) {
+          const validationErrors = Object.values(errorData.errors).join(', ');
+          throw new Error(`${errorData.message}: ${validationErrors}`);
+        }
         throw new Error(errorData.message);
-      } else if (errorData.errors && Array.isArray(errorData.errors)) {
-        // Handle validation errors
-        const errorMessages = errorData.errors.map((err: any) => err.defaultMessage || err.message).join(', ');
-        throw new Error(errorMessages);
+      } else if (errorData.errors) {
+        // Handle validation errors - backend returns errors as object/map
+        if (typeof errorData.errors === 'object' && !Array.isArray(errorData.errors)) {
+          const errorMessages = Object.values(errorData.errors).join(', ');
+          throw new Error(errorMessages);
+        } else if (Array.isArray(errorData.errors)) {
+          const errorMessages = errorData.errors.map((err: any) => err.defaultMessage || err.message || err).join(', ');
+          throw new Error(errorMessages);
+        }
+      } else if (errorData.error) {
+        // Try alternative error field
+        throw new Error(errorData.error);
       } else {
-        throw new Error(`API Error: ${response.status}`);
+        // Try to extract any meaningful error text from the response
+        const errorText = JSON.stringify(errorData);
+        if (errorText && errorText !== '{}') {
+          throw new Error(`Server error: ${errorText}`);
+        }
+        throw new Error(`Request failed with status ${response.status}`);
       }
     } catch (parseError) {
-      // If we can't parse the error response, fall back to status code
-      throw new Error(`API Error: ${response.status}`);
+      // If we can't parse the error response, try to get text content
+      try {
+        const errorText = await response.text();
+        if (errorText && errorText.trim()) {
+          throw new Error(`Server error: ${errorText}`);
+        }
+      } catch (textError) {
+        // Ignore text parsing errors
+      }
+      throw new Error(`Request failed with status ${response.status}`);
     }
   }
 }
@@ -452,7 +478,27 @@ export async function getContractFileBlob(contractId: number, cacheBuster?: numb
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch contract file: ${response.status}`);
+    // Try to extract error message for PDF fetch errors
+    try {
+      const errorText = await response.text();
+      if (errorText && errorText.trim()) {
+        // Try to parse JSON first
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.message) {
+            throw new Error(errorData.message);
+          } else if (errorData.error) {
+            throw new Error(errorData.error);
+          }
+        } catch (parseError) {
+          // If not JSON, use the text directly
+          throw new Error(`Server error: ${errorText}`);
+        }
+      }
+    } catch (textError) {
+      // Ignore text parsing errors
+    }
+    throw new Error(`Failed to fetch contract file with status ${response.status}`);
   }
 
   const blob = await response.blob();

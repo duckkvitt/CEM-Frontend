@@ -84,22 +84,34 @@ async function handleErrorResponse(response: Response): Promise<never> {
   try {
     const errorData = await response.json()
     if (errorData.message) {
-      // If there are validation errors, combine them with the main message
-      if (errorData.errors && typeof errorData.errors === 'object') {
-        const errorMessages = Object.values(errorData.errors)
-        const combinedMessage = `${errorData.message}: ${errorMessages.join(', ')}`
-        throw new Error(combinedMessage)
+      // If there are validation errors in the errors object, combine them with the main message
+      if (errorData.errors && typeof errorData.errors === 'object' && !Array.isArray(errorData.errors)) {
+        const validationErrors = Object.values(errorData.errors).join(', ');
+        throw new Error(`${errorData.message}: ${validationErrors}`);
       }
-      throw new Error(errorData.message)
-    } else if (errorData.errors && typeof errorData.errors === 'object') {
-      // Handle validation errors as object
-      const errorMessages = Object.values(errorData.errors)
-      throw new Error(errorMessages.join(', '))
+      throw new Error(errorData.message);
+    } else if (errorData.errors) {
+      // Handle validation errors - backend returns errors as object/map
+      if (typeof errorData.errors === 'object' && !Array.isArray(errorData.errors)) {
+        const errorMessages = Object.values(errorData.errors).join(', ');
+        throw new Error(errorMessages);
+      } else if (Array.isArray(errorData.errors)) {
+        const errorMessages = errorData.errors.map((err: any) => err.defaultMessage || err.message || err).join(', ');
+        throw new Error(errorMessages);
+      }
     }
   } catch (parseError) {
-    // If we can't parse the response, fall back to status code
+    // If we can't parse the response, try to get text content
+    try {
+      const errorText = await response.text();
+      if (errorText && errorText.trim()) {
+        throw new Error(`Server error: ${errorText}`);
+      }
+    } catch (textError) {
+      // Ignore text parsing errors
+    }
   }
-  throw new Error(`HTTP error! status: ${response.status}`)
+  throw new Error(`Request failed with status ${response.status}`)
 }
 
 /**

@@ -75,7 +75,25 @@ export async function getCustomerDevices(params: {
   })
   
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`)
+    try {
+      const errorData = await response.json();
+      if (errorData.message) {
+        throw new Error(errorData.message);
+      } else if (errorData.error) {
+        throw new Error(errorData.error);
+      }
+    } catch (parseError) {
+      // If we can't parse the error response, try to get text content
+      try {
+        const errorText = await response.text();
+        if (errorText && errorText.trim()) {
+          throw new Error(`Server error: ${errorText}`);
+        }
+      } catch (textError) {
+        // Ignore text parsing errors
+      }
+    }
+    throw new Error(`Request failed with status ${response.status}`);
   }
   
   const data: ApiResponse<Page<CustomerDevice>> = await response.json()
@@ -102,7 +120,25 @@ export async function getCustomerDeviceStatistics(): Promise<DeviceStatistics> {
   })
   
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`)
+    try {
+      const errorData = await response.json();
+      if (errorData.message) {
+        throw new Error(errorData.message);
+      } else if (errorData.error) {
+        throw new Error(errorData.error);
+      }
+    } catch (parseError) {
+      // If we can't parse the error response, try to get text content
+      try {
+        const errorText = await response.text();
+        if (errorText && errorText.trim()) {
+          throw new Error(`Server error: ${errorText}`);
+        }
+      } catch (textError) {
+        // Ignore text parsing errors
+      }
+    }
+    throw new Error(`Request failed with status ${response.status}`);
   }
   
   const data: ApiResponse<DeviceStatistics> = await response.json()
@@ -129,7 +165,25 @@ export async function getDevicesWithExpiringWarranty(): Promise<CustomerDevice[]
   })
   
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`)
+    try {
+      const errorData = await response.json();
+      if (errorData.message) {
+        throw new Error(errorData.message);
+      } else if (errorData.error) {
+        throw new Error(errorData.error);
+      }
+    } catch (parseError) {
+      // If we can't parse the error response, try to get text content
+      try {
+        const errorText = await response.text();
+        if (errorText && errorText.trim()) {
+          throw new Error(`Server error: ${errorText}`);
+        }
+      } catch (textError) {
+        // Ignore text parsing errors
+      }
+    }
+    throw new Error(`Request failed with status ${response.status}`);
   }
   
   const data: ApiResponse<CustomerDevice[]> = await response.json()
@@ -156,7 +210,25 @@ export async function getCustomerDeviceById(deviceId: number): Promise<CustomerD
   })
   
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`)
+    try {
+      const errorData = await response.json();
+      if (errorData.message) {
+        throw new Error(errorData.message);
+      } else if (errorData.error) {
+        throw new Error(errorData.error);
+      }
+    } catch (parseError) {
+      // If we can't parse the error response, try to get text content
+      try {
+        const errorText = await response.text();
+        if (errorText && errorText.trim()) {
+          throw new Error(`Server error: ${errorText}`);
+        }
+      } catch (textError) {
+        // Ignore text parsing errors
+      }
+    }
+    throw new Error(`Request failed with status ${response.status}`);
   }
   
   const data: ApiResponse<CustomerDevice> = await response.json()

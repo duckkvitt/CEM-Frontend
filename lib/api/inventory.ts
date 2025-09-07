@@ -153,7 +153,18 @@ export const getDeviceInventoryOverview = async (): Promise<DeviceInventory[]> =
     if (!response.ok) {
       const errorText = await response.text()
       console.error('HTTP error response:', errorText)
-      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`)
+      // Try to parse error message from response body
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.message) {
+          throw new Error(errorData.message);
+        } else if (errorData.error) {
+          throw new Error(errorData.error);
+        }
+      } catch (parseError) {
+        // If parsing fails, use the error text directly
+      }
+      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
     }
     
     const data = await response.json()
@@ -180,7 +191,18 @@ export const getLowStockDevices = async (): Promise<DeviceInventory[]> => {
     if (!response.ok) {
       const errorText = await response.text()
       console.error('HTTP error response:', errorText)
-      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`)
+      // Try to parse error message from response body
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.message) {
+          throw new Error(errorData.message);
+        } else if (errorData.error) {
+          throw new Error(errorData.error);
+        }
+      } catch (parseError) {
+        // If parsing fails, use the error text directly
+      }
+      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
     }
     
     const data = await response.json()
@@ -199,7 +221,18 @@ export const getDevicesNeedingReorder = async (): Promise<DeviceInventory[]> => 
     if (!response.ok) {
       const errorText = await response.text()
       console.error('HTTP error response:', errorText)
-      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`)
+      // Try to parse error message from response body
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.message) {
+          throw new Error(errorData.message);
+        } else if (errorData.error) {
+          throw new Error(errorData.error);
+        }
+      } catch (parseError) {
+        // If parsing fails, use the error text directly
+      }
+      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
     }
     
     const data = await response.json()
@@ -218,7 +251,18 @@ export const searchDeviceInventory = async (keyword: string): Promise<DeviceInve
     if (!response.ok) {
       const errorText = await response.text()
       console.error('HTTP error response:', errorText)
-      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`)
+      // Try to parse error message from response body
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.message) {
+          throw new Error(errorData.message);
+        } else if (errorData.error) {
+          throw new Error(errorData.error);
+        }
+      } catch (parseError) {
+        // If parsing fails, use the error text directly
+      }
+      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
     }
     
     const data = await response.json()
@@ -243,7 +287,18 @@ export const getSparePartsInventory = async (): Promise<SparePart[]> => {
     if (!response.ok) {
       const errorText = await response.text()
       console.error('HTTP error response:', errorText)
-      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`)
+      // Try to parse error message from response body
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.message) {
+          throw new Error(errorData.message);
+        } else if (errorData.error) {
+          throw new Error(errorData.error);
+        }
+      } catch (parseError) {
+        // If parsing fails, use the error text directly
+      }
+      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
     }
     
     const data = await response.json()
@@ -271,7 +326,18 @@ export const getSparePartsWithInventory = async (): Promise<SparePartInventory[]
     if (!response.ok) {
       const errorText = await response.text()
       console.error('HTTP error response:', errorText)
-      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`)
+      // Try to parse error message from response body
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.message) {
+          throw new Error(errorData.message);
+        } else if (errorData.error) {
+          throw new Error(errorData.error);
+        }
+      } catch (parseError) {
+        // If parsing fails, use the error text directly
+      }
+      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
     }
     
     const data = await response.json()
@@ -357,7 +423,18 @@ export const getAllInventoryTransactions = async (): Promise<InventoryTransactio
     if (!response.ok) {
       const errorText = await response.text()
       console.error('HTTP error response:', errorText)
-      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`)
+      // Try to parse error message from response body
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.message) {
+          throw new Error(errorData.message);
+        } else if (errorData.error) {
+          throw new Error(errorData.error);
+        }
+      } catch (parseError) {
+        // If parsing fails, use the error text directly
+      }
+      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
     }
     
     const data = await response.json()
@@ -376,7 +453,18 @@ export const searchInventoryTransactions = async (keyword: string): Promise<Inve
     if (!response.ok) {
       const errorText = await response.text()
       console.error('HTTP error response:', errorText)
-      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`)
+      // Try to parse error message from response body
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.message) {
+          throw new Error(errorData.message);
+        } else if (errorData.error) {
+          throw new Error(errorData.error);
+        }
+      } catch (parseError) {
+        // If parsing fails, use the error text directly
+      }
+      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
     }
     
     const data = await response.json()
@@ -399,7 +487,18 @@ export const getInventoryDashboardStats = async (): Promise<InventoryStats> => {
     if (!response.ok) {
       const errorText = await response.text()
       console.error('HTTP error response:', errorText)
-      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`)
+      // Try to parse error message from response body
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.message) {
+          throw new Error(errorData.message);
+        } else if (errorData.error) {
+          throw new Error(errorData.error);
+        }
+      } catch (parseError) {
+        // If parsing fails, use the error text directly
+      }
+      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
     }
     
     const data = await response.json()
@@ -418,7 +517,18 @@ export const getRecentInventoryActivity = async (limit: number = 10): Promise<In
     if (!response.ok) {
       const errorText = await response.text()
       console.error('HTTP error response:', errorText)
-      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`)
+      // Try to parse error message from response body
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.message) {
+          throw new Error(errorData.message);
+        } else if (errorData.error) {
+          throw new Error(errorData.error);
+        }
+      } catch (parseError) {
+        // If parsing fails, use the error text directly
+      }
+      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
     }
     
     const data = await response.json()
@@ -443,7 +553,26 @@ export const importInventory = async (request: ImportRequest): Promise<any> => {
       body: JSON.stringify(request)
     })
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      // Try to extract error message from response
+      try {
+        const errorData = await response.json();
+        if (errorData.message) {
+          throw new Error(errorData.message);
+        } else if (errorData.error) {
+          throw new Error(errorData.error);
+        }
+      } catch (parseError) {
+        // If we can't parse the error response, try to get text content
+        try {
+          const errorText = await response.text();
+          if (errorText && errorText.trim()) {
+            throw new Error(`Server error: ${errorText}`);
+          }
+        } catch (textError) {
+          // Ignore text parsing errors
+        }
+      }
+      throw new Error(`Request failed with status ${response.status}`)
     }
     return await response.json()
   } catch (error) {
@@ -465,7 +594,26 @@ export const exportInventory = async (request: ExportRequest): Promise<any> => {
       body: JSON.stringify(request)
     })
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      // Try to extract error message from response
+      try {
+        const errorData = await response.json();
+        if (errorData.message) {
+          throw new Error(errorData.message);
+        } else if (errorData.error) {
+          throw new Error(errorData.error);
+        }
+      } catch (parseError) {
+        // If we can't parse the error response, try to get text content
+        try {
+          const errorText = await response.text();
+          if (errorText && errorText.trim()) {
+            throw new Error(`Server error: ${errorText}`);
+          }
+        } catch (textError) {
+          // Ignore text parsing errors
+        }
+      }
+      throw new Error(`Request failed with status ${response.status}`)
     }
     return await response.json()
   } catch (error) {

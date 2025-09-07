@@ -38,7 +38,29 @@ async function handleResponse<T>(response: Response): Promise<T> {
   }
 
   if (!response.ok) {
-    const error = (json && json.message) || response.statusText;
+    // Extract the most specific error message available
+    let error = '';
+    
+    if (json && json.message) {
+        // If there are validation errors in the errors object, combine them with the main message
+        if (json.errors && typeof json.errors === 'object' && !Array.isArray(json.errors)) {
+            const validationErrors = Object.values(json.errors).join(', ');
+            error = `${json.message}: ${validationErrors}`;
+        } else {
+            error = json.message;
+        }
+    } else if (json && json.errors) {
+        // Handle validation errors - backend returns errors as object/map
+        if (typeof json.errors === 'object' && !Array.isArray(json.errors)) {
+            error = Object.values(json.errors).join(', ');
+        } else if (Array.isArray(json.errors)) {
+            error = json.errors.join(', ');
+        }
+    } else if (json && json.error) {
+        error = json.error;
+    } else {
+        error = response.statusText || `Request failed with status ${response.status}`;
+    }
     console.error('API Error:', json);
     throw new Error(error);
   }

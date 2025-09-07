@@ -34,7 +34,45 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
       console.warn('Unauthorized error (401) - Token may be expired')
       throw new Error('Session expired - Please log in again')
     } else {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      // Try to extract error message from response body
+      try {
+        const errorData = await response.json();
+        if (errorData.message) {
+          // If there are validation errors in the errors object, combine them with the main message
+          if (errorData.errors && typeof errorData.errors === 'object' && !Array.isArray(errorData.errors)) {
+            const validationErrors = Object.values(errorData.errors).join(', ');
+            throw new Error(`${errorData.message}: ${validationErrors}`);
+          }
+          throw new Error(errorData.message);
+        } else if (errorData.errors) {
+          // Handle validation errors - backend returns errors as object/map
+          if (typeof errorData.errors === 'object' && !Array.isArray(errorData.errors)) {
+            const errorMessages = Object.values(errorData.errors).join(', ');
+            throw new Error(errorMessages);
+          } else if (Array.isArray(errorData.errors)) {
+            const errorMessages = errorData.errors.map((err: any) => err.defaultMessage || err.message || err).join(', ');
+            throw new Error(errorMessages);
+          }
+        } else if (errorData.error) {
+          throw new Error(errorData.error);
+        } else {
+          const errorText = JSON.stringify(errorData);
+          if (errorText && errorText !== '{}') {
+            throw new Error(`Server error: ${errorText}`);
+          }
+        }
+      } catch (parseError) {
+        // If we can't parse the error response, try to get text content
+        try {
+          const errorText = await response.text();
+          if (errorText && errorText.trim()) {
+            throw new Error(`Server error: ${errorText}`);
+          }
+        } catch (textError) {
+          // Ignore text parsing errors
+        }
+      }
+      throw new Error(`Request failed with status ${response.status}`)
     }
   }
 
