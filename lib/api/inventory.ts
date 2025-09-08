@@ -1,4 +1,5 @@
 import { apiFetch } from './client'
+import { extractErrorMessage } from '../error-utils'
 
 export interface InventoryStats {
   totalDevices: number
@@ -164,7 +165,7 @@ export const getDeviceInventoryOverview = async (): Promise<DeviceInventory[]> =
       } catch (parseError) {
         // If parsing fails, use the error text directly
       }
-      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
+      throw new Error(`Server error: ${errorText || 'Unknown error'}`)
     }
     
     const data = await response.json()
@@ -202,7 +203,7 @@ export const getLowStockDevices = async (): Promise<DeviceInventory[]> => {
       } catch (parseError) {
         // If parsing fails, use the error text directly
       }
-      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
+      throw new Error(`Server error: ${errorText || 'Unknown error'}`)
     }
     
     const data = await response.json()
@@ -232,7 +233,7 @@ export const getDevicesNeedingReorder = async (): Promise<DeviceInventory[]> => 
       } catch (parseError) {
         // If parsing fails, use the error text directly
       }
-      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
+      throw new Error(`Server error: ${errorText || 'Unknown error'}`)
     }
     
     const data = await response.json()
@@ -262,7 +263,7 @@ export const searchDeviceInventory = async (keyword: string): Promise<DeviceInve
       } catch (parseError) {
         // If parsing fails, use the error text directly
       }
-      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
+      throw new Error(`Server error: ${errorText || 'Unknown error'}`)
     }
     
     const data = await response.json()
@@ -298,7 +299,7 @@ export const getSparePartsInventory = async (): Promise<SparePart[]> => {
       } catch (parseError) {
         // If parsing fails, use the error text directly
       }
-      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
+      throw new Error(`Server error: ${errorText || 'Unknown error'}`)
     }
     
     const data = await response.json()
@@ -337,7 +338,7 @@ export const getSparePartsWithInventory = async (): Promise<SparePartInventory[]
       } catch (parseError) {
         // If parsing fails, use the error text directly
       }
-      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
+      throw new Error(`Server error: ${errorText || 'Unknown error'}`)
     }
     
     const data = await response.json()
@@ -434,7 +435,7 @@ export const getAllInventoryTransactions = async (): Promise<InventoryTransactio
       } catch (parseError) {
         // If parsing fails, use the error text directly
       }
-      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
+      throw new Error(`Server error: ${errorText || 'Unknown error'}`)
     }
     
     const data = await response.json()
@@ -464,7 +465,7 @@ export const searchInventoryTransactions = async (keyword: string): Promise<Inve
       } catch (parseError) {
         // If parsing fails, use the error text directly
       }
-      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
+      throw new Error(`Server error: ${errorText || 'Unknown error'}`)
     }
     
     const data = await response.json()
@@ -498,7 +499,7 @@ export const getInventoryDashboardStats = async (): Promise<InventoryStats> => {
       } catch (parseError) {
         // If parsing fails, use the error text directly
       }
-      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
+      throw new Error(`Server error: ${errorText || 'Unknown error'}`)
     }
     
     const data = await response.json()
@@ -528,7 +529,7 @@ export const getRecentInventoryActivity = async (limit: number = 10): Promise<In
       } catch (parseError) {
         // If parsing fails, use the error text directly
       }
-      throw new Error(`Server error: ${errorText || `Request failed with status ${response.status}`}`)
+      throw new Error(`Server error: ${errorText || 'Unknown error'}`)
     }
     
     const data = await response.json()
@@ -572,7 +573,8 @@ export const importInventory = async (request: ImportRequest): Promise<any> => {
           // Ignore text parsing errors
         }
       }
-      throw new Error(`Request failed with status ${response.status}`)
+      const errorMessage = await extractErrorMessage(response)
+      throw new Error(errorMessage)
     }
     return await response.json()
   } catch (error) {
@@ -613,7 +615,8 @@ export const exportInventory = async (request: ExportRequest): Promise<any> => {
           // Ignore text parsing errors
         }
       }
-      throw new Error(`Request failed with status ${response.status}`)
+      const errorMessage = await extractErrorMessage(response)
+      throw new Error(errorMessage)
     }
     return await response.json()
   } catch (error) {

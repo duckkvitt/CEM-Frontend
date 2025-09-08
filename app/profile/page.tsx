@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { AUTH_SERVICE_URL } from '@/lib/api'
-import { getAccessToken } from '@/lib/auth'
+import { getValidAccessToken, logout } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
 
@@ -44,10 +44,24 @@ export default function ProfilePage () {
     setLoading(true)
     setError(null)
     try {
+      const token = await getValidAccessToken()
+      if (!token) {
+        await logout()
+        router.push('/login')
+        return
+      }
+      
       const res = await fetch(`${AUTH_SERVICE_URL}/v1/auth/profile`, {
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
+        headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store'
       })
+      
+      if (res.status === 401) {
+        await logout()
+        router.push('/login')
+        return
+      }
+      
       const json: ApiResponse<UserProfile> = await res.json()
       if (!json.success) throw new Error(json.message || 'Failed to load profile')
       setProfile(json.data)

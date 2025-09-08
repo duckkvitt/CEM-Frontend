@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DEVICE_SERVICE_URL } from '@/lib/api'
-import { getAccessToken, getCurrentUserRole } from '@/lib/auth'
+import { getValidAccessToken, getCurrentUserRole, logout } from '@/lib/auth'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -79,10 +79,25 @@ export default function DeviceManagementPage () {
       params.append('page', page.toString())
       params.append('size', size.toString())
       const url = `${DEVICE_SERVICE_URL}/devices?${params.toString()}`
+      
+      const token = await getValidAccessToken()
+      if (!token) {
+        await logout()
+        router.push('/login')
+        return
+      }
+      
       const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
+        headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store'
       })
+      
+      if (res.status === 401) {
+        await logout()
+        router.push('/login')
+        return
+      }
+      
       const json: ApiResponse<Page<Device>> = await res.json()
       if (!json.success) throw new Error(json.message || 'Failed to fetch devices')
       setDevices(json.data.content)
@@ -109,11 +124,25 @@ export default function DeviceManagementPage () {
   const deleteDevice = async (id: number) => {
     if (!confirm('Are you sure you want to delete this device?')) return
     try {
+      const token = await getValidAccessToken()
+      if (!token) {
+        await logout()
+        router.push('/login')
+        return
+      }
+      
       const endpoint = `${DEVICE_SERVICE_URL}/devices/${id}`
       const res = await fetch(endpoint, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${getAccessToken()}` }
+        headers: { Authorization: `Bearer ${token}` }
       })
+      
+      if (res.status === 401) {
+        await logout()
+        router.push('/login')
+        return
+      }
+      
       const json: ApiResponse<string> = await res.json()
       if (!json.success) throw new Error(json.message || 'Failed')
       fetchDevices()

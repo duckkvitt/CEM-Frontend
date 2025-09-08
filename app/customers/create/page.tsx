@@ -25,7 +25,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { CUSTOMER_SERVICE_URL } from '@/lib/api'
-import { getAccessToken, getCurrentUserRole } from '@/lib/auth'
+import { getValidAccessToken, logout, getCurrentUserRole  } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
@@ -129,7 +129,7 @@ export default function CreateCustomerPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAccessToken()}`,
+          Authorization: `Bearer ${await getValidAccessToken()}`,
         },
         body: JSON.stringify(payload),
       })

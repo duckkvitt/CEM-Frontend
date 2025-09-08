@@ -6,8 +6,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AUTH_SERVICE_URL } from '@/lib/api'
-import { getAccessToken } from '@/lib/auth'
+import { getValidAccessToken, logout } from '@/lib/auth'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 interface Role {
@@ -45,6 +46,7 @@ interface Page<T> {
 }
 
 export default function UserManagementPage () {
+  const router = useRouter()
   const [roles, setRoles] = useState<Role[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [search, setSearch] = useState('')
@@ -55,10 +57,36 @@ export default function UserManagementPage () {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Helper function for authenticated requests
+  const authenticatedFetch = async (url: string, options: RequestInit = {}) => {
+    const token = await getValidAccessToken()
+    if (!token) {
+      await logout()
+      router.push('/login')
+      throw new Error('Authentication failed')
+    }
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    })
+
+    if (response.status === 401) {
+      await logout()
+      router.push('/login')
+      throw new Error('Session expired')
+    }
+
+    return response
+  }
+
   const fetchRoles = async () => {
     try {
-      const res = await fetch(`${AUTH_SERVICE_URL}/v1/auth/admin/roles`, {
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      const res = await authenticatedFetch(`${AUTH_SERVICE_URL}/v1/auth/admin/roles`, {
         cache: 'no-store'
       })
       const json: ApiResponse<Role[]> = await res.json()
@@ -78,8 +106,7 @@ export default function UserManagementPage () {
       params.append('page', page.toString())
       params.append('size', size.toString())
       const url = `${AUTH_SERVICE_URL}/v1/auth/admin/users?${params.toString()}`
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      const res = await authenticatedFetch(url, {
         cache: 'no-store'
       })
       const json: ApiResponse<Page<User>> = await res.json()
@@ -97,9 +124,8 @@ export default function UserManagementPage () {
   const deactivateUser = async (id: number) => {
     if (!confirm('Are you sure you want to deactivate this user?')) return
     try {
-      const res = await fetch(`${AUTH_SERVICE_URL}/v1/auth/admin/users/${id}/deactivate`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${getAccessToken()}` }
+      const res = await authenticatedFetch(`${AUTH_SERVICE_URL}/v1/auth/admin/users/${id}/deactivate`, {
+        method: 'PUT'
       })
       const json: ApiResponse<User> = await res.json()
       if (!json.success) throw new Error(json.message || 'Failed')
@@ -113,9 +139,8 @@ export default function UserManagementPage () {
   const activateUser = async (id: number) => {
     if (!confirm('Are you sure you want to activate this user?')) return
     try {
-      const res = await fetch(`${AUTH_SERVICE_URL}/v1/auth/admin/users/${id}/activate`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${getAccessToken()}` }
+      const res = await authenticatedFetch(`${AUTH_SERVICE_URL}/v1/auth/admin/users/${id}/activate`, {
+        method: 'PUT'
       })
       const json: ApiResponse<User> = await res.json()
       if (!json.success) throw new Error(json.message || 'Failed')
@@ -129,12 +154,8 @@ export default function UserManagementPage () {
   const updateUserRole = async (userId: number, roleId: number) => {
     if (!confirm('Are you sure you want to change this user\'s role?')) return
     try {
-      const res = await fetch(`${AUTH_SERVICE_URL}/v1/auth/admin/users/${userId}/role`, {
+      const res = await authenticatedFetch(`${AUTH_SERVICE_URL}/v1/auth/admin/users/${userId}/role`, {
         method: 'PUT',
-        headers: { 
-          Authorization: `Bearer ${getAccessToken()}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ roleId })
       })
       const json: ApiResponse<User> = await res.json()

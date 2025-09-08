@@ -7,7 +7,7 @@ export const getAuthToken = (): string | null => {
   return localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
 }
 
-// Helper function to check if user is authenticated
+// Helper function to check if user is authenticated (deprecated - use lib/auth instead)
 export const isAuthenticated = (): boolean => {
   if (typeof window === 'undefined') return false
   const token = getAuthToken()
@@ -59,15 +59,23 @@ export const testAuthentication = (): void => {
   }
 }
 
-// Generic fetch wrapper with authentication
+// Generic fetch wrapper with authentication and token refresh
 export const apiFetch = async (endpoint: string, options: RequestInit = {}): Promise<Response> => {
-  const token = getAuthToken()
+  // Import auth functions dynamically to avoid circular imports
+  const { getValidAccessToken, logout } = await import('@/lib/auth')
+  
+  const token = await getValidAccessToken()
+  
+  if (!token) {
+    await logout()
+    throw new Error('Authentication failed - Please log in again')
+  }
   
   const config: RequestInit = {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
+      'Authorization': `Bearer ${token}`,
       ...options.headers,
     },
   }
@@ -76,12 +84,9 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
   
   // Handle authentication errors
   if (response.status === 401) {
-    console.log('401 Unauthorized - clearing tokens and redirecting to login')
-    clearAuthToken()
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login'
-    }
-    throw new Error('Unauthorized')
+    console.log('401 Unauthorized - token may be expired, logging out')
+    await logout()
+    throw new Error('Session expired - Please log in again')
   }
   
   if (response.status === 403) {

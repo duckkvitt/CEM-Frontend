@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import { X, Plus, Trash2, Upload, FileText } from 'lucide-react'
 import { createContract, createContract as createContractApi, uploadExistContract, CreateContractRequest, UploadExistContractRequest, ContractDetail } from '@/lib/contract-service'
-import { getAccessToken } from '@/lib/auth'
+import { getValidAccessToken, logout } from '@/lib/auth'
 import { uploadContractFile as uploadContractFileApi } from '@/lib/contract-service'
+import { useRouter } from 'next/navigation'
 
 interface Customer {
   id: number
@@ -124,13 +125,26 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
   async function fetchCustomers() {
     setCustomersLoading(true)
     try {
+      const token = await getValidAccessToken()
+      if (!token) {
+        await logout()
+        router.push('/login')
+        return
+      }
+      
       const response = await fetch('/api/customer/all', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getAccessToken()}`
+          'Authorization': `Bearer ${token}`
         }
       })
+      
+      if (response.status === 401) {
+        await logout()
+        router.push('/login')
+        return
+      }
       
       if (!response.ok) throw new Error('Failed to fetch customers')
       
@@ -147,13 +161,26 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
   async function fetchDevices() {
     setDevicesLoading(true)
     try {
+      const token = await getValidAccessToken()
+      if (!token) {
+        await logout()
+        router.push('/login')
+        return
+      }
+      
       const response = await fetch('/api/device/all', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getAccessToken()}`
+          'Authorization': `Bearer ${token}`
         }
       })
+      
+      if (response.status === 401) {
+        await logout()
+        router.push('/login')
+        return
+      }
       
       if (!response.ok) throw new Error('Failed to fetch devices')
       

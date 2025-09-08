@@ -11,7 +11,7 @@ import {
 } from '@/lib/contract-service'
 import { getAllCustomers, CustomerResponse } from '@/lib/customer-service'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { getCurrentUserRole, getAccessToken } from '@/lib/auth'
+import { getCurrentUserRole, getValidAccessToken, logout } from '@/lib/auth'
 import { CreateContractModal } from '@/app/contracts/components/create-contract-modal'
 import FilterSection from '@/app/contracts/components/filter-section'
 
@@ -35,11 +35,15 @@ export default function ContractsPage() {
   
   // Check auth on mount
   useEffect(() => {
-    const token = getAccessToken();
-    if (!token) {
-      router.push('/login');
-      return;
-    }
+    const checkAuth = async () => {
+      const token = await getValidAccessToken();
+      if (!token) {
+        await logout();
+        router.push('/login');
+        return;
+      }
+    };
+    checkAuth();
     
     // Set user role
     const role = getCurrentUserRole();
@@ -75,7 +79,9 @@ export default function ContractsPage() {
   // Load contracts based on active tab and filters
   useEffect(() => {
     const fetchContracts = async () => {
-      if (!getAccessToken()) {
+      const token = await getValidAccessToken();
+      if (!token) {
+        await logout();
         router.push('/login');
         return;
       }

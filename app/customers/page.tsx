@@ -25,7 +25,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { CUSTOMER_SERVICE_URL } from '@/lib/api'
-import { getAccessToken, getCurrentUserRole } from '@/lib/auth'
+import { getValidAccessToken, getCurrentUserRole, logout } from '@/lib/auth'
 import {
   ChevronLeft,
   ChevronRight,
@@ -120,10 +120,25 @@ export default function CustomerManagementPage() {
         params.append('sortDir', 'desc')
 
         const url = `${CUSTOMER_SERVICE_URL}/v1/customers?${params.toString()}`
+        
+        const token = await getValidAccessToken()
+        if (!token) {
+          await logout()
+          router.push('/login')
+          return
+        }
+        
         const res = await fetch(url, {
-          headers: { Authorization: `Bearer ${getAccessToken()}` },
+          headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
         })
+        
+        if (res.status === 401) {
+          await logout()
+          router.push('/login')
+          return
+        }
+        
         const json: ApiResponse<Page<Customer>> = await res.json()
         if (!json.success)
           throw new Error(json.message || 'Failed to fetch customers')
@@ -154,10 +169,24 @@ export default function CustomerManagementPage() {
     if (!confirm(`Are you sure you want to ${action} this customer?`)) return;
 
     try {
+      const token = await getValidAccessToken()
+      if (!token) {
+        await logout()
+        router.push('/login')
+        return
+      }
+      
       const res = await fetch(`${CUSTOMER_SERVICE_URL}/v1/customers/${id}/${action}`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
+      
+      if (res.status === 401) {
+        await logout()
+        router.push('/login')
+        return
+      }
+      
       const json: ApiResponse<Customer> = await res.json();
       if (!json.success) throw new Error(json.message || `Failed to ${action} customer`);
       // Refresh data

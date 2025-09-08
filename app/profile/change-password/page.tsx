@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { AUTH_SERVICE_URL } from '@/lib/api'
-import { getAccessToken } from '@/lib/auth'
+import { getValidAccessToken, logout } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -50,7 +50,7 @@ export default function ChangePasswordPage () {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAccessToken()}`
+          Authorization: `Bearer ${await getValidAccessToken()}`
         },
         body: JSON.stringify(payload)
       })

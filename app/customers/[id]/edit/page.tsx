@@ -26,12 +26,12 @@ import {
 } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CUSTOMER_SERVICE_URL } from '@/lib/api'
-import { getAccessToken, getCurrentUserRole } from '@/lib/auth'
+import { getValidAccessToken, logout, getCurrentUserRole  } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format, parseISO } from 'date-fns'
 import { CalendarIcon, ChevronLeft, Loader2 } from 'lucide-react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -121,7 +121,7 @@ export default function EditCustomerPage() {
       setLoading(true);
       try {
         const res = await fetch(`${CUSTOMER_SERVICE_URL}/v1/customers/${id}`, {
-          headers: { Authorization: `Bearer ${getAccessToken()}` },
+          headers: { Authorization: `Bearer ${await getValidAccessToken()}` },
           cache: 'no-store'
         });
         const json: ApiResponse<Customer> = await res.json();
@@ -163,7 +163,7 @@ export default function EditCustomerPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAccessToken()}`,
+          Authorization: `Bearer ${await getValidAccessToken()}`,
         },
         body: JSON.stringify(payload),
       });

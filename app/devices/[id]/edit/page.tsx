@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DEVICE_SERVICE_URL, CUSTOMER_SERVICE_URL } from '@/lib/api'
-import { getAccessToken, getCurrentUserRole } from '@/lib/auth'
-import { useRouter, useParams } from 'next/navigation'
+import { getValidAccessToken, logout, getCurrentUserRole  } from '@/lib/auth'
+import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 interface Device {
@@ -55,7 +55,7 @@ export default function EditDevicePage () {
     setError(null)
     try {
       const res = await fetch(`${DEVICE_SERVICE_URL}/devices/${deviceId}`, {
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
+        headers: { Authorization: `Bearer ${await getValidAccessToken()}` },
         cache: 'no-store'
       })
       const json: ApiResponse<Device> = await res.json()
@@ -107,7 +107,7 @@ export default function EditDevicePage () {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAccessToken()}`
+          Authorization: `Bearer ${await getValidAccessToken()}`
         },
         body: JSON.stringify(payload)
       })

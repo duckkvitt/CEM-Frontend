@@ -1,5 +1,6 @@
 import { DEVICE_SERVICE_URL } from './api'
-import { getAccessToken } from './auth'
+import { getValidAccessToken, logout } from './auth'
+import { handleApiError } from './error-utils'
 
 export interface ServiceRequest {
   id: number
@@ -80,66 +81,56 @@ export interface Page<T> {
  * Helper function to handle error responses
  */
 async function handleErrorResponse(response: Response): Promise<never> {
-  // Try to read error response body first
-  try {
-    const errorData = await response.json()
-    if (errorData.message) {
-      // If there are validation errors in the errors object, combine them with the main message
-      if (errorData.errors && typeof errorData.errors === 'object' && !Array.isArray(errorData.errors)) {
-        const validationErrors = Object.values(errorData.errors).join(', ');
-        throw new Error(`${errorData.message}: ${validationErrors}`);
-      }
-      throw new Error(errorData.message);
-    } else if (errorData.errors) {
-      // Handle validation errors - backend returns errors as object/map
-      if (typeof errorData.errors === 'object' && !Array.isArray(errorData.errors)) {
-        const errorMessages = Object.values(errorData.errors).join(', ');
-        throw new Error(errorMessages);
-      } else if (Array.isArray(errorData.errors)) {
-        const errorMessages = errorData.errors.map((err: any) => err.defaultMessage || err.message || err).join(', ');
-        throw new Error(errorMessages);
-      }
-    }
-  } catch (parseError) {
-    // If we can't parse the response, try to get text content
-    try {
-      const errorText = await response.text();
-      if (errorText && errorText.trim()) {
-        throw new Error(`Server error: ${errorText}`);
-      }
-    } catch (textError) {
-      // Ignore text parsing errors
-    }
+  await handleApiError(response);
+}
+
+// Helper function for authenticated requests
+async function authenticatedFetch<T>(url: string, options: RequestInit = {}): Promise<T> {
+  const token = await getValidAccessToken()
+  if (!token) {
+    await logout()
+    throw new Error('Authentication failed - Please log in again')
   }
-  throw new Error(`Request failed with status ${response.status}`)
+
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  })
+
+  // Handle token expiration specifically
+  if (response.status === 401) {
+    console.log('401 Unauthorized - token may be expired, logging out')
+    await logout()
+    throw new Error('Session expired - Please log in again')
+  }
+
+  if (!response.ok) {
+    await handleErrorResponse(response)
+  }
+
+  const data: ApiResponse<T> = await response.json()
+  
+  if (!data.success) {
+    throw new Error(data.message || 'Request failed')
+  }
+  
+  return data.data
 }
 
 /**
  * Create a new service request
  */
 export async function createServiceRequest(request: CreateServiceRequestRequest): Promise<ServiceRequest> {
-  const url = `${DEVICE_SERVICE_URL}/api/service-requests`
-  
-  const response = await fetch(url, {
+  return await authenticatedFetch<ServiceRequest>(`${DEVICE_SERVICE_URL}/api/service-requests`, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
-      'Content-Type': 'application/json'
-    },
     body: JSON.stringify(request)
   })
-  
-  if (!response.ok) {
-    await handleErrorResponse(response)
-  }
-  
-  const data: ApiResponse<ServiceRequest> = await response.json()
-  
-  if (!data.success) {
-    throw new Error(data.message || 'Failed to create service request')
-  }
-  
-  return data.data
 }
 
 /**
@@ -150,7 +141,7 @@ export async function getServiceRequestById(id: number): Promise<ServiceRequest>
   
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${await getValidAccessToken()}`,
       'Content-Type': 'application/json'
     },
     cache: 'no-store'
@@ -177,7 +168,7 @@ export async function getServiceRequestByRequestId(requestId: string): Promise<S
   
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${await getValidAccessToken()}`,
       'Content-Type': 'application/json'
     },
     cache: 'no-store'
@@ -224,7 +215,7 @@ export async function getCustomerServiceRequests(params: {
   
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${await getValidAccessToken()}`,
       'Content-Type': 'application/json'
     },
     cache: 'no-store'
@@ -252,7 +243,7 @@ export async function updateServiceRequest(id: number, request: UpdateServiceReq
   const response = await fetch(url, {
     method: 'PUT',
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${await getValidAccessToken()}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(request)
@@ -280,7 +271,7 @@ export async function addComment(id: number, comment: string): Promise<ServiceRe
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${await getValidAccessToken()}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({ comment })
@@ -307,7 +298,7 @@ export async function getServiceRequestStatistics(): Promise<ServiceRequestStati
   
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${await getValidAccessToken()}`,
       'Content-Type': 'application/json'
     },
     cache: 'no-store'
@@ -342,7 +333,7 @@ export async function getServiceRequestsByDevice(deviceId: number, params: {
   
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${await getValidAccessToken()}`,
       'Content-Type': 'application/json'
     },
     cache: 'no-store'
@@ -377,7 +368,7 @@ export async function getServiceRequestsByType(type: 'MAINTENANCE' | 'WARRANTY',
   
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${await getValidAccessToken()}`,
       'Content-Type': 'application/json'
     },
     cache: 'no-store'
@@ -412,7 +403,7 @@ export async function getServiceRequestsByStatus(status: 'PENDING' | 'APPROVED' 
   
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${await getValidAccessToken()}`,
       'Content-Type': 'application/json'
     },
     cache: 'no-store'
@@ -461,7 +452,7 @@ export async function getAllServiceRequestsForStaff(params: {
   
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${await getValidAccessToken()}`,
       'Content-Type': 'application/json'
     },
     cache: 'no-store'
@@ -488,7 +479,7 @@ export async function getServiceRequestByIdForStaff(id: number): Promise<Service
   
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${await getValidAccessToken()}`,
       'Content-Type': 'application/json'
     },
     cache: 'no-store'
@@ -527,7 +518,7 @@ export async function getPendingServiceRequests(params: {
   
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${await getValidAccessToken()}`,
       'Content-Type': 'application/json'
     },
     cache: 'no-store'
@@ -555,7 +546,7 @@ export async function updateServiceRequestStaffNotes(id: number, staffNotes: str
   const response = await fetch(url, {
     method: 'PUT',
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${await getValidAccessToken()}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({ staffNotes })
@@ -582,7 +573,7 @@ export async function getAllServiceRequestStatistics(): Promise<ServiceRequestSt
   
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${await getValidAccessToken()}`,
       'Content-Type': 'application/json'
     },
     cache: 'no-store'

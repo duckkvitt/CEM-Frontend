@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AUTH_SERVICE_URL } from '@/lib/api'
-import { getAccessToken } from '@/lib/auth'
+import { getValidAccessToken, logout } from '@/lib/auth'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface Role {
   id: number
@@ -41,6 +42,7 @@ interface Page<T> {
 }
 
 export default function CustomerUserManagementPage () {
+  const router = useRouter()
   const [users, setUsers] = useState<User[]>([])
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
@@ -59,7 +61,7 @@ export default function CustomerUserManagementPage () {
       params.append('size', size.toString())
       const url = `${AUTH_SERVICE_URL}/v1/auth/admin/users?${params.toString()}`
       const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
+        headers: { Authorization: `Bearer ${await getValidAccessToken()}` },
         cache: 'no-store'
       })
       const json: ApiResponse<Page<User>> = await res.json()
@@ -80,7 +82,7 @@ export default function CustomerUserManagementPage () {
     try {
       const res = await fetch(`${AUTH_SERVICE_URL}/v1/auth/admin/users/${id}/deactivate`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${getAccessToken()}` }
+        headers: { Authorization: `Bearer ${await getValidAccessToken()}` }
       })
       const json: ApiResponse<User> = await res.json()
       if (!json.success) throw new Error(json.message || 'Failed')

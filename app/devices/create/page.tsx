@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { DEVICE_SERVICE_URL } from '@/lib/api'
-import { getAccessToken, getCurrentUserRole } from '@/lib/auth'
+import { getValidAccessToken, logout, getCurrentUserRole  } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { ArrowLeft, Plus, Shield, Settings, Tag, Hash, Calendar, DollarSign, Package } from 'lucide-react'
@@ -82,7 +82,7 @@ export default function CreateDevicePage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAccessToken()}`
+          Authorization: `Bearer ${await getValidAccessToken()}`
         },
         body: JSON.stringify(payload)
       })

@@ -42,7 +42,8 @@ import {
   DeviceInventory,
   SparePartInventory
 } from '@/lib/api/inventory'
-import { isAuthenticated, testAuthentication } from '@/lib/api/client'
+import { isAuthenticated } from '@/lib/auth'
+import { testAuthentication } from '@/lib/api/client'
 
 export default function InventoryPage() {
   const router = useRouter()

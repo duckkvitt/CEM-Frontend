@@ -5,7 +5,7 @@ import { useEffect } from 'react'
 import Sidebar from '@/components/sidebar'
 import Header from '@/components/header'
 import CustomerChatBubble from '@/components/chat/customer-chat-bubble'
-import { getAccessToken } from '@/lib/auth'
+import { isAuthenticated } from '@/lib/auth'
 
 interface Props {
   children: React.ReactNode
@@ -20,12 +20,12 @@ export default function AppShell ({ children }: Props) {
   const isPublicRoute = PUBLIC_ROUTES.includes(pathname || '')
 
   useEffect(() => {
-    const token = getAccessToken()
-    if (!token && !isPublicRoute) {
+    const authenticated = isAuthenticated()
+    if (!authenticated && !isPublicRoute) {
       router.replace('/login')
       return
     }
-    if (token && isPublicRoute) {
+    if (authenticated && isPublicRoute) {
       router.replace('/dashboard')
     }
   }, [pathname, isPublicRoute, router])

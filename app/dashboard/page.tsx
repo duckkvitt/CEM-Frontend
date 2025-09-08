@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { getCurrentUserRole, getCurrentUser } from '@/lib/auth'
-import { isAuthenticated } from '@/lib/api/client'
+import { getCurrentUserRole, getCurrentUser, isAuthenticated } from '@/lib/auth'
 import { 
   Users, 
   Package, 

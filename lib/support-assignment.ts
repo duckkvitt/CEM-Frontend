@@ -1,7 +1,7 @@
 import { chatService } from './chat-service'
 import { SupportTeamStatus, ChatSession } from '@/types/chat'
 import { getUsersByRole } from './api'
-import { getCurrentUser } from './auth'
+import { getCurrentUser, getValidAccessToken } from './auth'
 
 export class SupportAssignmentService {
   private static instance: SupportAssignmentService
@@ -112,7 +112,7 @@ export class SupportAssignmentService {
         console.log('getSupportTeamAvailability - No online teams found, initializing from backend')
         
         // Only try to initialize if we have a valid token
-        const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken') : null
+        const token = await getValidAccessToken()
         if (token) {
           await this.initializeSupportTeamsFromBackend()
           
@@ -174,7 +174,7 @@ export class SupportAssignmentService {
       console.log('initializeSupportTeamsFromBackend - Starting initialization')
       
       // Check if we have a valid token before making the API call
-      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken') : null
+      const token = await getValidAccessToken()
       if (!token) {
         console.log('initializeSupportTeamsFromBackend - No access token found, skipping backend initialization')
         return

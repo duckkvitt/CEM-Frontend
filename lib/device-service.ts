@@ -1,5 +1,6 @@
 import { DEVICE_SERVICE_URL } from './api'
-import { getAccessToken } from './auth'
+import { getValidAccessToken, logout } from './auth'
+import { handleApiError } from './error-utils'
 
 export interface CustomerDevice {
   id: number
@@ -66,34 +67,29 @@ export async function getCustomerDevices(params: {
   
   const url = `${DEVICE_SERVICE_URL}/customer-devices?${searchParams.toString()}`
   
+  const token = await getValidAccessToken()
+  if (!token) {
+    await logout()
+    throw new Error('Authentication failed - Please log in again')
+  }
+  
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
     cache: 'no-store'
   })
   
+  // Handle token expiration
+  if (response.status === 401) {
+    console.log('401 Unauthorized - token may be expired, logging out')
+    await logout()
+    throw new Error('Session expired - Please log in again')
+  }
+  
   if (!response.ok) {
-    try {
-      const errorData = await response.json();
-      if (errorData.message) {
-        throw new Error(errorData.message);
-      } else if (errorData.error) {
-        throw new Error(errorData.error);
-      }
-    } catch (parseError) {
-      // If we can't parse the error response, try to get text content
-      try {
-        const errorText = await response.text();
-        if (errorText && errorText.trim()) {
-          throw new Error(`Server error: ${errorText}`);
-        }
-      } catch (textError) {
-        // Ignore text parsing errors
-      }
-    }
-    throw new Error(`Request failed with status ${response.status}`);
+    await handleApiError(response);
   }
   
   const data: ApiResponse<Page<CustomerDevice>> = await response.json()
@@ -111,34 +107,29 @@ export async function getCustomerDevices(params: {
 export async function getCustomerDeviceStatistics(): Promise<DeviceStatistics> {
   const url = `${DEVICE_SERVICE_URL}/customer-devices/statistics`
   
+  const token = await getValidAccessToken()
+  if (!token) {
+    await logout()
+    throw new Error('Authentication failed - Please log in again')
+  }
+  
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
     cache: 'no-store'
   })
   
+  // Handle token expiration
+  if (response.status === 401) {
+    console.log('401 Unauthorized - token may be expired, logging out')
+    await logout()
+    throw new Error('Session expired - Please log in again')
+  }
+  
   if (!response.ok) {
-    try {
-      const errorData = await response.json();
-      if (errorData.message) {
-        throw new Error(errorData.message);
-      } else if (errorData.error) {
-        throw new Error(errorData.error);
-      }
-    } catch (parseError) {
-      // If we can't parse the error response, try to get text content
-      try {
-        const errorText = await response.text();
-        if (errorText && errorText.trim()) {
-          throw new Error(`Server error: ${errorText}`);
-        }
-      } catch (textError) {
-        // Ignore text parsing errors
-      }
-    }
-    throw new Error(`Request failed with status ${response.status}`);
+    await handleApiError(response);
   }
   
   const data: ApiResponse<DeviceStatistics> = await response.json()
@@ -156,34 +147,29 @@ export async function getCustomerDeviceStatistics(): Promise<DeviceStatistics> {
 export async function getDevicesWithExpiringWarranty(): Promise<CustomerDevice[]> {
   const url = `${DEVICE_SERVICE_URL}/customer-devices/expiring-warranty`
   
+  const token = await getValidAccessToken()
+  if (!token) {
+    await logout()
+    throw new Error('Authentication failed - Please log in again')
+  }
+  
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
     cache: 'no-store'
   })
   
+  // Handle token expiration
+  if (response.status === 401) {
+    console.log('401 Unauthorized - token may be expired, logging out')
+    await logout()
+    throw new Error('Session expired - Please log in again')
+  }
+  
   if (!response.ok) {
-    try {
-      const errorData = await response.json();
-      if (errorData.message) {
-        throw new Error(errorData.message);
-      } else if (errorData.error) {
-        throw new Error(errorData.error);
-      }
-    } catch (parseError) {
-      // If we can't parse the error response, try to get text content
-      try {
-        const errorText = await response.text();
-        if (errorText && errorText.trim()) {
-          throw new Error(`Server error: ${errorText}`);
-        }
-      } catch (textError) {
-        // Ignore text parsing errors
-      }
-    }
-    throw new Error(`Request failed with status ${response.status}`);
+    await handleApiError(response);
   }
   
   const data: ApiResponse<CustomerDevice[]> = await response.json()
@@ -201,34 +187,29 @@ export async function getDevicesWithExpiringWarranty(): Promise<CustomerDevice[]
 export async function getCustomerDeviceById(deviceId: number): Promise<CustomerDevice> {
   const url = `${DEVICE_SERVICE_URL}/customer-devices/${deviceId}`
   
+  const token = await getValidAccessToken()
+  if (!token) {
+    await logout()
+    throw new Error('Authentication failed - Please log in again')
+  }
+  
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${getAccessToken()}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
     cache: 'no-store'
   })
   
+  // Handle token expiration
+  if (response.status === 401) {
+    console.log('401 Unauthorized - token may be expired, logging out')
+    await logout()
+    throw new Error('Session expired - Please log in again')
+  }
+  
   if (!response.ok) {
-    try {
-      const errorData = await response.json();
-      if (errorData.message) {
-        throw new Error(errorData.message);
-      } else if (errorData.error) {
-        throw new Error(errorData.error);
-      }
-    } catch (parseError) {
-      // If we can't parse the error response, try to get text content
-      try {
-        const errorText = await response.text();
-        if (errorText && errorText.trim()) {
-          throw new Error(`Server error: ${errorText}`);
-        }
-      } catch (textError) {
-        // Ignore text parsing errors
-      }
-    }
-    throw new Error(`Request failed with status ${response.status}`);
+    await handleApiError(response);
   }
   
   const data: ApiResponse<CustomerDevice> = await response.json()

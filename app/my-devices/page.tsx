@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DEVICE_SERVICE_URL } from '@/lib/api'
-import { getAccessToken, getCurrentUserRole } from '@/lib/auth'
+import { getValidAccessToken, getCurrentUserRole, logout } from '@/lib/auth'
 import { motion } from 'framer-motion'
 import { Search, Filter, Package, AlertTriangle, CheckCircle, Clock, Settings, Shield } from 'lucide-react'
 import { getContractsForCurrentUser, type ContractResponse } from '@/lib/contract-service'
@@ -124,7 +124,7 @@ export default function MyDevicesPage() {
       
       const url = `${DEVICE_SERVICE_URL}/customer-devices?${params.toString()}`
       const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
+        headers: { Authorization: `Bearer ${await getValidAccessToken()}` },
         cache: 'no-store'
       })
       
@@ -149,7 +149,7 @@ export default function MyDevicesPage() {
     try {
       const url = `${DEVICE_SERVICE_URL}/customer-devices/statistics`
       const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
+        headers: { Authorization: `Bearer ${await getValidAccessToken()}` },
         cache: 'no-store'
       })
       

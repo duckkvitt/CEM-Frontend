@@ -1,5 +1,6 @@
 import { CONTRACT_SERVICE_URL } from './api'
-import { getAccessToken } from './auth'
+import { getValidAccessToken, logout } from './auth'
+import { handleApiError } from './error-utils'
 
 export interface ContractDetail {
   workCode: string
@@ -159,60 +160,20 @@ interface ApiResponse<T> {
 // Common error handling function
 async function handleErrors(response: Response): Promise<void> {
   if (!response.ok) {
-    try {
-      const errorData = await response.json();
-      // Extract error message from backend response
-      if (errorData.message) {
-        // If there are validation errors in the errors object, combine them with the main message
-        if (errorData.errors && typeof errorData.errors === 'object' && !Array.isArray(errorData.errors)) {
-          const validationErrors = Object.values(errorData.errors).join(', ');
-          throw new Error(`${errorData.message}: ${validationErrors}`);
-        }
-        throw new Error(errorData.message);
-      } else if (errorData.errors) {
-        // Handle validation errors - backend returns errors as object/map
-        if (typeof errorData.errors === 'object' && !Array.isArray(errorData.errors)) {
-          const errorMessages = Object.values(errorData.errors).join(', ');
-          throw new Error(errorMessages);
-        } else if (Array.isArray(errorData.errors)) {
-          const errorMessages = errorData.errors.map((err: any) => err.defaultMessage || err.message || err).join(', ');
-          throw new Error(errorMessages);
-        }
-      } else if (errorData.error) {
-        // Try alternative error field
-        throw new Error(errorData.error);
-      } else {
-        // Try to extract any meaningful error text from the response
-        const errorText = JSON.stringify(errorData);
-        if (errorText && errorText !== '{}') {
-          throw new Error(`Server error: ${errorText}`);
-        }
-        throw new Error(`Request failed with status ${response.status}`);
-      }
-    } catch (parseError) {
-      // If we can't parse the error response, try to get text content
-      try {
-        const errorText = await response.text();
-        if (errorText && errorText.trim()) {
-          throw new Error(`Server error: ${errorText}`);
-        }
-      } catch (textError) {
-        // Ignore text parsing errors
-      }
-      throw new Error(`Request failed with status ${response.status}`);
-    }
+    await handleApiError(response);
   }
 }
 
-// Helper for making authenticated requests
+// Helper for making authenticated requests with automatic token refresh
 async function authenticatedFetch<T>(
   url: string, 
   options?: RequestInit
 ): Promise<T> {
-  const token = getAccessToken();
+  const token = await getValidAccessToken();
   
   if (!token) {
-    throw new Error('No authentication token available');
+    await logout();
+    throw new Error('Authentication failed - Please log in again');
   }
 
   const headers = {
@@ -225,6 +186,13 @@ async function authenticatedFetch<T>(
     ...options,
     headers,
   });
+
+  // Handle token expiration specifically
+  if (response.status === 401) {
+    console.log('401 Unauthorized - token may be expired, logging out');
+    await logout();
+    throw new Error('Session expired - Please log in again');
+  }
 
   await handleErrors(response);
   const data: ApiResponse<T> = await response.json();
@@ -326,10 +294,11 @@ export async function uploadContractFile(
   file: File, 
   contractNumber: string
 ): Promise<string> {
-  const token = getAccessToken();
+  const token = await getValidAccessToken();
   
   if (!token) {
-    throw new Error('No authentication token available');
+    await logout();
+    throw new Error('Authentication failed - Please log in again');
   }
   
   const formData = new FormData();
@@ -344,7 +313,14 @@ export async function uploadContractFile(
     body: formData,
   });
   
-  handleErrors(response);
+  // Handle token expiration specifically
+  if (response.status === 401) {
+    console.log('401 Unauthorized - token may be expired, logging out');
+    await logout();
+    throw new Error('Session expired - Please log in again');
+  }
+  
+  await handleErrors(response);
   const data: ApiResponse<string> = await response.json();
   return data.data;
 }
@@ -358,7 +334,11 @@ export function getContractFileUrl(fileName: string): string {
 // Get direct download URL for contract file via backend (Google Drive redirect)
 export async function getSignedDownloadUrl(fileName: string): Promise<string> {
   try {
-    const token = getAccessToken() ?? ''
+    const token = await getValidAccessToken();
+    if (!token) {
+      await logout();
+      throw new Error('Authentication failed - Please log in again');
+    }
     return `${CONTRACT_SERVICE_URL.replace('/contracts', '')}/files/download-direct/${fileName}?token=${token}`;
   } catch (error) {
     console.error('Error getting signed download URL:', error);
@@ -454,10 +434,11 @@ export async function getContractsWithFilters(
 
 // Get PDF file content as blob URL for PDF viewer
 export async function getContractFileBlob(contractId: number, cacheBuster?: number): Promise<string> {
-  const token = getAccessToken();
+  const token = await getValidAccessToken();
   
   if (!token) {
-    throw new Error('No authentication token available');
+    await logout();
+    throw new Error('Authentication failed - Please log in again');
   }
 
   const headers = {
@@ -476,6 +457,13 @@ export async function getContractFileBlob(contractId: number, cacheBuster?: numb
     headers,
     cache: 'no-store', // Disable browser cache
   });
+
+  // Handle token expiration specifically
+  if (response.status === 401) {
+    console.log('401 Unauthorized - token may be expired, logging out');
+    await logout();
+    throw new Error('Session expired - Please log in again');
+  }
 
   if (!response.ok) {
     // Try to extract error message for PDF fetch errors

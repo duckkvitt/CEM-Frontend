@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AUTH_SERVICE_URL } from '@/lib/api'
-import { getAccessToken } from '@/lib/auth'
+import { getValidAccessToken, logout } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
@@ -41,7 +41,7 @@ export default function CreateUserPage () {
     const fetchRoles = async () => {
       try {
         const res = await fetch(`${AUTH_SERVICE_URL}/v1/auth/admin/roles`, {
-          headers: { Authorization: `Bearer ${getAccessToken()}` },
+          headers: { Authorization: `Bearer ${await getValidAccessToken()}` },
           cache: 'no-store'
         })
         const json: ApiResponse<Role[]> = await res.json()
@@ -73,7 +73,7 @@ export default function CreateUserPage () {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAccessToken()}`
+          Authorization: `Bearer ${await getValidAccessToken()}`
         },
         body: JSON.stringify({
           ...form,

@@ -11,13 +11,23 @@ export const CONTRACT_SERVICE_URL = `${API_BASE}/contract`
 export const SPARE_PARTS_SERVICE_URL = `${API_BASE}/spare-parts`
 export const SUPPLIERS_SERVICE_URL = `${API_BASE}/suppliers`
 
+import { extractErrorMessage } from './error-utils'
+
 // API helper functions
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken') : null
+  // Import auth functions dynamically to avoid circular imports
+  const { getValidAccessToken, logout } = await import('@/lib/auth')
+  
+  const token = await getValidAccessToken()
+  
+  if (!token) {
+    await logout()
+    throw new Error('Authentication failed - Please log in again')
+  }
   
   const headers = {
     'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
+    'Authorization': `Bearer ${token}`,
     ...options.headers,
   }
 
@@ -27,52 +37,16 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   })
 
   if (!response.ok) {
-    if (response.status === 403) {
+    if (response.status === 401) {
+      console.warn('Unauthorized error (401) - Token may be expired, logging out')
+      await logout()
+      throw new Error('Session expired - Please log in again')
+    } else if (response.status === 403) {
       console.warn('Authentication error (403) - User may not have permission or token is invalid')
       throw new Error('Authentication failed - Please log in again')
-    } else if (response.status === 401) {
-      console.warn('Unauthorized error (401) - Token may be expired')
-      throw new Error('Session expired - Please log in again')
     } else {
-      // Try to extract error message from response body
-      try {
-        const errorData = await response.json();
-        if (errorData.message) {
-          // If there are validation errors in the errors object, combine them with the main message
-          if (errorData.errors && typeof errorData.errors === 'object' && !Array.isArray(errorData.errors)) {
-            const validationErrors = Object.values(errorData.errors).join(', ');
-            throw new Error(`${errorData.message}: ${validationErrors}`);
-          }
-          throw new Error(errorData.message);
-        } else if (errorData.errors) {
-          // Handle validation errors - backend returns errors as object/map
-          if (typeof errorData.errors === 'object' && !Array.isArray(errorData.errors)) {
-            const errorMessages = Object.values(errorData.errors).join(', ');
-            throw new Error(errorMessages);
-          } else if (Array.isArray(errorData.errors)) {
-            const errorMessages = errorData.errors.map((err: any) => err.defaultMessage || err.message || err).join(', ');
-            throw new Error(errorMessages);
-          }
-        } else if (errorData.error) {
-          throw new Error(errorData.error);
-        } else {
-          const errorText = JSON.stringify(errorData);
-          if (errorText && errorText !== '{}') {
-            throw new Error(`Server error: ${errorText}`);
-          }
-        }
-      } catch (parseError) {
-        // If we can't parse the error response, try to get text content
-        try {
-          const errorText = await response.text();
-          if (errorText && errorText.trim()) {
-            throw new Error(`Server error: ${errorText}`);
-          }
-        } catch (textError) {
-          // Ignore text parsing errors
-        }
-      }
-      throw new Error(`Request failed with status ${response.status}`)
+      const errorMessage = await extractErrorMessage(response);
+      throw new Error(errorMessage);
     }
   }
 

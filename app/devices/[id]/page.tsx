@@ -3,7 +3,7 @@
 import Sidebar from '@/components/sidebar'
 import { Button } from '@/components/ui/button'
 import { DEVICE_SERVICE_URL } from '@/lib/api'
-import { getAccessToken, getCurrentUserRole } from '@/lib/auth'
+import { getValidAccessToken, logout, getCurrentUserRole  } from '@/lib/auth'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -50,6 +50,33 @@ export default function DeviceDetailPage () {
   const [noteText, setNoteText] = useState('')
   const [error, setError] = useState<string | null>(null)
 
+  // Helper function for authenticated requests
+  const authenticatedFetch = async (url: string, options: RequestInit = {}) => {
+    const token = await getValidAccessToken()
+    if (!token) {
+      await logout()
+      router.push('/login')
+      throw new Error('Authentication failed')
+    }
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    })
+
+    if (response.status === 401) {
+      await logout()
+      router.push('/login')
+      throw new Error('Session expired')
+    }
+
+    return response
+  }
+
   // Note: Customers can now access device details through the /info endpoint
 
   // Allow staff, managers, and customers to access this page
@@ -69,14 +96,12 @@ export default function DeviceDetailPage () {
         : `${DEVICE_SERVICE_URL}/devices/${deviceId}`
       
       const [deviceRes, notesRes] = await Promise.all([
-        fetch(deviceEndpoint, {
-          headers: { Authorization: `Bearer ${getAccessToken()}` },
+        authenticatedFetch(deviceEndpoint, {
           cache: 'no-store'
         }),
         // Only fetch notes for non-customer users
         ...(role !== 'CUSTOMER' ? [
-          fetch(`${DEVICE_SERVICE_URL}/devices/${deviceId}/notes`, {
-            headers: { Authorization: `Bearer ${getAccessToken()}` },
+          authenticatedFetch(`${DEVICE_SERVICE_URL}/devices/${deviceId}/notes`, {
             cache: 'no-store'
           })
         ] : [])
@@ -116,12 +141,8 @@ export default function DeviceDetailPage () {
   const addNote = async () => {
     if (!noteText.trim()) return
     try {
-      const res = await fetch(`${DEVICE_SERVICE_URL}/devices/${deviceId}/notes`, {
+      const res = await authenticatedFetch(`${DEVICE_SERVICE_URL}/devices/${deviceId}/notes`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAccessToken()}`
-        },
         body: JSON.stringify({ note: noteText.trim() })
       })
       const json: ApiResponse<DeviceNote> = await res.json()
@@ -136,9 +157,8 @@ export default function DeviceDetailPage () {
   const deleteNote = async (noteId: number) => {
     if (!confirm('Delete this note?')) return
     try {
-      const res = await fetch(`${DEVICE_SERVICE_URL}/devices/${deviceId}/notes/${noteId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${getAccessToken()}` }
+      const res = await authenticatedFetch(`${DEVICE_SERVICE_URL}/devices/${deviceId}/notes/${noteId}`, {
+        method: 'DELETE'
       })
       const json: ApiResponse<string> = await res.json()
       if (!json.success) throw new Error(json.message || 'Failed to delete note')

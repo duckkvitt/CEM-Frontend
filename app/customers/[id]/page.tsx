@@ -11,9 +11,9 @@ import {
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CUSTOMER_SERVICE_URL } from '@/lib/api'
-import { getAccessToken, getCurrentUserRole } from '@/lib/auth'
+import { getValidAccessToken, logout, getCurrentUserRole  } from '@/lib/auth'
 import { ChevronLeft, User, Building, Info, Calendar, Key, Hash, Phone, Mail, FileText } from 'lucide-react'
-import { useParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 // Updated Customer interface
@@ -91,7 +91,7 @@ export default function CustomerDetailPage() {
       setLoading(true)
       try {
         const res = await fetch(`${CUSTOMER_SERVICE_URL}/v1/customers/${id}`, {
-          headers: { Authorization: `Bearer ${getAccessToken()}` },
+          headers: { Authorization: `Bearer ${await getValidAccessToken()}` },
           cache: 'no-store',
         })
         if (!res.ok) throw new Error(`Server responded with ${res.status}`)

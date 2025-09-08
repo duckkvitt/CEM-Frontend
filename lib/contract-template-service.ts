@@ -1,4 +1,4 @@
-import { getAccessToken } from './auth';
+import { getValidAccessToken, logout } from './auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8082';
 
@@ -43,9 +43,10 @@ export interface GenerateContractRequest {
 }
 
 export async function generateContractFromTemplate(contractData: GenerateContractRequest) {
-    const token = getAccessToken();
+    const token = await getValidAccessToken();
     if (!token) {
-        throw new Error('Not authenticated');
+        await logout();
+        throw new Error('Authentication failed - Please log in again');
     }
 
     const response = await fetch(`${API_BASE_URL}/api/v1/contracts/generate`, {
@@ -56,6 +57,13 @@ export async function generateContractFromTemplate(contractData: GenerateContrac
         },
         body: JSON.stringify(contractData),
     });
+
+    // Handle token expiration specifically
+    if (response.status === 401) {
+        console.log('401 Unauthorized - token may be expired, logging out');
+        await logout();
+        throw new Error('Session expired - Please log in again');
+    }
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Failed to generate contract. Please check the details and try again.' }));

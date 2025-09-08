@@ -1,5 +1,6 @@
 import { SPARE_PARTS_SERVICE_URL } from './api';
-import { getAccessToken } from './auth';
+import { getValidAccessToken, logout } from './auth';
+import { handleApiError } from './error-utils';
 import { PagedSparePartsResponse, SparePart } from '@/types/spare-part';
 
 // Re-defining these here for now, should be in a central place
@@ -30,6 +31,10 @@ export interface UpdateSparePartRequest {
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
+    if (!response.ok) {
+        await handleApiError(response);
+    }
+
     // Check if response has content
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
@@ -49,43 +54,16 @@ async function handleResponse<T>(response: Response): Promise<T> {
         console.error('Failed to parse JSON response:', text);
         throw new Error('Invalid JSON response from server');
     }
-
-    if (!response.ok) {
-        // Extract the most specific error message available
-        let error = '';
-        
-        if (json && json.message) {
-            // If there are validation errors in the errors object, combine them with the main message
-            if (json.errors && typeof json.errors === 'object' && !Array.isArray(json.errors)) {
-                const validationErrors = Object.values(json.errors).join(', ');
-                error = `${json.message}: ${validationErrors}`;
-            } else {
-                error = json.message;
-            }
-        } else if (json && json.errors) {
-            // Handle validation errors - backend returns errors as object/map
-            if (typeof json.errors === 'object' && !Array.isArray(json.errors)) {
-                error = Object.values(json.errors).join(', ');
-            } else if (Array.isArray(json.errors)) {
-                error = json.errors.join(', ');
-            }
-        } else if (json && json.error) {
-            error = json.error;
-        } else {
-            error = response.statusText || `Request failed with status ${response.status}`;
-        }
-        console.error('API Error:', json);
-        throw new Error(error);
-    }
     
     return (json as ApiResponse<T>).data;
 }
 
-// Client-side fetch function (requires authentication)
+// Client-side fetch function (requires authentication with automatic token refresh)
 async function authenticatedFetch<T>(url: string, options?: RequestInit): Promise<T> {
-  const token = getAccessToken();
+  const token = await getValidAccessToken();
   if (!token) {
-    throw new Error('No authentication token available');
+    await logout();
+    throw new Error('Authentication failed - Please log in again');
   }
 
   const headers = {
@@ -95,6 +73,14 @@ async function authenticatedFetch<T>(url: string, options?: RequestInit): Promis
   };
 
   const response = await fetch(url, { ...options, headers });
+  
+  // Handle token expiration specifically
+  if (response.status === 401) {
+    console.log('401 Unauthorized - token may be expired, logging out');
+    await logout();
+    throw new Error('Session expired - Please log in again');
+  }
+  
   return handleResponse<T>(response);
 }
 

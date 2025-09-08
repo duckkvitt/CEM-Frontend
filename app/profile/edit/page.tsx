@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { AUTH_SERVICE_URL } from '@/lib/api'
-import { getAccessToken, getCurrentUser } from '@/lib/auth'
+import { getValidAccessToken, logout, getCurrentUser  } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -51,7 +51,7 @@ export default function EditProfilePage () {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAccessToken()}`
+          Authorization: `Bearer ${await getValidAccessToken()}`
         },
         body: JSON.stringify(form)
       })
