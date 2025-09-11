@@ -17,6 +17,7 @@ export interface ServiceRequest {
   attachments?: string[]
   staffNotes?: string
   customerComments?: string
+  workLocation?: string
   estimatedCost?: number
   actualCost?: number
   completedAt?: string
@@ -50,6 +51,7 @@ export interface CreateServiceRequestRequest {
   type: 'MAINTENANCE' | 'WARRANTY'
   description: string
   preferredDateTime?: string
+  workLocation?: string
   attachments?: string[]
   customerComments?: string
 }
@@ -57,6 +59,7 @@ export interface CreateServiceRequestRequest {
 export interface UpdateServiceRequestRequest {
   description?: string
   preferredDateTime?: string
+  workLocation?: string
   attachments?: string[]
   customerComments?: string
 }

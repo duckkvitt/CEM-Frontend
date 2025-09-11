@@ -453,6 +453,13 @@ export default function ServiceRequestDetailPage() {
                   <p className="text-gray-900">{formatDate(serviceRequest.preferredDateTime)}</p>
                 </div>
               )}
+
+              {serviceRequest.workLocation && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">Work Location</Label>
+                  <p className="text-gray-900 whitespace-pre-wrap">{serviceRequest.workLocation}</p>
+                </div>
+              )}
               
               {serviceRequest.completedAt && (
                 <div>

@@ -27,6 +27,7 @@ interface FormData {
   type: 'MAINTENANCE' | 'WARRANTY'
   description: string
   preferredDateTime: string
+  workLocation: string
   customerComments: string
   attachments: File[]
 }
@@ -37,6 +38,7 @@ export function ServiceRequestModal({ isOpen, onClose, device, onSuccess }: Serv
     type: 'MAINTENANCE',
     description: '',
     preferredDateTime: '',
+    workLocation: '',
     customerComments: '',
     attachments: []
   })
@@ -116,6 +118,7 @@ export function ServiceRequestModal({ isOpen, onClose, device, onSuccess }: Serv
         type: formData.type,
         description: formData.description.trim(),
         preferredDateTime: formData.preferredDateTime || undefined,
+        workLocation: formData.workLocation.trim() || undefined,
         customerComments: formData.customerComments.trim() || undefined,
         attachments: attachmentIds.length > 0 ? attachmentIds : undefined
       }
@@ -131,6 +134,7 @@ export function ServiceRequestModal({ isOpen, onClose, device, onSuccess }: Serv
           type: 'MAINTENANCE',
           description: '',
           preferredDateTime: '',
+          workLocation: '',
           customerComments: '',
           attachments: []
         })
@@ -252,6 +256,18 @@ export function ServiceRequestModal({ isOpen, onClose, device, onSuccess }: Serv
                   </div>
 
                   <div>
+                    <Label htmlFor="workLocation" className="text-sm font-medium">
+                      Work Location
+                    </Label>
+                    <Input
+                      id="workLocation"
+                      placeholder="e.g., Building A, Floor 3, Room 305"
+                      value={formData.workLocation}
+                      onChange={(e) => handleInputChange('workLocation', e.target.value)}
+                    />
+                  </div>
+
+                  <div>
                     <Label htmlFor="customerComments" className="text-sm font-medium">
                       Additional Comments
                     </Label>
@@ -305,6 +321,18 @@ export function ServiceRequestModal({ isOpen, onClose, device, onSuccess }: Serv
                         className="flex-1"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="warranty-workLocation" className="text-sm font-medium">
+                      Work Location
+                    </Label>
+                    <Input
+                      id="warranty-workLocation"
+                      placeholder="e.g., Building A, Floor 3, Room 305"
+                      value={formData.workLocation}
+                      onChange={(e) => handleInputChange('workLocation', e.target.value)}
+                    />
                   </div>
 
                   <div>

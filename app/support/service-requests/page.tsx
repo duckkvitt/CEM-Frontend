@@ -656,6 +656,15 @@ export default function SupportServiceRequestsPage() {
                         </p>
                       </div>
                     </div>
+
+                    {request.workLocation && (
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Work Location</Label>
+                        <p className="text-gray-900 mt-1 line-clamp-2">
+                          {request.workLocation}
+                        </p>
+                      </div>
+                    )}
                     
                     {request.staffNotes && (
                       <div>
