@@ -38,6 +38,7 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
   const [isMinimized, setIsMinimized] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [isModePinned, setIsModePinned] = useState(false)
+  const [isEnding, setIsEnding] = useState(false)
   const [supportAvailability, setSupportAvailability] = useState<{
     totalOnline: number
     totalAvailable: number
@@ -115,14 +116,21 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
   useEffect(() => {
     if (isOpen && chatSession) {
       const unsubscribe = chatService.onChatSession(chatSession.id, (session) => {
-        if (session) {
-          setChatSession(session)
-        }
+        if (!session) return
+        setChatSession((prev) => {
+          // While ending, do not let remote updates flip status back
+          if (isEnding) return prev || session
+          // If we've already marked closed locally, keep it closed
+          if (prev && prev.status === 'closed' && session.status !== 'closed') {
+            return prev
+          }
+          return session
+        })
       })
 
       return unsubscribe
     }
-  }, [isOpen, chatSession?.id])
+  }, [isOpen, chatSession?.id, isEnding])
 
   useEffect(() => {
     if (messagesEndRef.current && messages.length > 0 && chatSession) {
@@ -234,6 +242,10 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !currentUser) return
+    if (!isBotMode && (isEnding || chatSession?.status === 'closed')) {
+      toast.info('Chat has ended')
+      return
+    }
 
     const content = inputValue.trim()
     setInputValue('')
@@ -291,6 +303,10 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
     const file = event.target.files?.[0]
     if (!file || !chatSession || !currentUser) {
       console.log('Image upload: Missing file, chatSession, or currentUser')
+      return
+    }
+    if (chatSession.status === 'closed' || isEnding) {
+      toast.info('Chat has ended')
       return
     }
 
@@ -472,6 +488,36 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
     }
   }
 
+  const handleEndChat = async () => {
+    if (!chatSession || isEnding) return
+    const confirmed = typeof window !== 'undefined' ? window.confirm('End this support chat?') : true
+    if (!confirmed) return
+    setIsEnding(true)
+    // Optimistically mark as closed locally
+    setChatSession(prev => prev ? { ...prev, status: 'closed' } as ChatSession : prev)
+    setInputValue('')
+    try {
+      // Close session first to ensure remote state becomes closed asap
+      await chatService.closeChatSession(chatSession.id)
+      // Then post a system note (allowed even after close)
+      await chatService.sendMessage(chatSession.id, {
+        senderId: 'system',
+        senderName: 'System',
+        senderRole: 'SYSTEM',
+        content: 'Customer ended the chat.',
+        type: 'text',
+        read: true,
+      })
+      toast.success('Chat ended')
+    } catch (e) {
+      // Revert if failed
+      setChatSession(prev => prev ? { ...prev, status: 'active' } as ChatSession : prev)
+      toast.error('Failed to end chat')
+    } finally {
+      setIsEnding(false)
+    }
+  }
+
   const renderMessage = (message: ChatMessage) => {
     const isOwnMessage = message.senderId === currentUser?.id.toString()
     const isSystemMessage = message.senderRole === 'SYSTEM'
@@ -638,53 +684,53 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="absolute bottom-20 right-0 w-96"
+            className="absolute bottom-20 right-0 w-[22rem] sm:w-96"
           >
-            <Card className="shadow-2xl border-0 bg-gradient-to-br from-white to-gray-50">
-              <CardHeader className="pb-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-t-lg">
+            <Card className="shadow-2xl border border-white/20 bg-white/80 backdrop-blur-md rounded-2xl overflow-hidden">
+              <CardHeader className="pb-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
+                    <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center shadow-inner">
                       <MessageCircle className="h-4 w-4" />
                     </div>
-                    <div>
-                      <CardTitle className="text-sm font-semibold">
+                    <div className="space-y-0.5">
+                      <CardTitle className="text-sm font-semibold tracking-tight">
                         {isBotMode ? 'CEM Assistant' : 'Customer Support'}
                       </CardTitle>
-                                              <div className="flex items-center gap-2">
-                          <div className={cn(
-                            "h-2 w-2 rounded-full",
-                            isBotMode ? 'bg-green-400' : (
-                              chatSession?.status === 'closed' ? 'bg-red-400' :
-                              chatSession?.status === 'waiting' ? 'bg-yellow-400 animate-pulse' :
-                              'bg-green-400'
-                            )
-                          )} />
-                          <span className="text-xs opacity-90">
-                            {isBotMode ? 'Chatbot online' : (
-                              chatSession?.status === 'waiting' ? 
-                                (supportAvailability?.totalOnline === 0 ? 
-                                  'No support available' : 
-                                  supportAvailability?.totalAvailable === 0 ?
-                                    'Support busy, please wait...' :
-                                    `Connecting... (${supportAvailability?.totalAvailable || 0} available)`
-                                ) : 
-                                chatSession?.status === 'closed' ?
-                                  'Chat ended' :
-                                  'Online'
-                            )}
-                          </span>
-                        </div>
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <div className={cn(
+                          'h-2 w-2 rounded-full',
+                          isBotMode ? 'bg-emerald-400 shadow-[0_0_0_3px_rgba(16,185,129,0.25)]' : (
+                            chatSession?.status === 'closed' ? 'bg-rose-400' :
+                            chatSession?.status === 'waiting' ? 'bg-amber-400 animate-pulse' :
+                            'bg-emerald-400'
+                          )
+                        )} />
+                        <span className="opacity-95">
+                          {isBotMode ? 'Chatbot online' : (
+                            chatSession?.status === 'waiting' ? 
+                              (supportAvailability?.totalOnline === 0 ? 
+                                'No support available' : 
+                                supportAvailability?.totalAvailable === 0 ?
+                                  'Support busy, please wait...' :
+                                  `Connecting... (${supportAvailability?.totalAvailable || 0} available)`
+                              ) : 
+                              chatSession?.status === 'closed' ?
+                                'Chat ended' :
+                                'Online'
+                          )}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center gap-1">
+
+                  <div className="flex items-center gap-2">
                     {isBotMode ? (
                       <Button
                         variant="secondary"
                         size="sm"
                         onClick={handleSwitchToSupport}
-                        className="mr-1"
+                        className="mr-1 bg-white/15 hover:bg-white/25 text-white border-white/20"
                         disabled={isConnecting}
                       >
                         Chat with Support Team
@@ -694,10 +740,21 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                         variant="secondary"
                         size="sm"
                         onClick={handleSwitchToBot}
-                        className="mr-1"
+                        className="mr-1 bg-white/15 hover:bg-white/25 text-white border-white/20"
                         disabled={isConnecting}
                       >
                         Back to AI Assistant
+                      </Button>
+                    )}
+                    {!isBotMode && chatSession && chatSession.status !== 'closed' && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleEndChat}
+                        className="mr-1 shadow-sm"
+                        disabled={isConnecting || isEnding}
+                      >
+                        End Chat
                       </Button>
                     )}
                     <Button
@@ -722,7 +779,7 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                   >
                     <CardContent className="p-0">
                       {/* Messages Area */}
-                      <div className="h-80 overflow-y-auto px-4 py-3">
+                      <div className="h-80 overflow-y-auto px-4 py-3 bg-gradient-to-b from-white/40 to-transparent">
                         <div className="space-y-2">
                           {!isBotMode && chatSession?.status === 'waiting' && (
                             <motion.div
@@ -753,9 +810,9 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                               animate={{ opacity: 1 }}
                               className="text-center py-8"
                             >
-                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                              <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-4 mb-4 shadow-sm">
                                 <div className="flex items-center justify-center mb-2">
-                                  <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                  <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center shadow-inner">
                                     <MessageCircle className="h-4 w-4 text-blue-600" />
                                   </div>
                                 </div>
@@ -768,7 +825,7 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                                 <Button
                                   onClick={handleStartNewChat}
                                   size="sm"
-                                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                                  className="bg-blue-600 hover:bg-blue-700 text-white shadow"
                                 >
                                   Start New Support Request
                                 </Button>
@@ -827,9 +884,9 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
                             onKeyPress={handleKeyPress}
-                            placeholder={!isBotMode && chatSession?.status === 'closed' ? 'Chat has ended' : "Type your message..."}
-                            className="min-h-[60px] resize-none border-0 bg-muted/50 focus:bg-white"
-                            disabled={!isBotMode && (chatSession?.status === 'waiting' || chatSession?.status === 'closed')}
+                            placeholder={!isBotMode && (chatSession?.status === 'closed' || isEnding) ? 'Chat has ended' : "Type your message..."}
+                            className="min-h-[60px] resize-none border border-transparent bg-white/70 backdrop-blur-sm focus:bg-white focus:ring-2 focus:ring-blue-500/30 rounded-xl shadow-inner"
+                            disabled={!isBotMode && (chatSession?.status === 'waiting' || chatSession?.status === 'closed' || isEnding)}
                           />
                         </div>
                         
@@ -839,8 +896,8 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                               variant="ghost"
                               size="sm"
                               onClick={() => fileInputRef.current?.click()}
-                              disabled={isBotMode || isUploading || chatSession?.status === 'waiting' || chatSession?.status === 'closed'}
-                              className="h-8 w-8 p-0"
+                              disabled={isBotMode || isUploading || chatSession?.status === 'waiting' || chatSession?.status === 'closed' || isEnding}
+                              className="h-8 w-8 p-0 rounded-full hover:bg-blue-50"
                             >
                               {isUploading ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -852,9 +909,9 @@ export default function CustomerChatBubble({ className }: CustomerChatBubbleProp
                           
                           <Button
                             onClick={handleSendMessage}
-                            disabled={!inputValue.trim() || (isBotMode ? isAiThinking : (isTyping || chatSession?.status === 'waiting' || chatSession?.status === 'closed'))}
+                            disabled={!inputValue.trim() || (isBotMode ? isAiThinking : (isTyping || chatSession?.status === 'waiting' || chatSession?.status === 'closed' || isEnding))}
                             size="sm"
-                            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                            className="h-9 w-9 p-0 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg"
                           >
                             {isBotMode ? (isAiThinking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />) : (isTyping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />)}
                           </Button>

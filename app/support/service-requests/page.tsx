@@ -107,7 +107,6 @@ export default function SupportServiceRequestsPage() {
     estimatedDurationHours: undefined,
     serviceLocation: '',
     customerContactInfo: '',
-    estimatedCost: undefined,
     supportNotes: ''
   })
 
@@ -217,9 +216,8 @@ export default function SupportServiceRequestsPage() {
       priority: 'NORMAL',
       scheduledDate: '',
       estimatedDurationHours: undefined,
-      serviceLocation: '',
+      serviceLocation: request.workLocation || '',
       customerContactInfo: '',
-      estimatedCost: request.estimatedCost,
       supportNotes: ''
     })
     setApproveModalOpen(true)
@@ -812,18 +810,7 @@ export default function SupportServiceRequestsPage() {
                 className="col-span-3"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="estimated-cost" className="text-right">
-                Estimated Cost
-              </Label>
-              <Input
-                id="estimated-cost"
-                type="number"
-                value={approveForm.estimatedCost || ''}
-                onChange={(e) => setApproveForm(prev => ({ ...prev, estimatedCost: e.target.value ? parseFloat(e.target.value) : undefined }))}
-                className="col-span-3"
-              />
-            </div>
+            
             <div className="grid grid-cols-4 items-start gap-4">
               <Label htmlFor="additional-notes" className="text-right">
                 Additional Notes

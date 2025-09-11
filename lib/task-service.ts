@@ -101,12 +101,15 @@ export interface UpdateTaskRequest {
 }
 
 export interface ApproveServiceRequestRequest {
-  title: string
-  description: string
-  type: 'MAINTENANCE' | 'WARRANTY' | 'INSTALLATION' | 'REPAIR' | 'INSPECTION'
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
-  preferredCompletionDate?: string
-  estimatedCost?: number
+  taskTitle: string
+  additionalNotes?: string
+  taskType?: 'MAINTENANCE' | 'WARRANTY' | 'INSTALLATION' | 'REPAIR' | 'INSPECTION'
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  scheduledDate?: string
+  estimatedDurationHours?: number
+  serviceLocation?: string
+  customerContactInfo?: string
+  supportNotes?: string
 }
 
 export interface RejectServiceRequestRequest {

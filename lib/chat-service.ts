@@ -23,6 +23,37 @@ export class ChatService {
     return ChatService.instance
   }
 
+  // Remove keys whose values are undefined (Firebase RTDB does not allow undefined)
+  private removeUndefinedDeep<T>(value: T): T {
+    if (Array.isArray(value)) {
+      // @ts-expect-error keep generic
+      return value.map((item) => this.removeUndefinedDeep(item)) as T
+    }
+    if (value !== null && typeof value === 'object') {
+      const result: Record<string, unknown> = {}
+      Object.entries(value as Record<string, unknown>).forEach(([key, val]) => {
+        if (val === undefined) {
+          return
+        }
+        if (val !== null && typeof val === 'object') {
+          const sanitized = this.removeUndefinedDeep(val)
+          // Only assign objects that still have keys (avoid empty objects for optional fields)
+          if (sanitized && (Array.isArray(sanitized) ? true : Object.keys(sanitized as object).length > 0)) {
+            result[key] = sanitized
+          } else if (!Array.isArray(sanitized)) {
+            // skip empty object
+          } else {
+            result[key] = sanitized
+          }
+        } else {
+          result[key] = val
+        }
+      })
+      return result as unknown as T
+    }
+    return value
+  }
+
   // Chat Sessions
   async createChatSession(customerId: string, customerName: string): Promise<string> {
     const sessionRef = ref(database, 'chat_sessions')
@@ -123,11 +154,11 @@ export class ChatService {
     const messagesRef = ref(database, `chat_messages/${sessionId}`)
     const newMessageRef = push(messagesRef)
     
-    const fullMessage: ChatMessage = {
+    const fullMessage: ChatMessage = this.removeUndefinedDeep({
       ...message,
       id: newMessageRef.key!,
       timestamp: Date.now(),
-    }
+    })
 
     await set(newMessageRef, fullMessage)
     
