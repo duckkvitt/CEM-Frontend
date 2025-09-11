@@ -50,6 +50,9 @@ import {
   createTask,
   CreateTaskRequest
 } from '@/lib/task-service'
+import { getAllCustomers, type CustomerResponse } from '@/lib/customer-service'
+import { DEVICE_SERVICE_URL } from '@/lib/api'
+import { getValidAccessToken } from '@/lib/auth'
 
 const STATUS_COLORS = {
   PENDING: 'bg-yellow-100 text-yellow-800',
@@ -102,7 +105,7 @@ export default function SupportServiceRequestsPage() {
     taskTitle: '',
     additionalNotes: '',
     taskType: 'MAINTENANCE',
-    priority: 'NORMAL',
+    priority: 'MEDIUM',
     scheduledDate: '',
     estimatedDurationHours: undefined,
     serviceLocation: '',
@@ -110,26 +113,27 @@ export default function SupportServiceRequestsPage() {
     supportNotes: ''
   })
 
-  const [rejectForm, setRejectForm] = useState<RejectServiceRequestRequest>({
-    rejectionReason: ''
-  })
+  const [rejectForm, setRejectForm] = useState<RejectServiceRequestRequest>({ rejectedReason: '' })
 
   const [createTaskForm, setCreateTaskForm] = useState<CreateTaskRequest>({
+    customerDeviceId: 0,
     title: '',
     description: '',
     type: 'MAINTENANCE',
-    priority: 'NORMAL',
-    customerDeviceId: 0,
-    customerId: 0,
-    scheduledDate: '',
-    estimatedDurationHours: undefined,
-    serviceLocation: '',
-    customerContactInfo: '',
+    priority: 'MEDIUM',
+    preferredCompletionDate: '',
     estimatedCost: undefined,
-    supportNotes: ''
+    attachments: []
   })
 
   const router = useRouter()
+
+  // Data for Create Task modal selects
+  const [customers, setCustomers] = useState<CustomerResponse[]>([])
+  const [customerLoading, setCustomerLoading] = useState(false)
+  const [devices, setDevices] = useState<Array<{ id: number; name: string; model?: string; serialNumber?: string }>>([])
+  const [deviceLoading, setDeviceLoading] = useState(false)
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number>(0)
 
   useEffect(() => {
     setRole(getCurrentUserRole())
@@ -213,7 +217,7 @@ export default function SupportServiceRequestsPage() {
       taskTitle: `${request.type} - ${request.deviceName}`,
       additionalNotes: '',
       taskType: request.type === 'MAINTENANCE' ? 'MAINTENANCE' : 'WARRANTY',
-      priority: 'NORMAL',
+      priority: 'MEDIUM',
       scheduledDate: '',
       estimatedDurationHours: undefined,
       serviceLocation: request.workLocation || '',
@@ -225,7 +229,7 @@ export default function SupportServiceRequestsPage() {
 
   const handleReject = (request: ServiceRequest) => {
     setSelectedRequest(request)
-    setRejectForm({ rejectionReason: '' })
+    setRejectForm({ rejectedReason: '' })
     setRejectModalOpen(true)
   }
 
@@ -265,19 +269,16 @@ export default function SupportServiceRequestsPage() {
 
   const handleCreateTask = () => {
     setCreateTaskForm({
+      customerDeviceId: 0,
       title: '',
       description: '',
       type: 'MAINTENANCE',
-      priority: 'NORMAL',
-      customerDeviceId: 0,
-      customerId: 0,
-      scheduledDate: '',
-      estimatedDurationHours: undefined,
-      serviceLocation: '',
-      customerContactInfo: '',
+      priority: 'MEDIUM',
+      preferredCompletionDate: '',
       estimatedCost: undefined,
-      supportNotes: ''
+      attachments: []
     })
+    setSelectedCustomerId(0)
     setCreateTaskModalOpen(true)
   }
 
@@ -294,6 +295,56 @@ export default function SupportServiceRequestsPage() {
       setSubmitting(false)
     }
   }
+
+  // Load customers when create task modal opens
+  useEffect(() => {
+    const loadCustomers = async () => {
+      setCustomerLoading(true)
+      try {
+        const list = await getAllCustomers()
+        setCustomers(list)
+      } catch {
+        setCustomers([])
+      } finally {
+        setCustomerLoading(false)
+      }
+    }
+    if (createTaskModalOpen) {
+      loadCustomers()
+    }
+  }, [createTaskModalOpen])
+
+  // Load devices when a customer is selected
+  useEffect(() => {
+    const loadDevices = async (customerId?: number) => {
+      if (!customerId || customerId === 0) {
+        setDevices([])
+        return
+      }
+      setDeviceLoading(true)
+      try {
+        const params = new URLSearchParams()
+        params.append('page', '0')
+        params.append('size', '100')
+        params.append('customerId', String(customerId))
+        const url = `${DEVICE_SERVICE_URL}/customer-devices/staff?${params.toString()}`
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${await getValidAccessToken()}` },
+          cache: 'no-store'
+        })
+        if (!res.ok) throw new Error('Failed to load devices')
+        const json = await res.json()
+        const content = Array.isArray(json?.data?.content) ? json.data.content : []
+        const mapped = content.map((d: any) => ({ id: d.id, name: d.deviceName ?? d.name, model: d.deviceModel ?? d.model, serialNumber: d.serialNumber }))
+        setDevices(mapped)
+      } catch {
+        setDevices([])
+      } finally {
+        setDeviceLoading(false)
+      }
+    }
+    loadDevices(selectedCustomerId)
+  }, [selectedCustomerId])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('vi-VN', {
@@ -375,7 +426,7 @@ export default function SupportServiceRequestsPage() {
           <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Error</h2>
           <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={fetchData}>
+          <Button size="default" onClick={fetchData}>
             Try Again
           </Button>
         </div>
@@ -691,7 +742,7 @@ export default function SupportServiceRequestsPage() {
           <Pagination>
             <PaginationContent>
               <PaginationItem>
-                <PaginationPrevious 
+                <PaginationPrevious size="default"
                   onClick={() => handlePageChange(filters.page - 1)}
                   className={filters.page === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                 />
@@ -699,7 +750,7 @@ export default function SupportServiceRequestsPage() {
               
               {Array.from({ length: serviceRequests.totalPages }, (_, i) => (
                 <PaginationItem key={i}>
-                  <PaginationLink
+                  <PaginationLink size="default"
                     onClick={() => handlePageChange(i)}
                     isActive={filters.page === i}
                     className="cursor-pointer"
@@ -710,7 +761,7 @@ export default function SupportServiceRequestsPage() {
               ))}
               
               <PaginationItem>
-                <PaginationNext 
+                <PaginationNext size="default"
                   onClick={() => handlePageChange(filters.page + 1)}
                   className={filters.page === serviceRequests.totalPages - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                 />
@@ -851,8 +902,8 @@ export default function SupportServiceRequestsPage() {
               </Label>
               <Textarea
                 id="rejection-reason"
-                value={rejectForm.rejectionReason}
-                onChange={(e) => setRejectForm(prev => ({ ...prev, rejectionReason: e.target.value }))}
+                value={rejectForm.rejectedReason}
+                onChange={(e) => setRejectForm(prev => ({ ...prev, rejectedReason: e.target.value }))}
                 className="col-span-3"
                 rows={4}
                 placeholder="Explain why this service request cannot be approved..."
@@ -866,7 +917,7 @@ export default function SupportServiceRequestsPage() {
             <Button 
               variant="destructive" 
               onClick={submitRejection} 
-              disabled={submitting || !rejectForm.rejectionReason.trim()}
+              disabled={submitting || !rejectForm.rejectedReason.trim()}
             >
               {submitting ? 'Rejecting...' : 'Reject Request'}
             </Button>
@@ -935,35 +986,56 @@ export default function SupportServiceRequestsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="LOW">Low</SelectItem>
-                  <SelectItem value="NORMAL">Normal</SelectItem>
+                  <SelectItem value="MEDIUM">Medium</SelectItem>
                   <SelectItem value="HIGH">High</SelectItem>
-                  <SelectItem value="CRITICAL">Critical</SelectItem>
+                  <SelectItem value="URGENT">Urgent</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="create-customer-id" className="text-right">
-                Customer ID
+                Customer
               </Label>
-              <Input
-                id="create-customer-id"
-                type="number"
-                value={createTaskForm.customerId || ''}
-                onChange={(e) => setCreateTaskForm(prev => ({ ...prev, customerId: e.target.value ? parseInt(e.target.value) : 0 }))}
-                className="col-span-3"
-              />
+              <Select
+                value={selectedCustomerId ? String(selectedCustomerId) : ''}
+                onValueChange={(value) => {
+                  const id = Number(value)
+                  setSelectedCustomerId(id)
+                  setCreateTaskForm(prev => ({ ...prev, customerDeviceId: 0 }))
+                }}
+              >
+                <SelectTrigger id="create-customer-id" className="col-span-3">
+                  <SelectValue placeholder={customerLoading ? 'Loading customers...' : 'Select a customer'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {customers.map(c => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      #{c.id} — {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="create-device-id" className="text-right">
-                Customer Device ID
+                Customer Device
               </Label>
-              <Input
-                id="create-device-id"
-                type="number"
-                value={createTaskForm.customerDeviceId || ''}
-                onChange={(e) => setCreateTaskForm(prev => ({ ...prev, customerDeviceId: e.target.value ? parseInt(e.target.value) : 0 }))}
-                className="col-span-3"
-              />
+              <Select
+                value={createTaskForm.customerDeviceId ? String(createTaskForm.customerDeviceId) : ''}
+                onValueChange={(value) => setCreateTaskForm(prev => ({ ...prev, customerDeviceId: Number(value) }))}
+                disabled={!selectedCustomerId || deviceLoading}
+              >
+                <SelectTrigger id="create-device-id" className="col-span-3">
+                  <SelectValue placeholder={!selectedCustomerId ? 'Select a customer first' : (deviceLoading ? 'Loading devices...' : 'Select a device')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {devices.map(d => (
+                    <SelectItem key={d.id} value={String(d.id)}>
+                      #{d.id} — {d.name}{d.model ? ` (${d.model})` : ''}{d.serialNumber ? ` • SN: ${d.serialNumber}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="create-scheduled-date" className="text-right">
@@ -972,31 +1044,19 @@ export default function SupportServiceRequestsPage() {
               <Input
                 id="create-scheduled-date"
                 type="datetime-local"
-                value={createTaskForm.scheduledDate}
-                onChange={(e) => setCreateTaskForm(prev => ({ ...prev, scheduledDate: e.target.value }))}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="create-duration" className="text-right">
-                Est. Duration (hours)
-              </Label>
-              <Input
-                id="create-duration"
-                type="number"
-                value={createTaskForm.estimatedDurationHours || ''}
-                onChange={(e) => setCreateTaskForm(prev => ({ ...prev, estimatedDurationHours: e.target.value ? parseInt(e.target.value) : undefined }))}
+                value={createTaskForm.preferredCompletionDate || ''}
+                onChange={(e) => setCreateTaskForm(prev => ({ ...prev, preferredCompletionDate: e.target.value }))}
                 className="col-span-3"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="create-location" className="text-right">
-                Service Location
+                Attachments (optional)
               </Label>
               <Input
-                id="create-location"
-                value={createTaskForm.serviceLocation || ''}
-                onChange={(e) => setCreateTaskForm(prev => ({ ...prev, serviceLocation: e.target.value }))}
+                id="create-attachments"
+                value={''}
+                onChange={() => {}}
                 className="col-span-3"
               />
             </div>
@@ -1014,12 +1074,12 @@ export default function SupportServiceRequestsPage() {
             </div>
             <div className="grid grid-cols-4 items-start gap-4">
               <Label htmlFor="create-notes" className="text-right">
-                Support Notes
+                Description (additional)
               </Label>
               <Textarea
                 id="create-notes"
-                value={createTaskForm.supportNotes || ''}
-                onChange={(e) => setCreateTaskForm(prev => ({ ...prev, supportNotes: e.target.value }))}
+                value={createTaskForm.description || ''}
+                onChange={(e) => setCreateTaskForm(prev => ({ ...prev, description: e.target.value }))}
                 className="col-span-3"
                 rows={3}
               />
@@ -1031,7 +1091,7 @@ export default function SupportServiceRequestsPage() {
             </Button>
             <Button 
               onClick={submitCreateTask} 
-              disabled={submitting || !createTaskForm.title || !createTaskForm.description || createTaskForm.customerId === 0 || createTaskForm.customerDeviceId === 0}
+              disabled={submitting || !createTaskForm.title || !createTaskForm.description || selectedCustomerId === 0 || createTaskForm.customerDeviceId === 0}
             >
               {submitting ? 'Creating...' : 'Create Task'}
             </Button>
