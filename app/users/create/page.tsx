@@ -123,7 +123,9 @@ export default function CreateUserPage () {
             <Label htmlFor="roleId">Role</Label>
             <select id="roleId" name="roleId" required value={form.roleId} onChange={handleChange} className="h-10 rounded-md border px-3 text-sm w-full">
               <option value="">Select role</option>
-              {roles.map(r => (
+              {roles
+                .filter(r => !['USER', 'ADMIN'].includes(r.name.toUpperCase()))
+                .map(r => (
                 <option key={r.id} value={r.id}>{r.name}</option>
               ))}
             </select>
