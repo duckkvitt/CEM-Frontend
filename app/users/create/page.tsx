@@ -36,6 +36,7 @@ export default function CreateUserPage () {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | string[]>>({})
 
   useEffect(() => {
     const fetchRoles = async () => {
@@ -61,6 +62,14 @@ export default function CreateUserPage () {
       ...prev,
       [name]: newValue
     }))
+    // Clear field-specific error when user starts editing the field
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => {
+        const copy = { ...prev }
+        delete copy[name]
+        return copy
+      })
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,6 +77,7 @@ export default function CreateUserPage () {
     setLoading(true)
     setError(null)
     setSuccess(null)
+    setFieldErrors({})
     try {
       const res = await fetch(`${AUTH_SERVICE_URL}/v1/auth/admin/create-user`, {
         method: 'POST',
@@ -81,7 +91,15 @@ export default function CreateUserPage () {
         })
       })
       const json: ApiResponse<unknown> = await res.json()
-      if (!json.success) throw new Error(json.message || 'Failed to create user')
+      if (!json.success) {
+        // Prefer field-level errors if provided by backend
+        if (json.errors && typeof json.errors === 'object' && json.errors !== null) {
+          const errorsObj = json.errors as Record<string, string | string[]>
+          setFieldErrors(errorsObj)
+        }
+        setError(json.message || 'Validation failed')
+        return
+      }
       setSuccess('User created successfully')
       setTimeout(() => {
         router.push('/users')
@@ -106,18 +124,30 @@ export default function CreateUserPage () {
           <div>
             <Label htmlFor="email">Email</Label>
             <Input id="email" name="email" type="email" required value={form.email} onChange={handleChange} />
+            {fieldErrors.email && (
+              <p className="text-destructive text-xs mt-1">{Array.isArray(fieldErrors.email) ? fieldErrors.email.join(', ') : fieldErrors.email}</p>
+            )}
           </div>
           <div>
             <Label htmlFor="firstName">First Name</Label>
             <Input id="firstName" name="firstName" required value={form.firstName} onChange={handleChange} />
+            {fieldErrors.firstName && (
+              <p className="text-destructive text-xs mt-1">{Array.isArray(fieldErrors.firstName) ? fieldErrors.firstName.join(', ') : fieldErrors.firstName}</p>
+            )}
           </div>
           <div>
             <Label htmlFor="lastName">Last Name</Label>
             <Input id="lastName" name="lastName" required value={form.lastName} onChange={handleChange} />
+            {fieldErrors.lastName && (
+              <p className="text-destructive text-xs mt-1">{Array.isArray(fieldErrors.lastName) ? fieldErrors.lastName.join(', ') : fieldErrors.lastName}</p>
+            )}
           </div>
           <div>
             <Label htmlFor="phone">Phone</Label>
             <Input id="phone" name="phone" value={form.phone} onChange={handleChange} />
+            {fieldErrors.phone && (
+              <p className="text-destructive text-xs mt-1">{Array.isArray(fieldErrors.phone) ? fieldErrors.phone.join(', ') : fieldErrors.phone}</p>
+            )}
           </div>
           <div>
             <Label htmlFor="roleId">Role</Label>
@@ -129,6 +159,9 @@ export default function CreateUserPage () {
                 <option key={r.id} value={r.id}>{r.name}</option>
               ))}
             </select>
+            {fieldErrors.roleId && (
+              <p className="text-destructive text-xs mt-1">{Array.isArray(fieldErrors.roleId) ? fieldErrors.roleId.join(', ') : fieldErrors.roleId}</p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <input id="emailVerified" name="emailVerified" type="checkbox" checked={form.emailVerified} onChange={handleChange} />
