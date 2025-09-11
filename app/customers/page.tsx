@@ -32,6 +32,10 @@ import {
   MoreHorizontal,
   PlusCircle,
   Search,
+  Eye,
+  EyeOff,
+  Filter,
+  Info,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -95,6 +99,7 @@ export default function CustomerManagementPage() {
   const [error, setError] = useState<string | null>(null)
   const [role, setRole] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [showHidden, setShowHidden] = useState(false)
 
   const router = useRouter()
 
@@ -119,7 +124,15 @@ export default function CustomerManagementPage() {
         params.append('sortBy', 'createdAt')
         params.append('sortDir', 'desc')
 
-        const url = `${CUSTOMER_SERVICE_URL}/v1/customers?${params.toString()}`
+        // Use different endpoints based on showHidden state
+        let baseUrl = `${CUSTOMER_SERVICE_URL}/v1/customers`
+        if (showHidden) {
+          baseUrl = `${CUSTOMER_SERVICE_URL}/v1/customers/hidden`
+        } else if (!showHidden && !name) {
+          baseUrl = `${CUSTOMER_SERVICE_URL}/v1/customers/visible`
+        }
+        
+        const url = `${baseUrl}?${params.toString()}`
         
         const token = await getValidAccessToken()
         if (!token) {
@@ -151,7 +164,7 @@ export default function CustomerManagementPage() {
         setLoading(false)
       }
     },
-    [role]
+    [role, showHidden]
   )
 
   useEffect(() => {
@@ -165,8 +178,11 @@ export default function CustomerManagementPage() {
   }
   
   const hideCustomer = async (id: number, hide: boolean) => {
-    const action = hide ? 'hide' : 'show';
-    if (!confirm(`Are you sure you want to ${action} this customer?`)) return;
+    const action = hide ? 'hide' : 'restore';
+    const actionText = hide ? 'hide' : 'restore';
+    const customerName = customers.find(c => c.id === id)?.name || 'this customer';
+    
+    if (!confirm(`Are you sure you want to ${actionText} ${customerName}?`)) return;
 
     try {
       const token = await getValidAccessToken()
@@ -176,7 +192,8 @@ export default function CustomerManagementPage() {
         return
       }
       
-      const res = await fetch(`${CUSTOMER_SERVICE_URL}/v1/customers/${id}/${action}`, {
+      const apiAction = hide ? 'hide' : 'show';
+      const res = await fetch(`${CUSTOMER_SERVICE_URL}/v1/customers/${id}/${apiAction}`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -188,7 +205,11 @@ export default function CustomerManagementPage() {
       }
       
       const json: ApiResponse<Customer> = await res.json();
-      if (!json.success) throw new Error(json.message || `Failed to ${action} customer`);
+      if (!json.success) throw new Error(json.message || `Failed to ${actionText} customer`);
+      
+      // Show success message
+      alert(`Customer ${actionText}d successfully!`);
+      
       // Refresh data
       fetchCustomers(page, size, searchTerm);
     } catch (e) {
@@ -205,6 +226,33 @@ export default function CustomerManagementPage() {
       <div className="flex items-center">
         <h1 className="font-semibold text-lg md:text-2xl">Customers</h1>
         <div className="ml-auto flex items-center gap-2">
+          {role === 'MANAGER' && (
+            <Button
+              variant={showHidden ? "default" : "outline"}
+              size="sm"
+              className="h-8 gap-1"
+              onClick={() => {
+                setShowHidden(!showHidden)
+                setPage(0) // Reset to first page when switching
+              }}
+            >
+              {showHidden ? (
+                <>
+                  <Eye className="h-3.5 w-3.5" />
+                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                    Show Active
+                  </span>
+                </>
+              ) : (
+                <>
+                  <EyeOff className="h-3.5 w-3.5" />
+                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                    Show Hidden
+                  </span>
+                </>
+              )}
+            </Button>
+          )}
           {role === 'STAFF' && (
             <Link href="/customers/create">
               <Button size="sm" className="h-8 gap-1">
@@ -219,9 +267,14 @@ export default function CustomerManagementPage() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Customer Overview</CardTitle>
+          <CardTitle>
+            {showHidden ? 'Hidden Customers' : 'Customer Overview'}
+          </CardTitle>
           <CardDescription>
-            Browse and manage your company's customers.
+            {showHidden 
+              ? 'Manage deactivated customers. You can restore them to active status.'
+              : 'Browse and manage your company\'s customers.'
+            }
           </CardDescription>
           <form onSubmit={handleSearch} className="flex gap-2 mt-4">
             <div className="relative flex-1 md:w-1/3">
@@ -265,7 +318,7 @@ export default function CustomerManagementPage() {
                     colSpan={6}
                     className="h-24 text-center"
                   >
-                    No customers found.
+                    {showHidden ? 'No hidden customers found.' : 'No customers found.'}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -281,8 +334,21 @@ export default function CustomerManagementPage() {
                       {customer.legalRepresentative}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={customer.isHidden ? 'outline' : 'secondary'}>
-                        {customer.isHidden ? 'Hidden' : 'Visible'}
+                      <Badge 
+                        variant={customer.isHidden ? 'destructive' : 'default'}
+                        className={customer.isHidden ? 'bg-red-100 text-red-800 border-red-200' : 'bg-green-100 text-green-800 border-green-200'}
+                      >
+                        {customer.isHidden ? (
+                          <>
+                            <EyeOff className="h-3 w-3 mr-1" />
+                            Hidden
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="h-3 w-3 mr-1" />
+                            Active
+                          </>
+                        )}
                       </Badge>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
@@ -305,16 +371,35 @@ export default function CustomerManagementPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <Link href={`/customers/${customer.id}`}>
-                            <DropdownMenuItem>View Details</DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Info className="h-4 w-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
                           </Link>
                            {role === 'STAFF' && (
                             <Link href={`/customers/${customer.id}/edit`}>
-                              <DropdownMenuItem>Edit</DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <MoreHorizontal className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
                             </Link>
                            )}
                           {role === 'MANAGER' && (
-                            <DropdownMenuItem onSelect={() => hideCustomer(customer.id, !customer.isHidden)}>
-                              {customer.isHidden ? 'Restore' : 'Hide'}
+                            <DropdownMenuItem 
+                              onSelect={() => hideCustomer(customer.id, !customer.isHidden)}
+                              className={customer.isHidden ? 'text-green-600 focus:text-green-600' : 'text-red-600 focus:text-red-600'}
+                            >
+                              {customer.isHidden ? (
+                                <>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Restore Customer
+                                </>
+                              ) : (
+                                <>
+                                  <EyeOff className="h-4 w-4 mr-2" />
+                                  Hide Customer
+                                </>
+                              )}
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>

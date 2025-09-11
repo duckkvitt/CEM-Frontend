@@ -12,8 +12,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { CUSTOMER_SERVICE_URL } from '@/lib/api'
 import { getValidAccessToken, logout, getCurrentUserRole  } from '@/lib/auth'
-import { ChevronLeft, User, Building, Info, Calendar, Key, Hash, Phone, Mail, FileText } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { ChevronLeft, User, Building, Info, Calendar, Key, Hash, Phone, Mail, FileText, Eye, EyeOff } from 'lucide-react'
+import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 // Updated Customer interface
@@ -78,6 +78,7 @@ export default function CustomerDetailPage() {
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
 
   useEffect(() => {
     const role = getCurrentUserRole()
@@ -107,17 +108,83 @@ export default function CustomerDetailPage() {
     if (id) fetchCustomer()
   }, [id])
 
+  const handleToggleStatus = async () => {
+    if (!customer) return;
+    
+    const action = customer.isHidden ? 'restore' : 'hide';
+    const actionText = customer.isHidden ? 'restore' : 'hide';
+    
+    if (!confirm(`Are you sure you want to ${actionText} ${customer.name}?`)) return;
+    
+    setActionLoading(true);
+    try {
+      const token = await getValidAccessToken()
+      if (!token) {
+        await logout()
+        router.push('/login')
+        return
+      }
+      
+      const apiAction = customer.isHidden ? 'show' : 'hide';
+      const res = await fetch(`${CUSTOMER_SERVICE_URL}/v1/customers/${id}/${apiAction}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (res.status === 401) {
+        await logout()
+        router.push('/login')
+        return
+      }
+      
+      const json: ApiResponse<Customer> = await res.json();
+      if (!json.success) throw new Error(json.message || `Failed to ${actionText} customer`);
+      
+      // Update local state
+      setCustomer(json.data);
+      alert(`Customer ${actionText}d successfully!`);
+    } catch (e) {
+      alert((e as Error).message);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   if (loading) return <SkeletonLoader />
   if (error) return <p className="p-6 text-destructive">Error: {error}</p>
   if (!customer) return <p className="p-6">Customer not found.</p>
 
   return (
     <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => router.back()}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-xl font-semibold">Customer Details</h1>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" onClick={() => router.back()}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-xl font-semibold">Customer Details</h1>
+        </div>
+        {getCurrentUserRole() === 'MANAGER' && (
+          <Button
+            onClick={handleToggleStatus}
+            disabled={actionLoading}
+            variant={customer.isHidden ? "default" : "destructive"}
+            className={customer.isHidden ? "bg-green-600 hover:bg-green-700" : ""}
+          >
+            {actionLoading ? (
+              "Processing..."
+            ) : customer.isHidden ? (
+              <>
+                <Eye className="h-4 w-4 mr-2" />
+                Restore Customer
+              </>
+            ) : (
+              <>
+                <EyeOff className="h-4 w-4 mr-2" />
+                Hide Customer
+              </>
+            )}
+          </Button>
+        )}
       </div>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card className="lg:col-span-1">
@@ -153,7 +220,28 @@ export default function CustomerDetailPage() {
                 <CardTitle>System Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-                <DetailItem icon={Info} label="Status" value={<Badge variant={customer.isHidden ? 'outline' : 'secondary'}> {customer.isHidden ? 'Hidden' : 'Active'} </Badge>} />
+                <DetailItem 
+                  icon={Info} 
+                  label="Status" 
+                  value={
+                    <Badge 
+                      variant={customer.isHidden ? 'destructive' : 'default'}
+                      className={customer.isHidden ? 'bg-red-100 text-red-800 border-red-200' : 'bg-green-100 text-green-800 border-green-200'}
+                    >
+                      {customer.isHidden ? (
+                        <>
+                          <EyeOff className="h-3 w-3 mr-1" />
+                          Hidden
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-3 w-3 mr-1" />
+                          Active
+                        </>
+                      )}
+                    </Badge>
+                  } 
+                />
                 <DetailItem icon={User} label="Created By" value={customer.createdBy} />
                 <DetailItem icon={Calendar} label="Created At" value={new Date(customer.createdAt).toLocaleString()} />
                 <DetailItem icon={Calendar} label="Last Updated" value={new Date(customer.updatedAt).toLocaleString()} />
