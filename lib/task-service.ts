@@ -15,11 +15,9 @@ export interface Task {
   description: string
   type: 'MAINTENANCE' | 'WARRANTY' | 'INSTALLATION' | 'REPAIR' | 'INSPECTION'
   status: 'PENDING' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'REJECTED' | 'CANCELLED'
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL'
   preferredCompletionDate?: string
-  estimatedCost?: number
-  actualCost?: number
-  attachments?: string[]
+  // cost/attachments removed
   staffNotes?: string
   assignedToId?: number
   assignedToName?: string
@@ -78,25 +76,21 @@ export interface TechnicianWorkSchedule {
 }
 
 export interface CreateTaskRequest {
+  customerId: number
   customerDeviceId: number
   title: string
   description: string
   type: 'MAINTENANCE' | 'WARRANTY' | 'INSTALLATION' | 'REPAIR' | 'INSPECTION'
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL'
   preferredCompletionDate?: string
-  estimatedCost?: number
-  attachments?: string[]
 }
 
 export interface UpdateTaskRequest {
   title?: string
   description?: string
   type?: 'MAINTENANCE' | 'WARRANTY' | 'INSTALLATION' | 'REPAIR' | 'INSPECTION'
-  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL'
   preferredCompletionDate?: string
-  estimatedCost?: number
-  actualCost?: number
-  attachments?: string[]
   staffNotes?: string
   // Backend-compatible aliases
   scheduledDate?: string
@@ -107,7 +101,7 @@ export interface ApproveServiceRequestRequest {
   taskTitle: string
   additionalNotes?: string
   taskType?: 'MAINTENANCE' | 'WARRANTY' | 'INSTALLATION' | 'REPAIR' | 'INSPECTION'
-  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL'
   scheduledDate?: string
   estimatedDurationHours?: number
   serviceLocation?: string
@@ -121,14 +115,11 @@ export interface RejectServiceRequestRequest {
 
 export interface AssignTaskRequest {
   assignedToId: number
-  estimatedCost?: number
   staffNotes?: string
 }
 
 export interface TaskActionRequest {
   comment?: string
-  actualCost?: number
-  attachments?: string[]
 }
 
 export interface TechnicianInfo {
@@ -212,9 +203,15 @@ async function authenticatedFetch<T>(url: string, options?: RequestInit): Promis
 // Task Management Functions
 
 export async function createTask(request: CreateTaskRequest): Promise<Task> {
+  // Normalize aliases for backend compatibility
+  const normalized: any = { ...request }
+  if (request.preferredCompletionDate && !normalized.scheduledDate) {
+    normalized.scheduledDate = request.preferredCompletionDate
+    delete normalized.preferredCompletionDate
+  }
   const result = await authenticatedFetch<{ data: Task }>(`${DEVICE_SERVICE_URL}/api/tasks`, {
     method: 'POST',
-    body: JSON.stringify(request)
+    body: JSON.stringify(normalized)
   })
   return result.data
 }

@@ -45,6 +45,9 @@ import {
   deleteTask,
   getTaskById
 } from '@/lib/task-service'
+import { getAllCustomers, type CustomerResponse } from '@/lib/customer-service'
+import { DEVICE_SERVICE_URL } from '@/lib/api'
+import { getValidAccessToken } from '@/lib/auth'
 
 const taskStatusColors = {
   PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -97,23 +100,28 @@ export default function SupportTasksPage() {
 
   // Form states
   const [createForm, setCreateForm] = useState<CreateTaskRequest>({
+    customerId: 0,
     customerDeviceId: 0,
     title: '',
     description: '',
     type: 'MAINTENANCE',
-    priority: 'MEDIUM',
-    estimatedCost: 0,
-    staffNotes: ''
+    priority: 'NORMAL',
+    preferredCompletionDate: ''
   })
 
   const [editForm, setEditForm] = useState<UpdateTaskRequest>({
     title: '',
     description: '',
     type: 'MAINTENANCE',
-    priority: 'MEDIUM',
-    estimatedCost: 0,
-    staffNotes: ''
+    priority: 'NORMAL',
+    preferredCompletionDate: ''
   })
+  // Data for Create Task modal selects
+  const [customers, setCustomers] = useState<CustomerResponse[]>([])
+  const [customerLoading, setCustomerLoading] = useState(false)
+  const [devices, setDevices] = useState<Array<{ id: number; name: string; model?: string; serialNumber?: string }>>([])
+  const [deviceLoading, setDeviceLoading] = useState(false)
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number>(0)
 
   // Role-based access control
   useEffect(() => {
@@ -163,7 +171,7 @@ export default function SupportTasksPage() {
   }
 
   const handleCreateTask = async () => {
-    if (!createForm.title.trim() || !createForm.description.trim()) {
+    if (!createForm.title.trim() || !createForm.description.trim() || selectedCustomerId === 0 || createForm.customerDeviceId === 0) {
       setError('Title and description are required')
       return
     }
@@ -173,14 +181,15 @@ export default function SupportTasksPage() {
       await createTask(createForm)
       setCreateModalOpen(false)
       setCreateForm({
+        customerId: 0,
         customerDeviceId: 0,
         title: '',
         description: '',
         type: 'MAINTENANCE',
-        priority: 'MEDIUM',
-        estimatedCost: 0,
-        staffNotes: ''
+        priority: 'NORMAL',
+        preferredCompletionDate: ''
       })
+      setSelectedCustomerId(0)
       await loadTasks()
       await loadStatistics()
       setError(null)
@@ -250,8 +259,7 @@ export default function SupportTasksPage() {
       description: task.description,
       type: task.type,
       priority: task.priority,
-      estimatedCost: task.estimatedCost || 0,
-      staffNotes: task.staffNotes || ''
+      preferredCompletionDate: ''
     })
     setEditModalOpen(true)
   }
@@ -268,6 +276,58 @@ export default function SupportTasksPage() {
     setTypeFilter('ALL')
     setPage(0)
   }
+
+  // Load customers when create modal opens
+  useEffect(() => {
+    const loadCustomers = async () => {
+      setCustomerLoading(true)
+      try {
+        const list = await getAllCustomers()
+        setCustomers(list)
+      } catch {
+        setCustomers([])
+      } finally {
+        setCustomerLoading(false)
+      }
+    }
+    if (createModalOpen) {
+      loadCustomers()
+    } else {
+      setSelectedCustomerId(0)
+      setDevices([])
+    }
+  }, [createModalOpen])
+  // Load devices when a customer is selected
+  useEffect(() => {
+    const loadDevices = async (customerId?: number) => {
+      if (!customerId || customerId === 0) {
+        setDevices([])
+        return
+      }
+      setDeviceLoading(true)
+      try {
+        const params = new URLSearchParams()
+        params.append('page', '0')
+        params.append('size', '100')
+        params.append('customerId', String(customerId))
+        const url = `${DEVICE_SERVICE_URL}/customer-devices/staff?${params.toString()}`
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${await getValidAccessToken()}` },
+          cache: 'no-store'
+        })
+        if (!res.ok) throw new Error('Failed to load devices')
+        const json = await res.json()
+        const content = Array.isArray(json?.data?.content) ? json.data.content : []
+        const mapped = content.map((d: any) => ({ id: d.id, name: d.deviceName ?? d.name, model: d.deviceModel ?? d.model, serialNumber: d.serialNumber }))
+        setDevices(mapped)
+      } catch {
+        setDevices([])
+      } finally {
+        setDeviceLoading(false)
+      }
+    }
+    loadDevices(selectedCustomerId)
+  }, [selectedCustomerId])
 
   if (loading && tasks.length === 0) {
     return (
@@ -610,106 +670,127 @@ export default function SupportTasksPage() {
 
         {/* Create Task Modal */}
         <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Create New Task</DialogTitle>
               <DialogDescription>
-                Create a new task for the support team to manage.
+                Create a task manually without a service request.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="createTitle">Task Title *</Label>
+            <div className="grid gap-4 py-4 max-h-96 overflow-y-auto">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="create-title" className="text-right">
+                  Title
+                </Label>
                 <Input
-                  id="createTitle"
+                  id="create-title"
                   value={createForm.title}
-                  onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
-                  placeholder="Enter task title"
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="col-span-3"
                 />
               </div>
-
-              <div>
-                <Label htmlFor="createDescription">Description *</Label>
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="create-description" className="text-right">
+                  Description
+                </Label>
                 <Textarea
-                  id="createDescription"
+                  id="create-description"
                   value={createForm.description}
-                  onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
-                  placeholder="Enter task description"
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, description: e.target.value }))}
+                  className="col-span-3"
                   rows={3}
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="createType">Type</Label>
-                  <Select 
-                    value={createForm.type} 
-                    onValueChange={(value) => setCreateForm({ ...createForm, type: value as any })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
-                      <SelectItem value="WARRANTY">Warranty</SelectItem>
-                      <SelectItem value="INSTALLATION">Installation</SelectItem>
-                      <SelectItem value="REPAIR">Repair</SelectItem>
-                      <SelectItem value="INSPECTION">Inspection</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="createPriority">Priority</Label>
-                  <Select 
-                    value={createForm.priority} 
-                    onValueChange={(value) => setCreateForm({ ...createForm, priority: value as any })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="LOW">Low</SelectItem>
-                      <SelectItem value="MEDIUM">Medium</SelectItem>
-                      <SelectItem value="HIGH">High</SelectItem>
-                      <SelectItem value="URGENT">Urgent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="create-type" className="text-right">
+                  Type
+                </Label>
+                <Select value={createForm.type} onValueChange={(value) => setCreateForm(prev => ({ ...prev, type: value as any }))}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                    <SelectItem value="WARRANTY">Warranty</SelectItem>
+                    <SelectItem value="INSTALLATION">Installation</SelectItem>
+                    <SelectItem value="INSPECTION">Inspection</SelectItem>
+                    <SelectItem value="EMERGENCY_REPAIR">Emergency Repair</SelectItem>
+                    <SelectItem value="PREVENTIVE_MAINTENANCE">Preventive Maintenance</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-
-              <div>
-                <Label htmlFor="createDeviceId">Device ID *</Label>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="create-priority" className="text-right">
+                  Priority
+                </Label>
+                <Select value={createForm.priority} onValueChange={(value) => setCreateForm(prev => ({ ...prev, priority: value as any }))}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="LOW">Low</SelectItem>
+                    <SelectItem value="NORMAL">Normal</SelectItem>
+                    <SelectItem value="HIGH">High</SelectItem>
+                    <SelectItem value="CRITICAL">Critical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="create-customer-id" className="text-right">
+                  Customer
+                </Label>
+                <Select
+                  value={selectedCustomerId ? String(selectedCustomerId) : ''}
+                  onValueChange={(value) => {
+                    const id = Number(value)
+                    setSelectedCustomerId(id)
+                    setCreateForm(prev => ({ ...prev, customerId: id, customerDeviceId: 0 }))
+                  }}
+                >
+                  <SelectTrigger id="create-customer-id" className="col-span-3">
+                    <SelectValue placeholder={customerLoading ? 'Loading customers...' : 'Select a customer'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers.map(c => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        #{c.id} — {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="create-device-id" className="text-right">
+                  Customer Device
+                </Label>
+                <Select
+                  value={createForm.customerDeviceId ? String(createForm.customerDeviceId) : ''}
+                  onValueChange={(value) => setCreateForm(prev => ({ ...prev, customerDeviceId: Number(value) }))}
+                  disabled={!selectedCustomerId || deviceLoading}
+                >
+                  <SelectTrigger id="create-device-id" className="col-span-3">
+                    <SelectValue placeholder={!selectedCustomerId ? 'Select a customer first' : (deviceLoading ? 'Loading devices...' : 'Select a device')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {devices.map(d => (
+                      <SelectItem key={d.id} value={String(d.id)}>
+                        #{d.id} — {d.name}{d.model ? ` (${d.model})` : ''}{d.serialNumber ? ` • SN: ${d.serialNumber}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="create-scheduled-date" className="text-right">
+                  Scheduled Date
+                </Label>
                 <Input
-                  id="createDeviceId"
-                  type="number"
-                  value={createForm.customerDeviceId}
-                  onChange={(e) => setCreateForm({ ...createForm, customerDeviceId: parseInt(e.target.value) || 0 })}
-                  placeholder="Enter customer device ID"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="createCost">Estimated Cost</Label>
-                <Input
-                  id="createCost"
-                  type="number"
-                  step="0.01"
-                  value={createForm.estimatedCost}
-                  onChange={(e) => setCreateForm({ ...createForm, estimatedCost: parseFloat(e.target.value) || 0 })}
-                  placeholder="Enter estimated cost"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="createNotes">Staff Notes</Label>
-                <Textarea
-                  id="createNotes"
-                  value={createForm.staffNotes}
-                  onChange={(e) => setCreateForm({ ...createForm, staffNotes: e.target.value })}
-                  placeholder="Enter staff notes"
-                  rows={2}
+                  id="create-scheduled-date"
+                  type="datetime-local"
+                  value={createForm.preferredCompletionDate || ''}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, preferredCompletionDate: e.target.value }))}
+                  className="col-span-3"
                 />
               </div>
             </div>
@@ -724,7 +805,7 @@ export default function SupportTasksPage() {
               </Button>
               <Button
                 onClick={handleCreateTask}
-                disabled={actionLoading}
+                disabled={actionLoading || !createForm.title || !createForm.description || selectedCustomerId === 0 || createForm.customerDeviceId === 0}
                 className="gap-2"
               >
                 {actionLoading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -797,23 +878,23 @@ export default function SupportTasksPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="LOW">Low</SelectItem>
-                      <SelectItem value="MEDIUM">Medium</SelectItem>
+                      <SelectItem value="NORMAL">Normal</SelectItem>
                       <SelectItem value="HIGH">High</SelectItem>
-                      <SelectItem value="URGENT">Urgent</SelectItem>
+                      <SelectItem value="CRITICAL">Critical</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
+              
+
               <div>
-                <Label htmlFor="editCost">Estimated Cost</Label>
+                <Label htmlFor="edit-scheduled">Scheduled Date</Label>
                 <Input
-                  id="editCost"
-                  type="number"
-                  step="0.01"
-                  value={editForm.estimatedCost}
-                  onChange={(e) => setEditForm({ ...editForm, estimatedCost: parseFloat(e.target.value) || 0 })}
-                  placeholder="Enter estimated cost"
+                  id="edit-scheduled"
+                  type="datetime-local"
+                  value={editForm.preferredCompletionDate || ''}
+                  onChange={(e) => setEditForm({ ...editForm, preferredCompletionDate: e.target.value })}
                 />
               </div>
 
@@ -917,12 +998,7 @@ export default function SupportTasksPage() {
                   </div>
                 </div>
 
-                {selectedTask.estimatedCost && (
-                  <div>
-                    <Label className="text-sm font-medium">Estimated Cost</Label>
-                    <p className="text-sm text-muted-foreground">${selectedTask.estimatedCost}</p>
-                  </div>
-                )}
+                
 
                 {selectedTask.staffNotes && (
                   <div>

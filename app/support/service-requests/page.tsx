@@ -105,7 +105,7 @@ export default function SupportServiceRequestsPage() {
     taskTitle: '',
     additionalNotes: '',
     taskType: 'MAINTENANCE',
-    priority: 'MEDIUM',
+    priority: 'NORMAL',
     scheduledDate: '',
     estimatedDurationHours: undefined,
     serviceLocation: '',
@@ -116,14 +116,13 @@ export default function SupportServiceRequestsPage() {
   const [rejectForm, setRejectForm] = useState<RejectServiceRequestRequest>({ rejectedReason: '' })
 
   const [createTaskForm, setCreateTaskForm] = useState<CreateTaskRequest>({
+    customerId: 0,
     customerDeviceId: 0,
     title: '',
     description: '',
     type: 'MAINTENANCE',
-    priority: 'MEDIUM',
-    preferredCompletionDate: '',
-    estimatedCost: undefined,
-    attachments: []
+    priority: 'NORMAL',
+    preferredCompletionDate: ''
   })
 
   const router = useRouter()
@@ -217,7 +216,7 @@ export default function SupportServiceRequestsPage() {
       taskTitle: `${request.type} - ${request.deviceName}`,
       additionalNotes: '',
       taskType: request.type === 'MAINTENANCE' ? 'MAINTENANCE' : 'WARRANTY',
-      priority: 'MEDIUM',
+      priority: 'NORMAL',
       scheduledDate: '',
       estimatedDurationHours: undefined,
       serviceLocation: request.workLocation || '',
@@ -269,14 +268,13 @@ export default function SupportServiceRequestsPage() {
 
   const handleCreateTask = () => {
     setCreateTaskForm({
+      customerId: 0,
       customerDeviceId: 0,
       title: '',
       description: '',
       type: 'MAINTENANCE',
-      priority: 'MEDIUM',
-      preferredCompletionDate: '',
-      estimatedCost: undefined,
-      attachments: []
+      priority: 'NORMAL',
+      preferredCompletionDate: ''
     })
     setSelectedCustomerId(0)
     setCreateTaskModalOpen(true)
@@ -693,17 +691,7 @@ export default function SupportServiceRequestsPage() {
                         </div>
                       )}
                       
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Cost</Label>
-                        <p className="text-gray-900 mt-1">
-                          {request.actualCost 
-                            ? formatPrice(request.actualCost)
-                            : request.estimatedCost 
-                              ? `Est. ${formatPrice(request.estimatedCost)}`
-                              : 'Not specified'
-                          }
-                        </p>
-                      </div>
+                      
                     </div>
 
                     {request.workLocation && (
@@ -986,9 +974,9 @@ export default function SupportServiceRequestsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="LOW">Low</SelectItem>
-                  <SelectItem value="MEDIUM">Medium</SelectItem>
+                  <SelectItem value="NORMAL">Normal</SelectItem>
                   <SelectItem value="HIGH">High</SelectItem>
-                  <SelectItem value="URGENT">Urgent</SelectItem>
+                  <SelectItem value="CRITICAL">Critical</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1001,7 +989,7 @@ export default function SupportServiceRequestsPage() {
                 onValueChange={(value) => {
                   const id = Number(value)
                   setSelectedCustomerId(id)
-                  setCreateTaskForm(prev => ({ ...prev, customerDeviceId: 0 }))
+                  setCreateTaskForm(prev => ({ ...prev, customerId: id, customerDeviceId: 0 }))
                 }}
               >
                 <SelectTrigger id="create-customer-id" className="col-span-3">
@@ -1049,29 +1037,7 @@ export default function SupportServiceRequestsPage() {
                 className="col-span-3"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="create-location" className="text-right">
-                Attachments (optional)
-              </Label>
-              <Input
-                id="create-attachments"
-                value={''}
-                onChange={() => {}}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="create-cost" className="text-right">
-                Estimated Cost
-              </Label>
-              <Input
-                id="create-cost"
-                type="number"
-                value={createTaskForm.estimatedCost || ''}
-                onChange={(e) => setCreateTaskForm(prev => ({ ...prev, estimatedCost: e.target.value ? parseFloat(e.target.value) : undefined }))}
-                className="col-span-3"
-              />
-            </div>
+            
             <div className="grid grid-cols-4 items-start gap-4">
               <Label htmlFor="create-notes" className="text-right">
                 Description (additional)

@@ -14,12 +14,9 @@ export interface ServiceRequest {
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'IN_PROGRESS' | 'COMPLETED'
   description: string
   preferredDateTime?: string
-  attachments?: string[]
   staffNotes?: string
   customerComments?: string
   workLocation?: string
-  estimatedCost?: number
-  actualCost?: number
   completedAt?: string
   createdBy: string
   createdAt: string
@@ -52,7 +49,6 @@ export interface CreateServiceRequestRequest {
   description: string
   preferredDateTime?: string
   workLocation?: string
-  attachments?: string[]
   customerComments?: string
 }
 
@@ -60,7 +56,6 @@ export interface UpdateServiceRequestRequest {
   description?: string
   preferredDateTime?: string
   workLocation?: string
-  attachments?: string[]
   customerComments?: string
 }
 
