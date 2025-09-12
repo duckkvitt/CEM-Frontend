@@ -98,6 +98,9 @@ export interface UpdateTaskRequest {
   actualCost?: number
   attachments?: string[]
   staffNotes?: string
+  // Backend-compatible aliases
+  scheduledDate?: string
+  supportNotes?: string
 }
 
 export interface ApproveServiceRequestRequest {
@@ -267,9 +270,17 @@ export async function getTaskById(taskId: number): Promise<Task> {
 }
 
 export async function updateTask(taskId: number, request: UpdateTaskRequest): Promise<Task> {
+  // Normalize aliases for backend compatibility
+  const normalized: any = { ...request }
+  if (request.preferredCompletionDate && !request.scheduledDate) {
+    normalized.scheduledDate = request.preferredCompletionDate
+  }
+  if (request.staffNotes && !request.supportNotes) {
+    normalized.supportNotes = request.staffNotes
+  }
   const result = await authenticatedFetch<{ data: Task }>(`${DEVICE_SERVICE_URL}/api/tasks/${taskId}`, {
     method: 'PUT',
-    body: JSON.stringify(request)
+    body: JSON.stringify(normalized)
   })
   return result.data
 }

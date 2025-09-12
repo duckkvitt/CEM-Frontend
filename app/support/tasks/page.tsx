@@ -118,7 +118,7 @@ export default function SupportTasksPage() {
   // Role-based access control
   useEffect(() => {
     const userRole = getCurrentUserRole()
-    if (!userRole || !['SUPPORT_TEAM', 'MANAGER', 'ADMIN'].includes(userRole)) {
+    if (!userRole || !['SUPPORT_TEAM', 'LEAD_TECH'].includes(userRole)) {
       router.push('/dashboard')
       return
     }
@@ -566,6 +566,29 @@ export default function SupportTasksPage() {
                         </div>
 
                         <div className="flex items-center gap-2 ml-4">
+                          {/* Gate edit/delete buttons by role */}
+                          {['SUPPORT_TEAM', 'LEAD_TECH'].includes(getCurrentUserRole() || '') && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openEditModal(task)}
+                                className="gap-2"
+                              >
+                                <Edit className="h-4 w-4" />
+                                Edit
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openDeleteModal(task)}
+                                className="gap-2 text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Delete
+                              </Button>
+                            </>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -574,24 +597,6 @@ export default function SupportTasksPage() {
                           >
                             <Eye className="h-4 w-4" />
                             View
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditModal(task)}
-                            className="gap-2"
-                          >
-                            <Edit className="h-4 w-4" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openDeleteModal(task)}
-                            className="gap-2 text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Delete
                           </Button>
                         </div>
                       </div>
