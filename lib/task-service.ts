@@ -235,6 +235,32 @@ export async function getAllTasks(params: {
   return result.data
 }
 
+// Support team – fetch all tasks with extended filters
+export async function getAllTasksForStaff(params: {
+  search?: string
+  status?: string
+  type?: string
+  priority?: string
+  sortBy?: string
+  sortOrder?: string // maps to backend sortDir
+  page?: number
+  size?: number
+} = {}): Promise<Page<Task>> {
+  const searchParams = new URLSearchParams()
+
+  if (params.page !== undefined) searchParams.set('page', params.page.toString())
+  if (params.size !== undefined) searchParams.set('size', params.size.toString())
+  if (params.sortBy) searchParams.set('sortBy', params.sortBy)
+  if (params.sortOrder) searchParams.set('sortDir', params.sortOrder)
+  if (params.search) searchParams.set('search', params.search)
+  if (params.status) searchParams.set('status', params.status)
+  if (params.type) searchParams.set('type', params.type)
+  if (params.priority) searchParams.set('priority', params.priority)
+
+  const result = await authenticatedFetch<{ data: Page<Task> }>(`${DEVICE_SERVICE_URL}/api/tasks?${searchParams}`)
+  return result.data
+}
+
 export async function getTaskById(taskId: number): Promise<Task> {
   const result = await authenticatedFetch<{ data: Task }>(`${DEVICE_SERVICE_URL}/api/tasks/${taskId}`)
   return result.data
