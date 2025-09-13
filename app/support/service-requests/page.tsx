@@ -91,7 +91,15 @@ export default function SupportServiceRequestsPage() {
     keyword: '',
     status: 'ALL' as string,
     page: 0,
-    size: 10
+    size: 3
+  })
+
+  // Pagination state for each tab
+  const [paginationState, setPaginationState] = useState({
+    pending: { page: 0, size: 3 },
+    approved: { page: 0, size: 3 },
+    rejected: { page: 0, size: 3 },
+    all: { page: 0, size: 3 }
   })
 
   // Modal states
@@ -114,6 +122,7 @@ export default function SupportServiceRequestsPage() {
   })
 
   const [rejectForm, setRejectForm] = useState<RejectServiceRequestRequest>({ rejectedReason: '' })
+  const [rejectFormErrors, setRejectFormErrors] = useState<{ rejectedReason?: string }>({})
 
   const [createTaskForm, setCreateTaskForm] = useState<CreateTaskRequest>({
     customerId: 0,
@@ -148,18 +157,21 @@ export default function SupportServiceRequestsPage() {
     if (role && ['SUPPORT_TEAM', 'MANAGER', 'ADMIN'].includes(role)) {
       fetchData()
     }
-  }, [role, filters, activeTab])
+  }, [role, filters, activeTab, paginationState])
 
   const fetchData = async () => {
     try {
       setLoading(true)
       
+      // Get current pagination state for active tab
+      const currentPagination = paginationState[activeTab]
+      
       // Fetch service requests based on active tab
       let requestsData
       if (activeTab === 'pending') {
         requestsData = await getPendingServiceRequests({
-          page: filters.page,
-          size: filters.size,
+          page: currentPagination.page,
+          size: currentPagination.size,
           sortBy: 'createdAt',
           sortDir: 'asc'
         })
@@ -168,8 +180,8 @@ export default function SupportServiceRequestsPage() {
         requestsData = await getAllServiceRequestsForStaff({
           keyword: filters.keyword || undefined,
           status: filters.status === 'ALL' ? statusFilter : filters.status as any,
-          page: filters.page,
-          size: filters.size,
+          page: currentPagination.page,
+          size: currentPagination.size,
           sortBy: 'createdAt',
           sortDir: 'desc'
         })
@@ -190,23 +202,30 @@ export default function SupportServiceRequestsPage() {
   const handleFilterChange = (field: string, value: string) => {
     setFilters(prev => ({
       ...prev,
-      [field]: value,
-      page: 0 // Reset to first page when filtering
+      [field]: value
+    }))
+    
+    // Reset pagination for current tab when filtering
+    setPaginationState(prev => ({
+      ...prev,
+      [activeTab]: { ...prev[activeTab], page: 0 }
     }))
   }
 
   const handlePageChange = (page: number) => {
-    setFilters(prev => ({
+    setPaginationState(prev => ({
       ...prev,
-      page
+      [activeTab]: { ...prev[activeTab], page }
     }))
   }
 
   const handleTabChange = (value: string) => {
     setActiveTab(value as 'all' | 'pending' | 'approved' | 'rejected')
+    // Reset filters when changing tabs
     setFilters(prev => ({
       ...prev,
-      page: 0
+      keyword: '',
+      status: 'ALL'
     }))
   }
 
@@ -229,6 +248,7 @@ export default function SupportServiceRequestsPage() {
   const handleReject = (request: ServiceRequest) => {
     setSelectedRequest(request)
     setRejectForm({ rejectedReason: '' })
+    setRejectFormErrors({})
     setRejectModalOpen(true)
   }
 
@@ -253,6 +273,7 @@ export default function SupportServiceRequestsPage() {
     if (!selectedRequest) return
     
     setSubmitting(true)
+    setRejectFormErrors({})
     try {
       await rejectServiceRequest(selectedRequest.id, rejectForm)
       setRejectModalOpen(false)
@@ -260,7 +281,15 @@ export default function SupportServiceRequestsPage() {
       fetchData()
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to reject service request'
-      setError(msg)
+      
+      // Check if it's a validation error for rejection reason
+      if (msg.includes('Rejection reason must be between 10 and 2000 characters') || 
+          msg.includes('rejectedReason') || 
+          msg.includes('rejectionReason')) {
+        setRejectFormErrors({ rejectedReason: msg })
+      } else {
+        setError(msg)
+      }
     } finally {
       setSubmitting(false)
     }
@@ -577,7 +606,7 @@ export default function SupportServiceRequestsPage() {
       >
         {loading ? (
           // Loading skeletons
-          Array.from({ length: 3 }).map((_, i) => (
+          Array.from({ length: paginationState[activeTab].size }).map((_, i) => (
             <Card key={i}>
               <CardHeader>
                 <Skeleton className="h-6 w-3/4 mb-2" />
@@ -599,7 +628,7 @@ export default function SupportServiceRequestsPage() {
               <p className="text-gray-600 mb-4">
                 {filters.keyword || filters.status !== 'ALL'
                   ? 'Try adjusting your search criteria'
-                  : 'No service requests match the current filter'
+                  : `No ${activeTab === 'all' ? '' : activeTab} service requests found`
                 }
               </p>
             </CardContent>
@@ -727,35 +756,139 @@ export default function SupportServiceRequestsPage() {
           transition={{ duration: 0.5, delay: 0.5 }}
           className="mt-8"
         >
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious size="default"
-                  onClick={() => handlePageChange(filters.page - 1)}
-                  className={filters.page === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                />
-              </PaginationItem>
-              
-              {Array.from({ length: serviceRequests.totalPages }, (_, i) => (
-                <PaginationItem key={i}>
-                  <PaginationLink size="default"
-                    onClick={() => handlePageChange(i)}
-                    isActive={filters.page === i}
-                    className="cursor-pointer"
-                  >
-                    {i + 1}
-                  </PaginationLink>
+          {loading && (
+            <div className="flex justify-center mb-4">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                Loading...
+              </div>
+            </div>
+          )}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            {/* Items Info */}
+            <div className="text-sm text-gray-600">
+              Showing {serviceRequests.content.length} of {serviceRequests.totalElements} items
+            </div>
+
+            {/* Pagination Info */}
+            <div className="text-sm text-gray-600">
+              Page {paginationState[activeTab].page + 1} of {serviceRequests.totalPages}
+            </div>
+
+            {/* Pagination Controls */}
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    size="default"
+                    onClick={() => handlePageChange(paginationState[activeTab].page - 1)}
+                    className={paginationState[activeTab].page === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer hover:bg-gray-100'}
+                  />
                 </PaginationItem>
-              ))}
-              
-              <PaginationItem>
-                <PaginationNext size="default"
-                  onClick={() => handlePageChange(filters.page + 1)}
-                  className={filters.page === serviceRequests.totalPages - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+                
+                {/* Show page numbers with ellipsis for large page counts */}
+                {serviceRequests.totalPages <= 7 ? (
+                  // Show all pages if 7 or fewer
+                  Array.from({ length: serviceRequests.totalPages }, (_, i) => (
+                    <PaginationItem key={i}>
+                      <PaginationLink 
+                        size="default"
+                        onClick={() => handlePageChange(i)}
+                        isActive={paginationState[activeTab].page === i}
+                        className="cursor-pointer hover:bg-gray-100"
+                      >
+                        {i + 1}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))
+                ) : (
+                  // Show pages with ellipsis for large page counts
+                  (() => {
+                    const currentPage = paginationState[activeTab].page
+                    const totalPages = serviceRequests.totalPages
+                    const pages = []
+                    
+                    // Always show first page
+                    pages.push(
+                      <PaginationItem key={0}>
+                        <PaginationLink 
+                          size="default"
+                          onClick={() => handlePageChange(0)}
+                          isActive={currentPage === 0}
+                          className="cursor-pointer hover:bg-gray-100"
+                        >
+                          1
+                        </PaginationLink>
+                      </PaginationItem>
+                    )
+                    
+                    // Show ellipsis if current page is far from start
+                    if (currentPage > 3) {
+                      pages.push(
+                        <PaginationItem key="ellipsis1">
+                          <span className="px-3 py-2 text-gray-500">...</span>
+                        </PaginationItem>
+                      )
+                    }
+                    
+                    // Show pages around current page
+                    const start = Math.max(1, currentPage - 1)
+                    const end = Math.min(totalPages - 2, currentPage + 1)
+                    
+                    for (let i = start; i <= end; i++) {
+                      pages.push(
+                        <PaginationItem key={i}>
+                          <PaginationLink 
+                            size="default"
+                            onClick={() => handlePageChange(i)}
+                            isActive={currentPage === i}
+                            className="cursor-pointer hover:bg-gray-100"
+                          >
+                            {i + 1}
+                          </PaginationLink>
+                        </PaginationItem>
+                      )
+                    }
+                    
+                    // Show ellipsis if current page is far from end
+                    if (currentPage < totalPages - 4) {
+                      pages.push(
+                        <PaginationItem key="ellipsis2">
+                          <span className="px-3 py-2 text-gray-500">...</span>
+                        </PaginationItem>
+                      )
+                    }
+                    
+                    // Always show last page
+                    if (totalPages > 1) {
+                      pages.push(
+                        <PaginationItem key={totalPages - 1}>
+                          <PaginationLink 
+                            size="default"
+                            onClick={() => handlePageChange(totalPages - 1)}
+                            isActive={currentPage === totalPages - 1}
+                            className="cursor-pointer hover:bg-gray-100"
+                          >
+                            {totalPages}
+                          </PaginationLink>
+                        </PaginationItem>
+                      )
+                    }
+                    
+                    return pages
+                  })()
+                )}
+                
+                <PaginationItem>
+                  <PaginationNext 
+                    size="default"
+                    onClick={() => handlePageChange(paginationState[activeTab].page + 1)}
+                    className={paginationState[activeTab].page === serviceRequests.totalPages - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer hover:bg-gray-100'}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
         </motion.div>
       )}
 
@@ -888,14 +1021,25 @@ export default function SupportServiceRequestsPage() {
               <Label htmlFor="rejection-reason" className="text-right">
                 Rejection Reason
               </Label>
-              <Textarea
-                id="rejection-reason"
-                value={rejectForm.rejectedReason}
-                onChange={(e) => setRejectForm(prev => ({ ...prev, rejectedReason: e.target.value }))}
-                className="col-span-3"
-                rows={4}
-                placeholder="Explain why this service request cannot be approved..."
-              />
+              <div className="col-span-3">
+                <Textarea
+                  id="rejection-reason"
+                  value={rejectForm.rejectedReason}
+                  onChange={(e) => {
+                    setRejectForm(prev => ({ ...prev, rejectedReason: e.target.value }))
+                    // Clear error when user starts typing
+                    if (rejectFormErrors.rejectedReason) {
+                      setRejectFormErrors({})
+                    }
+                  }}
+                  className={rejectFormErrors.rejectedReason ? 'border-red-500 focus:border-red-500' : ''}
+                  rows={4}
+                  placeholder="Explain why this service request cannot be approved..."
+                />
+                {rejectFormErrors.rejectedReason && (
+                  <p className="text-sm text-red-600 mt-1">{rejectFormErrors.rejectedReason}</p>
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter>
