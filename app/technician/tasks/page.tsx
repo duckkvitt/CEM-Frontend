@@ -465,60 +465,16 @@ export default function TechnicianTasksPage() {
                           </div>
 
                   <div className="flex gap-2 mt-4">
-                            <Button
+                    <Button
                       size="sm"
-                              variant="outline"
-                              onClick={() => handleViewTask(task)}
+                      variant="outline"
+                      onClick={() => handleViewTask(task)}
                       className="flex-1"
-                            >
+                    >
                       <Eye className="h-4 w-4 mr-2" />
-                              View
-                            </Button>
-
-                    {task.status === 'ASSIGNED' && (
-                      <>
-                              <Button
-                                size="sm"
-                                onClick={() => openActionModal(task, 'accept')}
-                          className="flex-1 bg-green-600 hover:bg-green-700"
-                              >
-                          <CheckCircle2 className="h-4 w-4 mr-2" />
-                                Accept
-                              </Button>
-                              <Button
-                                size="sm"
-                          variant="destructive"
-                                onClick={() => openActionModal(task, 'reject')}
-                          className="flex-1"
-                              >
-                          <XCircle className="h-4 w-4 mr-2" />
-                                Reject
-                              </Button>
-                      </>
-                            )}
-
-                    {task.status === 'ACCEPTED' && (
-                              <Button
-                                size="sm"
-                                onClick={() => openActionModal(task, 'start')}
-                        className="flex-1 bg-blue-600 hover:bg-blue-700"
-                              >
-                        <Play className="h-4 w-4 mr-2" />
-                                Start
-                              </Button>
-                            )}
-
-                    {task.status === 'IN_PROGRESS' && (
-                              <Button
-                                size="sm"
-                                onClick={() => openActionModal(task, 'complete')}
-                        className="flex-1 bg-green-600 hover:bg-green-700"
-                              >
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                                Complete
-                              </Button>
-                            )}
-                        </div>
+                      View
+                    </Button>
+                  </div>
                       </CardContent>
                     </Card>
                   </motion.div>
