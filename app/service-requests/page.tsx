@@ -25,7 +25,8 @@ import {
   Eye,
   MessageSquare,
   DollarSign,
-  TrendingUp
+  TrendingUp,
+  Star
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getCurrentUserRole } from '@/lib/auth'
@@ -430,6 +431,15 @@ export default function ServiceRequestsPage() {
                         <Eye className="h-4 w-4 mr-1" />
                         View Details
                       </Button>
+                      {request.status === 'COMPLETED' && (
+                        <Button
+                          size="sm"
+                          onClick={() => router.push(`/service-requests/${request.id}?feedback=1`)}
+                        >
+                          <Star className="h-4 w-4 mr-1" />
+                          Give Feedback
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardHeader>

@@ -23,7 +23,8 @@ import {
   MessageSquare,
   User,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  Star
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { getCurrentUserRole } from '@/lib/auth'
@@ -33,6 +34,10 @@ import {
   ServiceRequest,
   ServiceRequestHistory
 } from '@/lib/service-request-service'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
+import { getMyFeedbackByServiceRequest } from '@/lib/feedback-service'
 
 const STATUS_COLORS = {
   PENDING: 'bg-yellow-100 text-yellow-800',
@@ -67,9 +72,14 @@ export default function ServiceRequestDetailPage() {
   const [role, setRole] = useState<string | null>(null)
   const [newComment, setNewComment] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
+  const [showFeedback, setShowFeedback] = useState(false)
+  const [rating, setRating] = useState<number>(5)
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
+  const [myFeedback, setMyFeedback] = useState<import('@/lib/feedback-service').FeedbackItem | null>(null)
   const router = useRouter()
   const params = useParams()
   const requestId = params.id as string
+  
 
   useEffect(() => {
     setRole(getCurrentUserRole())
@@ -84,6 +94,14 @@ export default function ServiceRequestDetailPage() {
   useEffect(() => {
     if (role === 'CUSTOMER' && requestId) {
       fetchServiceRequest()
+      ;(async () => {
+        try {
+          const fb = await getMyFeedbackByServiceRequest(Number(requestId))
+          setMyFeedback(fb)
+        } catch {
+          setMyFeedback(null)
+        }
+      })()
     }
   }, [role, requestId])
 
@@ -258,6 +276,12 @@ export default function ServiceRequestDetailPage() {
             {getTypeIcon(serviceRequest.type)}
             {serviceRequest.type}
           </Badge>
+          {serviceRequest.status === 'COMPLETED' && !myFeedback && (
+            <Button onClick={() => setShowFeedback(true)} className="ml-auto flex items-center gap-2">
+              <Star className="h-4 w-4" />
+              Give Feedback
+            </Button>
+          )}
         </div>
         
         <p className="text-gray-600">
@@ -266,6 +290,61 @@ export default function ServiceRequestDetailPage() {
           {serviceRequest.serialNumber && ` • Serial: ${serviceRequest.serialNumber}`}
         </p>
       </motion.div>
+
+      {/* Feedback Modal */}
+      {serviceRequest && (
+        <Dialog open={showFeedback} onOpenChange={setShowFeedback}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rate Our Service</DialogTitle>
+              <DialogDescription>
+                Please rate your experience and leave an optional comment.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                {[1,2,3,4,5].map(n => (
+                  <button
+                    key={n}
+                    className={cn('p-1 rounded transition-colors', n <= rating ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-400')}
+                    onClick={() => setRating(n)}
+                    aria-label={`Rate ${n} star${n>1?'s':''}`}
+                  >
+                    <Star className="h-6 w-6 fill-current" />
+                  </button>
+                ))}
+                <span className="text-sm text-gray-600 ml-2">{rating}/5</span>
+              </div>
+              <div>
+                <Label className="text-sm">Comment (optional)</Label>
+                <Textarea value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Share more about your experience..." />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowFeedback(false)}>Cancel</Button>
+              <Button
+                disabled={feedbackSubmitting}
+                onClick={async () => {
+                  try {
+                    setFeedbackSubmitting(true)
+                    const { submitFeedback } = await import('@/lib/feedback-service')
+                    await submitFeedback({ serviceRequestId: serviceRequest.id, starRating: rating, comment: newComment || undefined })
+                    setShowFeedback(false)
+                    toast.success('Feedback submitted. Thank you!')
+                  } catch (e) {
+                    const msg = e instanceof Error ? e.message : 'Failed to submit feedback'
+                    toast.error(msg)
+                  } finally {
+                    setFeedbackSubmitting(false)
+                  }
+                }}
+              >
+                {feedbackSubmitting ? 'Submitting...' : 'Submit Feedback'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
@@ -375,6 +454,23 @@ export default function ServiceRequestDetailPage() {
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* My Feedback */}
+          {myFeedback && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Star className="h-5 w-5" />
+                  Your Feedback
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="text-sm text-muted-foreground">Submitted at {new Date(myFeedback.submittedAt).toLocaleString()}</div>
+                <div className="text-lg">{'★'.repeat(myFeedback.starRating)}{'☆'.repeat(5-myFeedback.starRating)}</div>
+                {myFeedback.comment && <div className="whitespace-pre-wrap">{myFeedback.comment}</div>}
               </CardContent>
             </Card>
           )}

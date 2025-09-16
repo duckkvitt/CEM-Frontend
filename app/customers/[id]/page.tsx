@@ -79,6 +79,7 @@ export default function CustomerDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
+  const [feedback, setFeedback] = useState<{ total: number, items: { id: number, starRating: number, comment?: string, submittedAt: string, serviceRequestCode?: string }[] } | null>(null)
 
   useEffect(() => {
     const role = getCurrentUserRole()
@@ -106,6 +107,22 @@ export default function CustomerDetailPage() {
       }
     }
     if (id) fetchCustomer()
+  }, [id])
+
+  useEffect(() => {
+    const fetchFeedback = async () => {
+      try {
+        const { listFeedbacks } = await import('@/lib/feedback-service')
+        const page = await listFeedbacks({ customerId: Number(id), size: 5, sortBy: 'submittedAt', sortDir: 'desc' as const }) as any
+        setFeedback({
+          total: page.totalElements,
+          items: page.content.map((it: any) => ({ id: it.id, starRating: it.starRating, comment: it.comment, submittedAt: it.submittedAt, serviceRequestCode: it.serviceRequestCode }))
+        })
+      } catch {
+        // ignore
+      }
+    }
+    if (id) fetchFeedback()
   }, [id])
 
   const handleToggleStatus = async () => {
@@ -247,6 +264,33 @@ export default function CustomerDetailPage() {
                 <DetailItem icon={Calendar} label="Last Updated" value={new Date(customer.updatedAt).toLocaleString()} />
                 <DetailItem icon={Hash} label="Tags" value={customer.tags?.length > 0 ? customer.tags.join(', ') : 'N/A'} />
             </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-3">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Recent Feedback</CardTitle>
+            <Button variant="outline" onClick={() => router.push(`/support/feedback?customerId=${id}`)}>View All</Button>
+          </CardHeader>
+          <CardContent>
+            {!feedback ? (
+              <div className="text-sm text-muted-foreground">Loading...</div>
+            ) : feedback.total === 0 ? (
+              <div className="text-sm text-muted-foreground">No feedback submitted yet.</div>
+            ) : (
+              <div className="space-y-3">
+                {feedback.items.map(item => (
+                  <div key={item.id} className="p-3 rounded border flex items-start justify-between">
+                    <div>
+                      <div className="font-medium">{item.serviceRequestCode || `#${item.id}`}</div>
+                      <div className="text-sm text-muted-foreground">{'★'.repeat(item.starRating)}{'☆'.repeat(5-item.starRating)} • {new Date(item.submittedAt).toLocaleString()}</div>
+                      {item.comment && <div className="text-sm mt-1 line-clamp-2">{item.comment}</div>}
+                    </div>
+                    <Button variant="ghost" onClick={() => router.push(`/support/feedback/${item.id}`)}>Open</Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
         </Card>
       </div>
     </main>
