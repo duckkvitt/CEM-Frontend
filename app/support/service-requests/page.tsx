@@ -57,6 +57,7 @@ import { getValidAccessToken } from '@/lib/auth'
 const STATUS_COLORS = {
   PENDING: 'bg-yellow-100 text-yellow-800',
   APPROVED: 'bg-blue-100 text-blue-800',
+  ASSIGNED: 'bg-indigo-100 text-indigo-800',
   REJECTED: 'bg-red-100 text-red-800',
   IN_PROGRESS: 'bg-orange-100 text-orange-800',
   COMPLETED: 'bg-green-100 text-green-800'
@@ -65,6 +66,7 @@ const STATUS_COLORS = {
 const STATUS_ICONS = {
   PENDING: Clock,
   APPROVED: CheckCircle,
+  ASSIGNED: CheckCircle,
   REJECTED: AlertCircle,
   IN_PROGRESS: Wrench,
   COMPLETED: CheckCircle
@@ -86,7 +88,7 @@ export default function SupportServiceRequestsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [role, setRole] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending')
+  const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'assigned' | 'rejected'>('pending')
   const [filters, setFilters] = useState({
     keyword: '',
     status: 'ALL' as string,
@@ -98,6 +100,7 @@ export default function SupportServiceRequestsPage() {
   const [paginationState, setPaginationState] = useState({
     pending: { page: 0, size: 3 },
     approved: { page: 0, size: 3 },
+    assigned: { page: 0, size: 3 },
     rejected: { page: 0, size: 3 },
     all: { page: 0, size: 3 }
   })
@@ -220,7 +223,7 @@ export default function SupportServiceRequestsPage() {
   }
 
   const handleTabChange = (value: string) => {
-    setActiveTab(value as 'all' | 'pending' | 'approved' | 'rejected')
+    setActiveTab(value as 'all' | 'pending' | 'approved' | 'assigned' | 'rejected')
     // Reset filters when changing tabs
     setFilters(prev => ({
       ...prev,
@@ -542,7 +545,7 @@ export default function SupportServiceRequestsPage() {
         className="mb-6"
       >
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="pending" className="flex items-center gap-2">
               <Clock className="h-4 w-4" />
               Pending Review
@@ -550,6 +553,10 @@ export default function SupportServiceRequestsPage() {
             <TabsTrigger value="approved" className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4" />
               Approved
+            </TabsTrigger>
+            <TabsTrigger value="assigned" className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              Assigned
             </TabsTrigger>
             <TabsTrigger value="rejected" className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
@@ -585,6 +592,7 @@ export default function SupportServiceRequestsPage() {
                       <SelectItem value="ALL">All Status</SelectItem>
                       <SelectItem value="PENDING">Pending</SelectItem>
                       <SelectItem value="APPROVED">Approved</SelectItem>
+                      <SelectItem value="ASSIGNED">Assigned</SelectItem>
                       <SelectItem value="REJECTED">Rejected</SelectItem>
                       <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
                       <SelectItem value="COMPLETED">Completed</SelectItem>

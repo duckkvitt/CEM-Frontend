@@ -11,7 +11,7 @@ export interface ServiceRequest {
   deviceModel?: string
   serialNumber?: string
   type: 'MAINTENANCE' | 'WARRANTY'
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'IN_PROGRESS' | 'COMPLETED'
+  status: 'PENDING' | 'APPROVED' | 'ASSIGNED' | 'REJECTED' | 'IN_PROGRESS' | 'COMPLETED'
   description: string
   preferredDateTime?: string
   staffNotes?: string
@@ -26,7 +26,7 @@ export interface ServiceRequest {
 
 export interface ServiceRequestHistory {
   id: number
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'IN_PROGRESS' | 'COMPLETED'
+  status: 'PENDING' | 'APPROVED' | 'ASSIGNED' | 'REJECTED' | 'IN_PROGRESS' | 'COMPLETED'
   comment: string
   updatedBy: string
   createdAt: string
