@@ -5,7 +5,7 @@ import { useEffect } from 'react'
 import Sidebar from '@/components/sidebar'
 import Header from '@/components/header'
 import CustomerChatBubble from '@/components/chat/customer-chat-bubble'
-import { isAuthenticated } from '@/lib/auth'
+import { isAuthenticated, initializeAuthMonitoring } from '@/lib/auth'
 
 interface Props {
   children: React.ReactNode
@@ -20,6 +20,9 @@ export default function AppShell ({ children }: Props) {
   const isPublicRoute = PUBLIC_ROUTES.includes(pathname || '')
 
   useEffect(() => {
+    // Initialize authentication monitoring on app startup
+    initializeAuthMonitoring()
+    
     const authenticated = isAuthenticated()
     if (!authenticated && !isPublicRoute) {
       router.replace('/login')

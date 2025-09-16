@@ -75,7 +75,13 @@ export function isTokenExpired(token: string): boolean {
 export function isAuthenticated(): boolean {
   const token = getAccessToken()
   if (!token) return false
-  return !isTokenExpired(token)
+  
+  try {
+    return !isTokenExpired(token)
+  } catch (error) {
+    console.error('Error validating token:', error)
+    return false
+  }
 }
 
 /**
@@ -126,26 +132,36 @@ export function isAdmin (): boolean {
 
 /**
  * Store authentication tokens based on remember preference
+ * Always store in localStorage for cross-tab consistency, but respect remember preference for persistence
  */
 export function storeTokens(tokens: TokenResponse, rememberMe: boolean = false): void {
   if (typeof window === 'undefined') return
   
-  const storage = rememberMe ? localStorage : sessionStorage
-  
   // Clear tokens from both storages first
   clearTokens()
   
-  // Store in preferred storage
-  storage.setItem('accessToken', tokens.accessToken)
+  // Always store in localStorage for cross-tab consistency
+  localStorage.setItem('accessToken', tokens.accessToken)
   if (tokens.refreshToken) {
-    storage.setItem('refreshToken', tokens.refreshToken)
+    localStorage.setItem('refreshToken', tokens.refreshToken)
   }
   if (tokens.user) {
-    storage.setItem('currentUser', JSON.stringify(tokens.user))
+    localStorage.setItem('currentUser', JSON.stringify(tokens.user))
   }
   
   // Store remember preference
   localStorage.setItem('rememberMe', rememberMe.toString())
+  
+  // If rememberMe is false, also store in sessionStorage for session-only behavior
+  if (!rememberMe) {
+    sessionStorage.setItem('accessToken', tokens.accessToken)
+    if (tokens.refreshToken) {
+      sessionStorage.setItem('refreshToken', tokens.refreshToken)
+    }
+    if (tokens.user) {
+      sessionStorage.setItem('currentUser', JSON.stringify(tokens.user))
+    }
+  }
 }
 
 /**
@@ -181,6 +197,13 @@ export async function refreshAccessToken(): Promise<string | null> {
     return null
   }
   
+  // Check if refresh token is also expired
+  if (isTokenExpired(refreshToken)) {
+    console.log('Refresh token is also expired')
+    await logout()
+    return null
+  }
+  
   try {
     const response = await fetch(`${AUTH_SERVICE_URL}/v1/auth/refresh`, {
       method: 'POST',
@@ -191,6 +214,11 @@ export async function refreshAccessToken(): Promise<string | null> {
     })
     
     if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        console.log('Refresh token is invalid or expired')
+        await logout()
+        return null
+      }
       throw new Error(`Refresh failed: ${response.status}`)
     }
     
@@ -262,5 +290,70 @@ export async function logout (): Promise<void> {
     if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
       window.location.href = '/login'
     }
+  }
+}
+
+/**
+ * Initialize authentication monitoring - call this on app startup
+ * Sets up periodic token validation and cross-tab synchronization
+ */
+export function initializeAuthMonitoring(): void {
+  if (typeof window === 'undefined') return
+  
+  // Check token validity on page load
+  validateTokenOnLoad()
+  
+  // Set up periodic token validation (every 5 minutes)
+  const validationInterval = setInterval(() => {
+    if (!isAuthenticated()) {
+      clearInterval(validationInterval)
+      logout()
+    }
+  }, 5 * 60 * 1000) // 5 minutes
+  
+  // Listen for storage changes to sync across tabs
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'accessToken' && e.newValue === null) {
+      // Token was cleared in another tab, logout this tab too
+      logout()
+    }
+  })
+  
+  // Listen for focus events to validate token when user returns to tab
+  window.addEventListener('focus', () => {
+    if (!isAuthenticated()) {
+      logout()
+    }
+  })
+  
+  // Handle browser close/refresh for session-only users
+  window.addEventListener('beforeunload', () => {
+    const rememberMe = getRememberPreference()
+    if (!rememberMe) {
+      // Clear sessionStorage for session-only users
+      sessionStorage.removeItem('accessToken')
+      sessionStorage.removeItem('refreshToken')
+      sessionStorage.removeItem('currentUser')
+    }
+  })
+}
+
+/**
+ * Validate token on page load and handle expiration
+ */
+function validateTokenOnLoad(): void {
+  const token = getAccessToken()
+  if (!token) {
+    return
+  }
+  
+  if (isTokenExpired(token)) {
+    console.log('Token expired on page load, attempting refresh...')
+    refreshAccessToken().then((newToken) => {
+      if (!newToken) {
+        console.log('Token refresh failed, logging out...')
+        logout()
+      }
+    })
   }
 } 
