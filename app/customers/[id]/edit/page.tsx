@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format, parseISO } from 'date-fns'
 import { CalendarIcon, ChevronLeft, Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -207,16 +207,16 @@ export default function EditCustomerPage() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <Card>
               <CardHeader>
-                <CardTitle>Thông tin Người đại diện</CardTitle>
+                <CardTitle>Representative Details</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
                  {/* Fields are identical to create form, just pre-populated */}
-                 <FormField control={form.control} name="legalRepresentative" render={({ field }) => ( <FormItem><FormLabel>Người đại diện (*)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                 <FormField control={form.control} name="title" render={({ field }) => ( <FormItem><FormLabel>Chức danh (*)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                 <FormField control={form.control} name="identityNumber" render={({ field }) => ( <FormItem><FormLabel>CMND/CCCD/Hộ chiếu số (*)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                 <FormField control={form.control} name="identityIssuePlace" render={({ field }) => ( <FormItem><FormLabel>Nơi cấp (*)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                 <FormField control={form.control} name="legalRepresentative" render={({ field }) => ( <FormItem><FormLabel>Representative Name (*)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                 <FormField control={form.control} name="title" render={({ field }) => ( <FormItem><FormLabel>Job Title (*)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                 <FormField control={form.control} name="identityNumber" render={({ field }) => ( <FormItem><FormLabel>ID / Passport Number (*)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                 <FormField control={form.control} name="identityIssuePlace" render={({ field }) => ( <FormItem><FormLabel>Issuing Place (*)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
                  <FormField control={form.control} name="identityIssueDate" render={({ field }) => (
-                     <FormItem className="flex flex-col"><FormLabel>Ngày cấp (*)</FormLabel>
+                     <FormItem className="flex flex-col"><FormLabel>Issue Date (*)</FormLabel>
                        <Popover><PopoverTrigger asChild><FormControl>
                            <Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
                                {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
@@ -229,23 +229,23 @@ export default function EditCustomerPage() {
                        </Popover><FormMessage />
                      </FormItem>)}
                  />
-                 <FormField control={form.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>Số điện thoại (*)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                 <FormField control={form.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>Phone Number (*)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
                  <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email (*)</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>)} />
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Thông tin Doanh nghiệp</CardTitle>
+                <CardTitle>Business Details</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Tên Khách hàng/Doanh nghiệp (*)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="companyTaxCode" render={({ field }) => ( <FormItem><FormLabel>Mã số doanh nghiệp</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="companyAddress" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Địa chỉ trụ sở chính</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Customer or Business Name (*)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="companyTaxCode" render={({ field }) => ( <FormItem><FormLabel>Tax Identification Number</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="companyAddress" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Headquarters Address</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="fax" render={({ field }) => (<FormItem><FormLabel>Fax</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="tags" render={({ field }) => (
                     <FormItem><FormLabel>Tags</FormLabel><FormControl><Input {...field} /></FormControl>
-                       <FormDescription>Phân cách bằng dấu phẩy.</FormDescription><FormMessage />
+                       <FormDescription>Separate with commas.</FormDescription><FormMessage />
                     </FormItem>)}
                 />
               </CardContent>
@@ -267,3 +267,15 @@ export default function EditCustomerPage() {
     </main>
   )
 } 
+
+
+
+
+
+
+
+
+
+
+
+

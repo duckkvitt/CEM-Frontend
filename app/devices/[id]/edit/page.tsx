@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Sidebar from '@/components/sidebar'
 import { Button } from '@/components/ui/button'
@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DEVICE_SERVICE_URL, CUSTOMER_SERVICE_URL } from '@/lib/api'
 import { getValidAccessToken, logout, getCurrentUserRole  } from '@/lib/auth'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 interface Device {
@@ -126,7 +126,7 @@ export default function EditDevicePage () {
   if (loading || !device) {
     return (
       <div className='flex items-center justify-center min-h-[60vh]'>
-        {loading ? 'Loading…' : error || 'Device not found'}
+        {loading ? 'Loadingâ€¦' : error || 'Device not found'}
       </div>
     )
   }
@@ -164,7 +164,7 @@ export default function EditDevicePage () {
         </div>
         <div>
           <Label htmlFor='unit'>Unit</Label>
-          <Input id='unit' name='unit' value={device.unit || ''} onChange={handleChange} placeholder='xe, cái, chiếc...' />
+          <Input id='unit' name='unit' value={device.unit || ''} onChange={handleChange} placeholder='xe, cÃ¡i, chiáº¿c...' />
         </div>
         <div>
           <Label htmlFor='status'>Status</Label>
@@ -176,7 +176,7 @@ export default function EditDevicePage () {
         </div>
         {error && <p className='text-destructive text-sm'>{error}</p>}
         {success && <p className='text-green-600 text-sm'>{success}</p>}
-        <Button type='submit' disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</Button>
+        <Button type='submit' disabled={saving}>{saving ? 'Savingâ€¦' : 'Save Changes'}</Button>
       </form>
     </div>
   )
