@@ -41,68 +41,66 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ user }: AdminDashboardProps) {
   const [metrics, setMetrics] = useState({
-    totalUsers: 1247,
-    activeUsers: 892,
+    totalUsers: 0,
+    activeUsers: 0,
     systemUptime: 99.9,
-    totalDevices: 3421,
-    storageUsed: 78.5,
-    memoryUsage: 65.2,
-    cpuUsage: 45.8,
-    networkTraffic: 2.3,
-    securityAlerts: 3,
-    backupStatus: 'Success',
-    apiCalls: 156789,
-    errorRate: 0.02
+    totalDevices: 0,
+    storageUsed: 0,
+    memoryUsage: 0,
+    cpuUsage: 0,
+    networkTraffic: 0,
+    securityAlerts: 0,
+    backupStatus: '—',
+    apiCalls: 0,
+    errorRate: 0
   })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [activities, setActivities] = useState<any[]>([])
 
-  const [activities] = useState([
-    {
-      id: '1',
-      type: 'system' as const,
-      title: 'System backup completed',
-      description: 'Daily backup completed successfully',
-      user: { name: 'System', initials: 'SYS' },
-      timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-      status: 'completed' as const
-    },
-    {
-      id: '2',
-      type: 'system' as const,
-      title: 'Security scan completed',
-      description: 'Weekly security scan found 0 vulnerabilities',
-      user: { name: 'System', initials: 'SYS' },
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-      status: 'completed' as const
-    },
-    {
-      id: '3',
-      type: 'system' as const,
-      title: 'New user registered',
-      description: 'New user account created for John Smith',
-      user: { name: 'System', initials: 'SYS' },
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4), // 4 hours ago
-      status: 'completed' as const
-    },
-    {
-      id: '4',
-      type: 'system' as const,
-      title: 'Database optimization',
-      description: 'Database performance optimization completed',
-      user: { name: 'System', initials: 'SYS' },
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 6), // 6 hours ago
-      status: 'completed' as const
-    },
-    {
-      id: '5',
-      type: 'system' as const,
-      title: 'Security alert triggered',
-      description: 'Unusual login pattern detected from IP 192.168.1.100',
-      user: { name: 'System', initials: 'SYS' },
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 8), // 8 hours ago
-      status: 'pending' as const,
-      priority: 'high' as const
-    }
-  ])
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const api = await import('@/lib/api')
+        const [userCounts, srStats, invStats, recentActivities] = await Promise.all([
+          api.fetchAdminUserCounts(),
+          api.fetchAdminServiceRequestStats(),
+          api.fetchInventoryDashboardStats(),
+          api.fetchInventoryRecentActivity(10)
+        ])
+        if (cancelled) return
+        setMetrics(prev => ({
+          ...prev,
+          totalUsers: userCounts.totalUsers,
+          activeUsers: userCounts.activeUsers,
+          totalDevices: invStats?.totalDevices ?? prev.totalDevices,
+          storageUsed: invStats?.storageUtilizationPercent ?? prev.storageUsed,
+          memoryUsage: invStats?.memoryUsagePercent ?? prev.memoryUsage,
+          cpuUsage: invStats?.cpuUsagePercent ?? prev.cpuUsage,
+          networkTraffic: invStats?.networkThroughputGbps ?? prev.networkTraffic,
+          errorRate: (srStats?.rejectedRequests ?? 0) / Math.max(1, srStats?.totalRequests ?? 1) * 100
+        }))
+        // Map recent activities to ActivityFeed format
+        const mapped = (recentActivities ?? []).map((it: any, idx: number) => ({
+          id: String(it.id ?? idx),
+          type: 'inventory' as const,
+          title: `${it.transactionType ?? 'Transaction'} - ${it.itemType ?? ''}`.trim(),
+          description: `${it.quantity ?? 0} item(s) • ${it.itemName ?? it.sparePartName ?? ''}`.trim(),
+          user: { name: it.performedBy ?? 'System', initials: (it.performedBy ?? 'S').slice(0, 2).toUpperCase() },
+          timestamp: new Date(it.createdAt ?? Date.now()),
+          status: 'completed' as const
+        }))
+        // @ts-ignore add activities lazily
+        setActivities(mapped)
+      } catch (e: any) {
+        setError(e?.message || 'Failed to load admin dashboard')
+      } finally {
+        setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const quickActions = [
     {
@@ -164,6 +162,9 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
   return (
     <div className="space-y-6">
       {/* Key Metrics */}
+      {loading ? (
+        <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-900" /></div>
+      ) : (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -180,17 +181,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
           description="Registered users"
           delay={0}
         />
-        <MetricCard
-          title="System Uptime"
-          value={`${metrics.systemUptime}%`}
-          change={{ value: 0.1, type: 'increase' }}
-          icon={Server}
-          iconColor="text-green-600"
-          bgColor="bg-green-50"
-          description="System availability"
-          badge={{ text: 'Excellent', variant: 'default' }}
-          delay={0.1}
-        />
+        {/* System Uptime removed as requested */}
         <MetricCard
           title="Total Devices"
           value={metrics.totalDevices}
@@ -212,58 +203,12 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
           delay={0.3}
         />
       </motion.div>
+      )}
 
-      {/* Secondary Metrics */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
-      >
-        <MetricCard
-          title="Storage Used"
-          value={`${metrics.storageUsed}%`}
-          change={{ value: 5, type: 'increase' }}
-          icon={HardDrive}
-          iconColor="text-orange-600"
-          bgColor="bg-orange-50"
-          description="Disk space utilization"
-          delay={0.5}
-        />
-        <MetricCard
-          title="Memory Usage"
-          value={`${metrics.memoryUsage}%`}
-          change={{ value: 3, type: 'decrease' }}
-          icon={Cpu}
-          iconColor="text-indigo-600"
-          bgColor="bg-indigo-50"
-          description="RAM utilization"
-          delay={0.6}
-        />
-        <MetricCard
-          title="CPU Usage"
-          value={`${metrics.cpuUsage}%`}
-          change={{ value: 8, type: 'decrease' }}
-          icon={Activity}
-          iconColor="text-emerald-600"
-          bgColor="bg-emerald-50"
-          description="Processor utilization"
-          delay={0.7}
-        />
-        <MetricCard
-          title="Error Rate"
-          value={`${metrics.errorRate}%`}
-          change={{ value: 50, type: 'decrease' }}
-          icon={AlertTriangle}
-          iconColor="text-yellow-600"
-          bgColor="bg-yellow-50"
-          description="System error rate"
-          badge={{ text: 'Low', variant: 'default' }}
-          delay={0.8}
-        />
-      </motion.div>
+      {/* Secondary metrics removed as requested */}
 
       {/* Charts and Analytics */}
+      {!loading && (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -271,61 +216,126 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
         className="grid grid-cols-1 lg:grid-cols-2 gap-6"
       >
         <ChartCard
-          title="System Performance"
+          title="Service Requests"
           icon={BarChart3}
           iconColor="text-blue-600"
           bgColor="bg-blue-50"
           delay={1.0}
         >
-          <div className="h-64 flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg">
-            <div className="text-center">
-              <div className="text-4xl mb-2">📊</div>
-              <p className="text-gray-600">System performance metrics</p>
-              <p className="text-sm text-gray-500 mt-1">99.9% uptime, 0.02% error rate</p>
-            </div>
-          </div>
+          <div className="h-56 md:h-60"><RequestsBarChart /></div>
         </ChartCard>
 
         <ChartCard
-          title="Resource Utilization"
+          title="Inventory Overview"
           icon={TrendingUp}
           iconColor="text-green-600"
           bgColor="bg-green-50"
           delay={1.1}
         >
-          <div className="h-64 flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 rounded-lg">
-            <div className="text-center">
-              <div className="text-4xl mb-2">📈</div>
-              <p className="text-gray-600">Resource utilization trends</p>
-              <p className="text-sm text-gray-500 mt-1">CPU: 45.8%, Memory: 65.2%</p>
-            </div>
-          </div>
+          <div className="h-64 md:h-72"><InventoryDonut /></div>
         </ChartCard>
       </motion.div>
+      )}
 
       {/* Bottom Row */}
+      {!loading && (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 1.2 }}
-        className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+        className="grid grid-cols-1 gap-6"
       >
-        <div className="lg:col-span-2">
-          <ActivityFeed
-            title="System Activity"
-            activities={activities}
-            maxItems={5}
-            delay={1.3}
-          />
-        </div>
-        
-        <QuickActions
-          title="Admin Actions"
-          actions={quickActions}
-          delay={1.4}
+        <ActivityFeed
+          title="System Activity"
+          activities={activities}
+          maxItems={5}
+          delay={1.3}
         />
       </motion.div>
+      )}
+      {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
+  )
+}
+
+// Lightweight chart components backed by react-chartjs-2
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from 'chart.js'
+import { Bar, Doughnut } from 'react-chartjs-2'
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
+
+function RequestsBarChart() {
+  const [data, setData] = useState<any>(null)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { fetchAdminServiceRequestStats } = await import('@/lib/api')
+      const stats = await fetchAdminServiceRequestStats()
+      if (cancelled) return
+      const labels = ['Pending', 'Approved', 'In Progress', 'Completed', 'Rejected']
+      const values = [
+        stats?.pendingRequests ?? 0,
+        stats?.approvedRequests ?? 0,
+        stats?.inProgressRequests ?? 0,
+        stats?.completedRequests ?? 0,
+        stats?.rejectedRequests ?? 0
+      ]
+      setData({
+        labels,
+        datasets: [{ label: 'Requests', data: values, backgroundColor: '#3b82f6' }]
+      })
+    })()
+    return () => { cancelled = true }
+  }, [])
+  if (!data) return <div className="h-64 flex items-center justify-center">Loading chart…</div>
+  return <Bar data={data} options={{ responsive: true, plugins: { legend: { display: false } } }} />
+}
+
+function InventoryDonut() {
+  const [data, setData] = useState<any>(null)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { fetchInventoryDashboardStats } = await import('@/lib/api')
+      const stats = await fetchInventoryDashboardStats()
+      if (cancelled) return
+      // Map to available fields from InventoryDashboardStats
+      const labels = ['Total Devices', 'Total Spare Parts', 'Low Stock Devices', 'Low Stock Spare Parts', 'Out of Stock Devices']
+      const values = [
+        stats?.totalDevices ?? 0,
+        stats?.totalSpareParts ?? 0,
+        stats?.lowStockDevices ?? 0,
+        stats?.lowStockSpareParts ?? 0,
+        stats?.outOfStockDevices ?? 0
+      ]
+      setData({
+        labels,
+        datasets: [{
+          label: 'Inventory',
+          data: values,
+          backgroundColor: ['#22c55e', '#a78bfa', '#f59e0b', '#60a5fa', '#ef4444']
+        }]
+      })
+    })()
+    return () => { cancelled = true }
+  }, [])
+  if (!data) return <div className="h-64 flex items-center justify-center">Loading chart…</div>
+  return (
+    <Doughnut 
+      data={data} 
+      options={{ 
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '50%',
+        plugins: { 
+          legend: { 
+            position: 'right',
+            align: 'center',
+            labels: { usePointStyle: true, pointStyle: 'rectRounded' }
+          } 
+        },
+        layout: { padding: { left: 0, right: 0, top: 0, bottom: 0 } }
+      }} 
+    />
   )
 }
 

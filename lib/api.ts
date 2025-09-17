@@ -53,6 +53,32 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   return response.json()
 }
 
+// Admin dashboard aggregate fetchers
+export async function fetchAdminUserCounts() {
+  // Use existing admin-capable endpoints to derive counts
+  const usersPage = await fetchWithAuth(`${AUTH_SERVICE_URL}/v1/auth/admin/users?page=0&size=1`)
+  const totalUsers = usersPage.data?.totalElements ?? usersPage.data?.total ?? 0
+  const activeUsersPage = await fetchWithAuth(`${AUTH_SERVICE_URL}/v1/auth/admin/users?status=ACTIVE&page=0&size=1`)
+  const activeUsers = activeUsersPage.data?.totalElements ?? activeUsersPage.data?.total ?? 0
+  return { totalUsers, activeUsers }
+}
+
+export async function fetchAdminServiceRequestStats() {
+  // Staff dashboard stats include ADMIN in backend
+  const res = await fetchWithAuth(`${DEVICE_SERVICE_URL}/api/service-requests/statistics/all`)
+  return res.data
+}
+
+export async function fetchInventoryDashboardStats() {
+  const res = await fetchWithAuth(`${DEVICE_SERVICE_URL}/api/v1/inventory/dashboard/stats`)
+  return res.data
+}
+
+export async function fetchInventoryRecentActivity(limit: number = 10) {
+  const res = await fetchWithAuth(`${DEVICE_SERVICE_URL}/api/v1/inventory/dashboard/recent-activity?limit=${limit}`)
+  return res.data
+}
+
 // Get users by role from the authentication service
 export async function getUsersByRole(roleName: string, page: number = 0, size: number = 20) {
   const role = await fetchWithAuth(`${AUTH_SERVICE_URL}/v1/auth/admin/roles/by-name/${roleName}`)
