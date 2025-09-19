@@ -14,6 +14,7 @@ import {
   Wrench,
   ShieldCheck,
   MessageCircle,
+  MessageSquare,
   Package,
   Store,
   ClipboardList,
@@ -58,6 +59,12 @@ export default function Sidebar() {
       href: '/support',
       icon: <MessageCircle size={20} />,
       roles: ['SUPPORT_TEAM'],
+    },
+    {
+      name: 'Feedback',
+      href: '/support/feedback',
+      icon: <MessageSquare size={20} />,
+      roles: ['SUPPORT_TEAM', 'MANAGER'],
     },
     {
       name: 'Service Request Management',
@@ -210,6 +217,8 @@ export default function Sidebar() {
       isActive = pathname === item.href
     } else if (item.href === '/support/service-requests') {
       isActive = pathname.startsWith('/support/service-requests')
+    } else if (item.href === '/support/feedback') {
+      isActive = pathname.startsWith('/support/feedback')
     } else if (item.href === '/support/tasks') {
       isActive = pathname.startsWith('/support/tasks')
     } else if (item.href === '/support') {
