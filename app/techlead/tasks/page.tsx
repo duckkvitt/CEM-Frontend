@@ -23,7 +23,6 @@ import {
   CheckCircle, 
   Wrench, 
   Shield,
-  Eye,
   UserPlus,
   Users,
   TrendingUp,
@@ -580,14 +579,6 @@ export default function TechLeadTasksPage() {
                           Assign
                         </Button>
                       )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push(`/techlead/tasks/${task.id}`)}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        View Details
-                      </Button>
                     </div>
                   </div>
                 </CardHeader>

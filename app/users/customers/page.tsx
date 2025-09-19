@@ -93,6 +93,21 @@ export default function CustomerUserManagementPage () {
     }
   }
 
+  const activateUser = async (id: number) => {
+    if (!confirm('Are you sure you want to activate this user?')) return
+    try {
+      const res = await fetch(`${AUTH_SERVICE_URL}/v1/auth/admin/users/${id}/activate`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${await getValidAccessToken()}` }
+      })
+      const json: ApiResponse<User> = await res.json()
+      if (!json.success) throw new Error(json.message || 'Failed')
+      fetchUsers()
+    } catch (e) {
+      alert((e as Error).message)
+    }
+  }
+
   useEffect(() => {
     fetchUsers()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -145,7 +160,9 @@ export default function CustomerUserManagementPage () {
                   <td className="px-4 py-2">{u.role?.name}</td>
                   <td className="px-4 py-2 flex items-center gap-2">
                     <span>{u.status}</span>
-                    {u.status !== 'INACTIVE' && (
+                    {u.status === 'INACTIVE' ? (
+                      <button onClick={() => activateUser(u.id)} className="text-xs text-green-600 underline">Activate</button>
+                    ) : (
                       <button onClick={() => deactivateUser(u.id)} className="text-xs text-red-600 underline">Deactivate</button>
                     )}
                   </td>
