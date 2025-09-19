@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -216,6 +216,8 @@ export default function TechLeadTasksPage() {
   const getAvailableTechnicians = () => {
     return technicians.filter(tech => tech.currentTasks < tech.maxTasks)
   }
+  const availableTechnicians = getAvailableTechnicians()
+  const selectedTechnician = availableTechnicians.find(tech => tech.id === assignForm.technicianId)
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('vi-VN', {
@@ -233,6 +235,14 @@ export default function TechLeadTasksPage() {
       style: 'currency',
       currency: 'VND'
     }).format(price)
+  }
+  const formatEnumLabel = (value?: string) => {
+    if (!value) return 'N/A'
+    return value
+      .toLowerCase()
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
   }
 
   const getStatusIcon = (status: string) => {
@@ -555,7 +565,7 @@ export default function TechLeadTasksPage() {
                       <CardDescription>
                         Device: {task.deviceName}
                         {task.deviceModel && ` (${task.deviceModel})`}
-                        {task.assignedTechnicianName && ` • Assigned to: ${task.assignedTechnicianName}`}
+                        {task.assignedTechnicianName && ` â€¢ Assigned to: ${task.assignedTechnicianName}`}
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
@@ -686,106 +696,177 @@ export default function TechLeadTasksPage() {
 
       {/* Assignment Modal */}
       <Dialog open={assignModalOpen} onOpenChange={setAssignModalOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Assign Task to Technician</DialogTitle>
+        <DialogContent className="max-w-4xl sm:max-w-4xl md:max-w-5xl xl:max-w-6xl p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-4 text-left border-b">
+            <DialogTitle className="text-2xl font-semibold">Assign Task to Technician</DialogTitle>
             <DialogDescription>
               Select a technician and provide assignment details for task: {selectedTask?.taskId}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="technician" className="text-right">
-                Technician
-              </Label>
-              <Select 
-                value={assignForm.technicianId.toString()} 
-                onValueChange={(value) => setAssignForm(prev => ({ ...prev, technicianId: parseInt(value) }))}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a technician" />
-                </SelectTrigger>
-                <SelectContent>
-                  {getAvailableTechnicians().map(tech => {
-                    return (
-                      <SelectItem key={tech.id} value={tech.id.toString()}>
-                        <div className="flex items-center justify-between w-full">
-                          <span>{tech.name}</span>
-                          <div className="flex items-center gap-2 ml-4">
-                            <Badge variant={tech.workloadPercentage > 60 ? 'secondary' : 'default'} className="text-xs">
-                              {tech.currentTasks}/{tech.maxTasks}
-                            </Badge>
-                            <span className="text-xs text-gray-500">
-                              {tech.skills && tech.skills.length > 0 ? tech.skills.slice(0, 2).join(', ') : 'General'}
-                            </span>
-                          </div>
-                        </div>
+          <div className="grid gap-0 md:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="px-6 py-6 space-y-6 md:max-w-2xl md:pr-8">
+              <div className="space-y-2">
+                <Label htmlFor="technician" className="text-sm font-medium text-muted-foreground">
+                  Technician
+                </Label>
+                <Select
+                  value={assignForm.technicianId.toString()}
+                  onValueChange={(value) => setAssignForm(prev => ({ ...prev, technicianId: parseInt(value) }))}
+                >
+                  <SelectTrigger className="w-full items-start text-left gap-2 py-3 pl-4 pr-10 min-h-[74px] [&>span]:line-clamp-none [&>span]:whitespace-normal">
+                    <SelectValue placeholder="Select a technician" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTechnicians.length === 0 ? (
+                      <SelectItem value="none" disabled>
+                        No technicians available
                       </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="scheduled-date" className="text-right">
-                Scheduled Date
-              </Label>
-              <Input
-                id="scheduled-date"
-                type="datetime-local"
-                value={assignForm.scheduledDate}
-                onChange={(e) => setAssignForm(prev => ({ ...prev, scheduledDate: e.target.value }))}
-                className="col-span-3"
-              />
-            </div>
-            
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="techlead-notes" className="text-right">
-                Assignment Notes
-              </Label>
-              <Textarea
-                id="techlead-notes"
-                value={assignForm.techleadNotes}
-                onChange={(e) => setAssignForm(prev => ({ ...prev, techleadNotes: e.target.value }))}
-                className="col-span-3"
-                rows={3}
-                placeholder="Add any special instructions or notes for the technician..."
-              />
+                    ) : (
+                      availableTechnicians.map(tech => {
+                        const workloadBadge: 'destructive' | 'secondary' | 'outline' =
+                          tech.workloadPercentage > 80
+                            ? 'destructive'
+                            : tech.workloadPercentage > 60
+                              ? 'secondary'
+                              : 'outline'
+
+                        return (
+                          <SelectItem
+                            key={tech.id}
+                            value={tech.id.toString()}
+                            className="flex-col items-start gap-1 text-left"
+                          >
+                            <span className="text-sm font-medium leading-5">{tech.name}</span>
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                              <Badge variant={workloadBadge} className={workloadBadge === 'outline' ? '' : 'border-transparent'}>
+                                {tech.currentTasks}/{tech.maxTasks} tasks
+                              </Badge>
+                              <span className="truncate max-w-[220px]">
+                                {tech.skills && tech.skills.length > 0 ? tech.skills.slice(0, 2).join(', ') : 'General'}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        )
+                      })
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="scheduled-date" className="text-sm font-medium text-muted-foreground">
+                  Scheduled Date
+                </Label>
+                <Input
+                  id="scheduled-date"
+                  type="datetime-local"
+                  value={assignForm.scheduledDate}
+                  onChange={(e) => setAssignForm(prev => ({ ...prev, scheduledDate: e.target.value }))}
+                  className="w-full"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="techlead-notes" className="text-sm font-medium text-muted-foreground">
+                  Assignment Notes
+                </Label>
+                <Textarea
+                  id="techlead-notes"
+                  value={assignForm.techleadNotes}
+                  onChange={(e) => setAssignForm(prev => ({ ...prev, techleadNotes: e.target.value }))}
+                  rows={4}
+                  placeholder="Add any special instructions or notes for the technician..."
+                  className="min-h-[120px]"
+                />
+              </div>
             </div>
 
-            {assignForm.technicianId > 0 && (
-              <div className="col-span-4 mt-4 p-4 bg-gray-50 rounded-lg">
-                <Label className="text-sm font-medium text-gray-700">Selected Technician Info</Label>
-                {(() => {
-                  const selectedTech = getAvailableTechnicians().find(t => t.id === assignForm.technicianId)
-                  return selectedTech ? (
-                    <div className="mt-2 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">{selectedTech.name}</span>
-                        <Badge variant={selectedTech.workloadPercentage > 60 ? 'secondary' : 'default'}>
-                          {selectedTech.currentTasks + 1}/{selectedTech.maxTasks} after assignment
-                        </Badge>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        Skills: {selectedTech.skills && selectedTech.skills.length > 0 ? selectedTech.skills.join(', ') : 'General Maintenance'}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        Email: {selectedTech.email}
-                      </div>
-                    </div>
-                  ) : null
-                })()}
+            <aside className="space-y-5 border-t bg-muted/50 px-6 py-6 md:border-0 md:border-l">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Task summary</p>
+                <div className="mt-3 space-y-2">
+                  <h3 className="text-base font-semibold leading-5 text-foreground">{selectedTask?.title}</h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {selectedTask?.taskId && (
+                      <Badge variant="outline" className="text-xs font-medium">#{selectedTask.taskId}</Badge>
+                    )}
+                    {selectedTask && (
+                      <Badge
+                        variant="outline"
+                        className={`border-transparent text-xs font-medium ${PRIORITY_COLORS[selectedTask.priority] ?? ''}`}
+                      >
+                        {formatEnumLabel(selectedTask.priority)}
+                      </Badge>
+                    )}
+                    {selectedTask && (
+                      <Badge
+                        variant="outline"
+                        className={`border-transparent text-xs font-medium ${TYPE_COLORS[selectedTask.type] ?? ''}`}
+                      >
+                        {formatEnumLabel(selectedTask.type)}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
               </div>
-            )}
+
+              <div className="space-y-2 text-xs text-muted-foreground">
+                {selectedTask?.customerName && (
+                  <div>
+                    <span className="font-medium text-foreground/80">Customer:</span> {selectedTask.customerName}
+                  </div>
+                )}
+                <div>
+                  <span className="font-medium text-foreground/80">Device:</span> {selectedTask?.deviceName}
+                </div>
+                {selectedTask?.preferredCompletionDate && (
+                  <div>
+                    <span className="font-medium text-foreground/80">Preferred completion:</span> {formatDate(selectedTask.preferredCompletionDate)}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3 rounded-lg border bg-background p-4 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Technician preview</p>
+                {selectedTechnician ? (
+                  <>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{selectedTechnician.name}</p>
+                        <p className="text-xs text-muted-foreground">{selectedTechnician.email}</p>
+                      </div>
+                      <Badge
+                        variant={selectedTechnician.workloadPercentage > 80 ? 'destructive' : selectedTechnician.workloadPercentage > 60 ? 'secondary' : 'outline'}
+                        className="border-transparent text-xs font-medium"
+                      >
+                        {selectedTechnician.currentTasks + 1}/{selectedTechnician.maxTasks}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {(selectedTechnician.skills && selectedTechnician.skills.length > 0 ? selectedTechnician.skills : ['General Maintenance']).slice(0, 3).map(skill => (
+                        <Badge key={skill} variant="outline" className="text-[11px] font-medium">
+                          {skill}
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+                      After assignment: {Math.min(selectedTechnician.currentTasks + 1, selectedTechnician.maxTasks)}/{selectedTechnician.maxTasks} tasks
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Select a technician to preview their availability and skills.</p>
+                )}
+              </div>
+            </aside>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 border-t bg-background px-6 py-4 sm:flex-row sm:items-center">
             <Button variant="outline" onClick={() => setAssignModalOpen(false)}>
               Cancel
             </Button>
-            <Button 
-              onClick={submitAssignment} 
+            <Button
+              onClick={submitAssignment}
               disabled={submitting || assignForm.technicianId === 0}
+              className="sm:ml-auto"
             >
               {submitting ? 'Assigning...' : 'Assign Task'}
             </Button>
@@ -795,3 +876,10 @@ export default function TechLeadTasksPage() {
     </div>
   )
 }
+
+
+
+
+
+
+

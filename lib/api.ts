@@ -93,3 +93,63 @@ export async function getUsersByRole(roleName: string, page: number = 0, size: n
 
   return users.data
 }
+
+// ===== Manager dashboard fetchers =====
+
+// Customers count (MANAGER allowed)
+export async function fetchManagerCustomerCounts() {
+  const res = await fetchWithAuth(`${CUSTOMER_SERVICE_URL}/v1/customers?page=0&size=1`)
+  const totalCustomers = res.data?.totalElements ?? res.data?.total ?? 0
+  return { totalCustomers }
+}
+
+// Hidden customers count (MANAGER only)
+export async function fetchManagerHiddenCustomerCounts() {
+  const res = await fetchWithAuth(`${CUSTOMER_SERVICE_URL}/v1/customers/hidden?page=0&size=1`)
+  const hiddenCustomers = res.data?.totalElements ?? res.data?.total ?? 0
+  return { hiddenCustomers }
+}
+
+// Contracts count (MANAGER allowed)
+export async function fetchManagerContractCounts() {
+  const res = await fetchWithAuth(`${CONTRACT_SERVICE_URL}?page=0&size=1`)
+  const totalContracts = res.data?.totalElements ?? res.data?.total ?? 0
+  return { totalContracts }
+}
+
+// Service requests statistics for staff (MANAGER allowed)
+export async function fetchManagerServiceRequestStats() {
+  const res = await fetchWithAuth(`${DEVICE_SERVICE_URL}/api/service-requests/statistics/all`)
+  return res.data
+}
+
+// Pending service requests count (MANAGER allowed)
+export async function fetchManagerPendingServiceRequestsCount() {
+  const res = await fetchWithAuth(`${DEVICE_SERVICE_URL}/api/service-requests/pending?page=0&size=1`)
+  const totalPending = res.data?.totalElements ?? res.data?.total ?? 0
+  return { totalPending }
+}
+
+// Low stock counts (devices and spare parts)
+export async function fetchManagerLowStockCounts() {
+  const [devicesRes, spRes] = await Promise.all([
+    fetchWithAuth(`${DEVICE_SERVICE_URL}/api/v1/inventory/devices/low-stock`),
+    fetchWithAuth(`${SPARE_PARTS_SERVICE_URL}/spare-part-inventory/low-stock`)
+  ])
+  const lowStockDevices = Array.isArray(devicesRes.data) ? devicesRes.data.length : 0
+  const lowStockSpareParts = Array.isArray(spRes.data) ? spRes.data.length : 0
+  return { lowStockDevices, lowStockSpareParts }
+}
+
+// Spare parts dashboard stats (MANAGER allowed)
+export async function fetchSparePartsDashboardStats() {
+  const res = await fetchWithAuth(`${SPARE_PARTS_SERVICE_URL}/spare-part-inventory/dashboard/stats`)
+  return res.data
+}
+
+// Unsigned contracts count (MANAGER allowed)
+export async function fetchManagerUnsignedContractsCount() {
+  const res = await fetchWithAuth(`${CONTRACT_SERVICE_URL}/unsigned?page=0&size=1`)
+  const totalUnsigned = res.data?.totalElements ?? res.data?.total ?? 0
+  return { totalUnsigned }
+}

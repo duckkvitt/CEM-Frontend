@@ -28,7 +28,6 @@ import {
 import { MetricCard } from './metric-card'
 import { ChartCard } from './chart-card'
 import { ActivityFeed } from './activity-feed'
-import { QuickActions } from './quick-actions'
 
 interface ManagerDashboardProps {
   user: any
@@ -36,121 +35,69 @@ interface ManagerDashboardProps {
 
 export function ManagerDashboard({ user }: ManagerDashboardProps) {
   const [metrics, setMetrics] = useState({
-    totalCustomers: 1247,
-    totalDevices: 3421,
-    totalRevenue: 2450000,
-    activeTasks: 89,
-    pendingRequests: 23,
-    completedTasks: 156,
-    lowStockItems: 12,
-    systemHealth: 98.5
+    totalCustomers: 0,
+    totalDevices: 0,
+    totalContracts: 0,
+    pendingServiceRequests: 0,
+    unsignedContracts: 0,
+    completedRequests: 0,
+    lowStockDevices: 0,
+    lowStockSpareParts: 0
   })
+  const [activities, setActivities] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const [activities] = useState([
-    {
-      id: '1',
-      type: 'task' as const,
-      title: 'New customer onboarding completed',
-      description: 'Successfully onboarded 5 new enterprise customers',
-      user: { name: 'John Smith', initials: 'JS' },
-      timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-      status: 'completed' as const
-    },
-    {
-      id: '2',
-      type: 'device' as const,
-      title: 'Device maintenance scheduled',
-      description: 'Scheduled maintenance for 15 network devices',
-      user: { name: 'Sarah Johnson', initials: 'SJ' },
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-      status: 'in-progress' as const
-    },
-    {
-      id: '3',
-      type: 'customer' as const,
-      title: 'Customer support ticket resolved',
-      description: 'Resolved critical issue for TechCorp Inc.',
-      user: { name: 'Mike Davis', initials: 'MD' },
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4), // 4 hours ago
-      status: 'completed' as const
-    },
-    {
-      id: '4',
-      type: 'inventory' as const,
-      title: 'Low stock alert triggered',
-      description: 'Network switches running low on stock',
-      user: { name: 'System', initials: 'SYS' },
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 6), // 6 hours ago
-      status: 'pending' as const,
-      priority: 'high' as const
-    },
-    {
-      id: '5',
-      type: 'system' as const,
-      title: 'Monthly report generated',
-      description: 'Q4 performance report is ready for review',
-      user: { name: 'System', initials: 'SYS' },
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 8), // 8 hours ago
-      status: 'completed' as const
-    }
-  ])
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const api = await import('@/lib/api')
+        const [cust, contracts, invStats, invRecent, srStats, pendingSr, lowStocks, unsignedContracts] = await Promise.all([
+          api.fetchManagerCustomerCounts(),
+          api.fetchManagerContractCounts(),
+          api.fetchInventoryDashboardStats(),
+          api.fetchInventoryRecentActivity(10),
+          api.fetchManagerServiceRequestStats(),
+          api.fetchManagerPendingServiceRequestsCount(),
+          api.fetchManagerLowStockCounts(),
+          api.fetchManagerUnsignedContractsCount()
+        ])
 
-  const quickActions = [
-    {
-      id: '1',
-      title: 'View Reports',
-      description: 'Access detailed analytics and reports',
-      icon: BarChart3,
-      href: '/reports',
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50'
-    },
-    {
-      id: '2',
-      title: 'Manage Customers',
-      description: 'View and manage customer accounts',
-      icon: Users,
-      href: '/customers',
-      color: 'text-green-600',
-      bgColor: 'bg-green-50'
-    },
-    {
-      id: '3',
-      title: 'Inventory Overview',
-      description: 'Monitor stock levels and inventory',
-      icon: Warehouse,
-      href: '/inventory',
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-50'
-    },
-    {
-      id: '4',
-      title: 'Task Management',
-      description: 'Assign and track team tasks',
-      icon: ClipboardList,
-      href: '/tasks',
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50'
-    },
-    {
-      id: '5',
-      title: 'Contract Management',
-      description: 'Review and manage contracts',
-      icon: FileText,
-      href: '/contracts',
-      color: 'text-indigo-600',
-      bgColor: 'bg-indigo-50'
-    },
-    {
-      id: '6',
-      title: 'System Settings',
-      description: 'Configure system preferences',
-      icon: Settings,
-      href: '/settings',
-      color: 'text-gray-600',
-      bgColor: 'bg-gray-50'
-    }
-  ]
+        if (cancelled) return
+
+        setMetrics(prev => ({
+          ...prev,
+          totalCustomers: cust.totalCustomers ?? 0,
+          totalDevices: invStats?.totalDevices ?? 0,
+          totalContracts: contracts.totalContracts ?? 0,
+          pendingServiceRequests: pendingSr.totalPending ?? 0,
+          unsignedContracts: unsignedContracts.totalUnsigned ?? 0,
+          completedRequests: srStats?.completedRequests ?? 0,
+          lowStockDevices: lowStocks.lowStockDevices ?? 0,
+          lowStockSpareParts: lowStocks.lowStockSpareParts ?? 0
+        }))
+
+        const mapped = (invRecent ?? []).slice(0, 10).map((a: any, idx: number) => ({
+          id: String(a.id ?? idx),
+          type: 'inventory' as const,
+          title: `${a.transactionType ?? 'TRANSACTION'} - ${a.itemType ?? ''}`,
+          description: a.notes ?? `Quantity: ${a.quantity ?? 0}`,
+          user: { name: a.performedBy ?? 'System', initials: (a.performedBy ?? 'SYS').slice(0,2).toUpperCase() },
+          timestamp: a.createdAt ? new Date(a.createdAt) : new Date(),
+          status: 'completed' as const
+        }))
+        setActivities(mapped)
+      } catch (e: any) {
+        setError(e?.message ?? 'Failed to load manager dashboard')
+      } finally {
+        setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  // Quick actions removed per request
 
   return (
     <div className="space-y-6">
@@ -182,24 +129,21 @@ export function ManagerDashboard({ user }: ManagerDashboardProps) {
           delay={0.1}
         />
         <MetricCard
-          title="Monthly Revenue"
-          value={`$${(metrics.totalRevenue / 1000000).toFixed(1)}M`}
-          change={{ value: 15, type: 'increase' }}
-          icon={DollarSign}
+          title="Total Contracts"
+          value={metrics.totalContracts}
+          icon={FileText}
           iconColor="text-emerald-600"
           bgColor="bg-emerald-50"
-          description="This month's revenue"
+          description="Contracts under management"
           delay={0.2}
         />
         <MetricCard
-          title="Active Tasks"
-          value={metrics.activeTasks}
-          change={{ value: 5, type: 'decrease' }}
-          icon={Activity}
+          title="Pending Service Requests"
+          value={metrics.pendingServiceRequests}
+          icon={Clock}
           iconColor="text-orange-600"
           bgColor="bg-orange-50"
-          description="Tasks in progress"
-          badge={{ text: 'High Priority', variant: 'destructive' }}
+          description="Awaiting action"
           delay={0.3}
         />
       </motion.div>
@@ -212,43 +156,32 @@ export function ManagerDashboard({ user }: ManagerDashboardProps) {
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
       >
         <MetricCard
-          title="Pending Requests"
-          value={metrics.pendingRequests}
-          icon={Clock}
+          title="Unsigned Contracts"
+          value={metrics.unsignedContracts}
+          icon={FileText}
           iconColor="text-yellow-600"
           bgColor="bg-yellow-50"
-          description="Awaiting approval"
+          description="Pending customer signature"
           delay={0.5}
         />
         <MetricCard
-          title="Completed Tasks"
-          value={metrics.completedTasks}
-          change={{ value: 22, type: 'increase' }}
+          title="Completed Requests"
+          value={metrics.completedRequests}
           icon={CheckCircle}
           iconColor="text-green-600"
           bgColor="bg-green-50"
-          description="This month"
+          description="Resolved this month"
           delay={0.6}
         />
         <MetricCard
           title="Low Stock Items"
-          value={metrics.lowStockItems}
+          value={metrics.lowStockDevices + metrics.lowStockSpareParts}
           icon={AlertTriangle}
           iconColor="text-red-600"
           bgColor="bg-red-50"
           description="Need reordering"
           badge={{ text: 'Action Required', variant: 'destructive' }}
           delay={0.7}
-        />
-        <MetricCard
-          title="System Health"
-          value={`${metrics.systemHealth}%`}
-          icon={TrendingUp}
-          iconColor="text-emerald-600"
-          bgColor="bg-emerald-50"
-          description="Overall system status"
-          badge={{ text: 'Excellent', variant: 'default' }}
-          delay={0.8}
         />
       </motion.div>
 
@@ -260,35 +193,23 @@ export function ManagerDashboard({ user }: ManagerDashboardProps) {
         className="grid grid-cols-1 lg:grid-cols-2 gap-6"
       >
         <ChartCard
-          title="Revenue Trend"
+          title="Service Requests"
           icon={BarChart3}
-          iconColor="text-emerald-600"
-          bgColor="bg-emerald-50"
+          iconColor="text-blue-600"
+          bgColor="bg-blue-50"
           delay={1.0}
         >
-          <div className="h-64 flex items-center justify-center bg-gradient-to-br from-emerald-50 to-blue-50 rounded-lg">
-            <div className="text-center">
-              <div className="text-4xl mb-2">📈</div>
-              <p className="text-gray-600">Revenue analytics chart</p>
-              <p className="text-sm text-gray-500 mt-1">+15% growth this month</p>
-            </div>
-          </div>
+          <div className="h-56 md:h-60"><RequestsBarChart /></div>
         </ChartCard>
 
         <ChartCard
-          title="Task Distribution"
-          icon={ClipboardList}
-          iconColor="text-blue-600"
-          bgColor="bg-blue-50"
+          title="Inventory Overview"
+          icon={TrendingUp}
+          iconColor="text-green-600"
+          bgColor="bg-green-50"
           delay={1.1}
         >
-          <div className="h-64 flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg">
-            <div className="text-center">
-              <div className="text-4xl mb-2">📊</div>
-              <p className="text-gray-600">Task distribution chart</p>
-              <p className="text-sm text-gray-500 mt-1">89 active, 156 completed</p>
-            </div>
-          </div>
+          <div className="h-64 md:h-72"><InventoryDonut /></div>
         </ChartCard>
       </motion.div>
 
@@ -300,21 +221,98 @@ export function ManagerDashboard({ user }: ManagerDashboardProps) {
         className="grid grid-cols-1 lg:grid-cols-3 gap-6"
       >
         <div className="lg:col-span-2">
-          <ActivityFeed
-            title="Recent Activity"
-            activities={activities}
-            maxItems={5}
-            delay={1.3}
-          />
+          {!loading && (
+            <ActivityFeed
+              title="Recent Inventory Activity"
+              activities={activities}
+              maxItems={5}
+              delay={1.3}
+            />
+          )}
         </div>
         
-        <QuickActions
-          title="Quick Actions"
-          actions={quickActions}
-          delay={1.4}
-        />
+        {/* Quick actions removed */}
       </motion.div>
     </div>
   )
 }
 
+// Lightweight chart components backed by react-chartjs-2
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from 'chart.js'
+import { Bar, Doughnut } from 'react-chartjs-2'
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
+
+function RequestsBarChart() {
+  const [data, setData] = useState<any>(null)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { fetchManagerServiceRequestStats } = await import('@/lib/api')
+      const stats = await fetchManagerServiceRequestStats()
+      if (cancelled) return
+      const labels = ['Pending', 'Approved', 'In Progress', 'Completed', 'Rejected']
+      const values = [
+        stats?.pendingRequests ?? 0,
+        stats?.approvedRequests ?? 0,
+        stats?.inProgressRequests ?? 0,
+        stats?.completedRequests ?? 0,
+        stats?.rejectedRequests ?? 0
+      ]
+      setData({
+        labels,
+        datasets: [{ label: 'Requests', data: values, backgroundColor: '#3b82f6' }]
+      })
+    })()
+    return () => { cancelled = true }
+  }, [])
+  if (!data) return <div className="h-64 flex items-center justify-center">Loading chart…</div>
+  return <Bar data={data} options={{ responsive: true, plugins: { legend: { display: false } } }} />
+}
+
+function InventoryDonut() {
+  const [data, setData] = useState<any>(null)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { fetchInventoryDashboardStats } = await import('@/lib/api')
+      const stats = await fetchInventoryDashboardStats()
+      if (cancelled) return
+      const labels = ['Total Devices', 'Total Spare Parts', 'Low Stock Devices', 'Low Stock Spare Parts', 'Out of Stock Devices']
+      const values = [
+        stats?.totalDevices ?? 0,
+        stats?.totalSpareParts ?? 0,
+        stats?.lowStockDevices ?? 0,
+        stats?.lowStockSpareParts ?? 0,
+        stats?.outOfStockDevices ?? 0
+      ]
+      setData({
+        labels,
+        datasets: [{
+          label: 'Inventory',
+          data: values,
+          backgroundColor: ['#22c55e', '#a78bfa', '#f59e0b', '#60a5fa', '#ef4444']
+        }]
+      })
+    })()
+    return () => { cancelled = true }
+  }, [])
+  if (!data) return <div className="h-64 flex items-center justify-center">Loading chart…</div>
+  return (
+    <Doughnut 
+      data={data} 
+      options={{ 
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '50%',
+        plugins: { 
+          legend: { 
+            position: 'right',
+            align: 'center',
+            labels: { usePointStyle: true, pointStyle: 'rectRounded' }
+          } 
+        },
+        layout: { padding: { left: 0, right: 0, top: 0, bottom: 0 } }
+      }} 
+    />
+  )
+}

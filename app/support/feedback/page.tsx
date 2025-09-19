@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,7 +11,7 @@ import { Calendar } from 'lucide-react'
 import { listFeedbacks, type FeedbackItem, type Page } from '@/lib/feedback-service'
 import { getCurrentUserRole } from '@/lib/auth'
 
-export default function FeedbackListPage() {
+function FeedbackListContent() {
   const [data, setData] = useState<Page<FeedbackItem> | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -144,6 +144,14 @@ export default function FeedbackListPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function FeedbackListPage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto px-4 py-8">Loading...</div>}>
+      <FeedbackListContent />
+    </Suspense>
   )
 }
 
