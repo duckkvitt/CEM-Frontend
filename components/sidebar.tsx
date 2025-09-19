@@ -206,7 +206,7 @@ export default function Sidebar() {
       icon: <UsersRound size={20} />,
       roles: ['ADMIN', 'SUPER_ADMIN'],
     },
-    { name: 'Bot', href: '/bot', icon: <BotMessageSquare size={20} /> },
+
   ]
 
   function hasAccess(item: NavItem): boolean {
