@@ -201,4 +201,22 @@
   .animate-shake {
     animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
   }
+
+  /* Smooth accordion open animation for sidebar groups */
+  @keyframes accordion-open {
+    0% {
+      opacity: 0;
+      transform: scaleY(0.96);
+      filter: blur(2px);
+    }
+    100% {
+      opacity: 1;
+      transform: scaleY(1);
+      filter: blur(0);
+    }
+  }
+  .animate-accordion-open {
+    animation: accordion-open 0.22s cubic-bezier(0.2, 0, 0, 1) both;
+    transform-origin: top;
+  }
 }
