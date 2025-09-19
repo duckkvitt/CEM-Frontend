@@ -3,28 +3,22 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { 
-  Users, 
-  Package, 
-  DollarSign, 
-  TrendingUp, 
-  AlertTriangle, 
-  CheckCircle,
-  Clock,
-  Activity,
-  BarChart3,
-  Calendar,
-  MessageSquare,
+  Users,
+  Package,
   FileText,
-  Database,
-  Warehouse,
+  Clock,
+  AlertTriangle,
+  CheckCircle,
+  TrendingUp,
+  BarChart3,
   History,
-  Upload,
-  Download,
-  Settings,
-  UserCog,
-  ClipboardList
+  Warehouse,
+  UsersRound,
+  Wrench,
+  Store
 } from 'lucide-react'
 
+import Link from 'next/link'
 import { MetricCard } from './metric-card'
 import { ChartCard } from './chart-card'
 import { ActivityFeed } from './activity-feed'
@@ -53,10 +47,13 @@ export function ManagerDashboard({ user }: ManagerDashboardProps) {
     ;(async () => {
       try {
         const api = await import('@/lib/api')
-        const [cust, contracts, invStats, invRecent, srStats, pendingSr, lowStocks, unsignedContracts] = await Promise.all([
+        const invLib = await import('@/lib/api/inventory')
+
+        const results = await Promise.allSettled([
           api.fetchManagerCustomerCounts(),
           api.fetchManagerContractCounts(),
           api.fetchInventoryDashboardStats(),
+          // Prefer dashboard recent activity; fallback later to transactions
           api.fetchInventoryRecentActivity(10),
           api.fetchManagerServiceRequestStats(),
           api.fetchManagerPendingServiceRequestsCount(),
@@ -66,19 +63,34 @@ export function ManagerDashboard({ user }: ManagerDashboardProps) {
 
         if (cancelled) return
 
+        const [custRes, contractRes, invStatsRes, invRecentRes, srStatsRes, pendingSrRes, lowStocksRes, unsignedRes] = results
+
         setMetrics(prev => ({
           ...prev,
-          totalCustomers: cust.totalCustomers ?? 0,
-          totalDevices: invStats?.totalDevices ?? 0,
-          totalContracts: contracts.totalContracts ?? 0,
-          pendingServiceRequests: pendingSr.totalPending ?? 0,
-          unsignedContracts: unsignedContracts.totalUnsigned ?? 0,
-          completedRequests: srStats?.completedRequests ?? 0,
-          lowStockDevices: lowStocks.lowStockDevices ?? 0,
-          lowStockSpareParts: lowStocks.lowStockSpareParts ?? 0
+          totalCustomers: custRes.status === 'fulfilled' ? (custRes.value.totalCustomers ?? 0) : prev.totalCustomers,
+          totalDevices: invStatsRes.status === 'fulfilled' ? (invStatsRes.value?.totalDevices ?? 0) : prev.totalDevices,
+          totalContracts: contractRes.status === 'fulfilled' ? (contractRes.value.totalContracts ?? 0) : prev.totalContracts,
+          pendingServiceRequests: pendingSrRes.status === 'fulfilled' ? (pendingSrRes.value.totalPending ?? 0) : prev.pendingServiceRequests,
+          unsignedContracts: unsignedRes.status === 'fulfilled' ? (unsignedRes.value.totalUnsigned ?? 0) : prev.unsignedContracts,
+          completedRequests: srStatsRes.status === 'fulfilled' ? (srStatsRes.value?.completedRequests ?? 0) : prev.completedRequests,
+          lowStockDevices: lowStocksRes.status === 'fulfilled' ? (lowStocksRes.value.lowStockDevices ?? 0) : prev.lowStockDevices,
+          lowStockSpareParts: lowStocksRes.status === 'fulfilled' ? (lowStocksRes.value.lowStockSpareParts ?? 0) : prev.lowStockSpareParts
         }))
 
-        const mapped = (invRecent ?? []).slice(0, 10).map((a: any, idx: number) => ({
+        // Recent activity mapping with graceful fallback
+        let recent: any[] | null = null
+        if (invRecentRes.status === 'fulfilled') {
+          recent = invRecentRes.value ?? []
+        } else {
+          try {
+            const tx = await invLib.getAllInventoryTransactions()
+            recent = (tx ?? []).slice(0, 10)
+          } catch (e) {
+            recent = []
+          }
+        }
+
+        const mapped = (recent ?? []).slice(0, 10).map((a: any, idx: number) => ({
           id: String(a.id ?? idx),
           type: 'inventory' as const,
           title: `${a.transactionType ?? 'TRANSACTION'} - ${a.itemType ?? ''}`,
@@ -97,8 +109,6 @@ export function ManagerDashboard({ user }: ManagerDashboardProps) {
     return () => { cancelled = true }
   }, [])
 
-  // Quick actions removed per request
-
   return (
     <div className="space-y-6">
       {/* Key Metrics */}
@@ -111,7 +121,6 @@ export function ManagerDashboard({ user }: ManagerDashboardProps) {
         <MetricCard
           title="Total Customers"
           value={metrics.totalCustomers}
-          change={{ value: 12, type: 'increase' }}
           icon={Users}
           iconColor="text-blue-600"
           bgColor="bg-blue-50"
@@ -121,7 +130,6 @@ export function ManagerDashboard({ user }: ManagerDashboardProps) {
         <MetricCard
           title="Total Devices"
           value={metrics.totalDevices}
-          change={{ value: 8, type: 'increase' }}
           icon={Package}
           iconColor="text-green-600"
           bgColor="bg-green-50"
@@ -134,7 +142,7 @@ export function ManagerDashboard({ user }: ManagerDashboardProps) {
           icon={FileText}
           iconColor="text-emerald-600"
           bgColor="bg-emerald-50"
-          description="Contracts under management"
+          description="Under management"
           delay={0.2}
         />
         <MetricCard
@@ -144,6 +152,7 @@ export function ManagerDashboard({ user }: ManagerDashboardProps) {
           iconColor="text-orange-600"
           bgColor="bg-orange-50"
           description="Awaiting action"
+          badge={metrics.pendingServiceRequests > 0 ? { text: 'Review', variant: 'warning' } : undefined}
           delay={0.3}
         />
       </motion.div>
@@ -162,6 +171,7 @@ export function ManagerDashboard({ user }: ManagerDashboardProps) {
           iconColor="text-yellow-600"
           bgColor="bg-yellow-50"
           description="Pending customer signature"
+          badge={metrics.unsignedContracts > 0 ? { text: 'Sign', variant: 'warning' } : undefined}
           delay={0.5}
         />
         <MetricCard
@@ -170,7 +180,7 @@ export function ManagerDashboard({ user }: ManagerDashboardProps) {
           icon={CheckCircle}
           iconColor="text-green-600"
           bgColor="bg-green-50"
-          description="Resolved this month"
+          description="Resolved (all time)"
           delay={0.6}
         />
         <MetricCard
@@ -179,8 +189,8 @@ export function ManagerDashboard({ user }: ManagerDashboardProps) {
           icon={AlertTriangle}
           iconColor="text-red-600"
           bgColor="bg-red-50"
-          description="Need reordering"
-          badge={{ text: 'Action Required', variant: 'destructive' }}
+          description="Devices + Spare parts"
+          badge={metrics.lowStockDevices + metrics.lowStockSpareParts > 0 ? { text: 'Action Required', variant: 'destructive' } : undefined}
           delay={0.7}
         />
       </motion.div>
@@ -213,7 +223,7 @@ export function ManagerDashboard({ user }: ManagerDashboardProps) {
         </ChartCard>
       </motion.div>
 
-      {/* Bottom Row */}
+      {/* Recent Activity & Quick Links */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -225,13 +235,41 @@ export function ManagerDashboard({ user }: ManagerDashboardProps) {
             <ActivityFeed
               title="Recent Inventory Activity"
               activities={activities}
-              maxItems={5}
+              maxItems={6}
               delay={1.3}
             />
           )}
         </div>
-        
-        {/* Quick actions removed */}
+
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground">Quick Links</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <Link href="/support/service-requests" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent transition-colors">
+              <History className="h-4 w-4 text-blue-600" />
+              <span className="text-sm">Service Requests</span>
+            </Link>
+            <Link href="/inventory" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent transition-colors">
+              <Warehouse className="h-4 w-4 text-green-600" />
+              <span className="text-sm">Inventory</span>
+            </Link>
+            <Link href="/contracts" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent transition-colors">
+              <FileText className="h-4 w-4 text-emerald-600" />
+              <span className="text-sm">Contracts</span>
+            </Link>
+            <Link href="/customers" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent transition-colors">
+              <UsersRound className="h-4 w-4 text-indigo-600" />
+              <span className="text-sm">Customers</span>
+            </Link>
+            <Link href="/spare-parts" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent transition-colors">
+              <Wrench className="h-4 w-4 text-amber-600" />
+              <span className="text-sm">Spare Parts</span>
+            </Link>
+            <Link href="/suppliers" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent transition-colors">
+              <Store className="h-4 w-4 text-pink-600" />
+              <span className="text-sm">Suppliers</span>
+            </Link>
+          </div>
+        </div>
       </motion.div>
     </div>
   )
