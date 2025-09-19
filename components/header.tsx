@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Bell, Search, LogOut, UserCircle } from 'lucide-react'
 import { getCurrentUser, logout as doLogout, type CurrentUser } from '@/lib/auth'
+import CommandPalette from '@/components/command-palette'
 
 export default function Header () {
   const router = useRouter()
@@ -13,6 +14,8 @@ export default function Header () {
   const [user, setUser] = useState<CurrentUser | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [paletteQuery, setPaletteQuery] = useState('')
 
   const handleLogout = async () => {
     setLoading(true)
@@ -56,8 +59,16 @@ export default function Header () {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
           type="search"
-          placeholder="Search..."
+          placeholder="Search across customers, devices, and actions (Ctrl+K)"
           className="w-full rounded-full border bg-input pl-10 pr-4 py-2 text-sm focus:ring-primary focus:border-primary focus:outline-none"
+          onFocus={() => { setPaletteQuery(''); setPaletteOpen(true) }}
+          onChange={e => { setPaletteQuery(e.target.value); setPaletteOpen(true) }}
+          onKeyDown={e => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+              e.preventDefault()
+              setPaletteOpen(o => !o)
+            }
+          }}
         />
       </div>
 
@@ -101,6 +112,7 @@ export default function Header () {
           </div>
         )}
       </div>
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} initialQuery={paletteQuery} />
     </header>
   )
 } 

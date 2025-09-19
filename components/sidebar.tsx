@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { getCurrentUserRole } from '@/lib/auth'
+import { NAV_ITEMS, GROUPS, type NavItem as RouteItem } from '@/lib/nav-config'
 import { useEffect, useState } from 'react'
 import {
   LayoutDashboard,
@@ -30,12 +31,7 @@ import {
   Download
 } from 'lucide-react'
 
-interface NavItem {
-  name: string
-  href: string
-  icon: React.ReactNode
-  roles?: string[] // Roles that can access this item
-}
+interface NavItem { name: string; href: string; icon: React.ReactNode; roles?: string[] }
 
 export default function Sidebar() {
   const pathname = usePathname()
@@ -61,153 +57,7 @@ export default function Sidebar() {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  const primary: NavItem[] = [
-    {
-      name: 'Dashboard',
-      href: '/dashboard',
-      icon: <LayoutDashboard size={20} />,
-    },
-    // Support Team Menu Items
-    {
-      name: 'Support Chat',
-      href: '/support',
-      icon: <MessageCircle size={20} />,
-      roles: ['SUPPORT_TEAM'],
-    },
-    {
-      name: 'Feedback',
-      href: '/support/feedback',
-      icon: <MessageSquare size={20} />,
-      roles: ['SUPPORT_TEAM', 'MANAGER'],
-    },
-    {
-      name: 'Service Request Management',
-      href: '/support/service-requests',
-      icon: <MessageCircle size={20} />,
-      roles: ['SUPPORT_TEAM'],
-    },
-    {
-      name: 'Task Management',
-      href: '/support/tasks',
-      icon: <ClipboardList size={20} />,
-      roles: ['SUPPORT_TEAM'],
-    },
-    // TechLead Menu Items
-    {
-      name: 'Task Assignment',
-      href: '/techlead/tasks',
-      icon: <UserCog size={20} />,
-      roles: ['LEAD_TECH'],
-    },
-    {
-      name: 'Technician Management',
-      href: '/techlead/technicians',
-      icon: <Users size={20} />,
-      roles: ['LEAD_TECH'],
-    },
-    // Technician Menu Items
-    {
-      name: 'Work Schedule',
-      href: '/technician/schedule',
-      icon: <Calendar size={20} />,
-      roles: ['TECHNICIAN'],
-    },
-    {
-      name: 'My Tasks',
-      href: '/technician/tasks',
-      icon: <CheckSquare size={20} />,
-      roles: ['TECHNICIAN'],
-    },
-
-    // General Management Items
-    {
-      name: 'Customer Management',
-      href: '/customers',
-      icon: <UsersRound size={20} />,
-      roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'LEAD_TECH', 'TECHNICIAN'],
-    },
-    {
-      name: 'Device Management',
-      href: '/devices',
-      icon: <Database size={20} />,
-      roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'LEAD_TECH', 'TECHNICIAN'],
-    },
-    {
-      name: 'Spare Part Management',
-      href: '/spare-parts',
-      icon: <Wrench size={20} />,
-      roles: ['MANAGER', 'STAFF'],
-    },
-    {
-      name: 'Supplier Management',
-      href: '/suppliers',
-      icon: <Store size={20} />,
-      roles: ['MANAGER'],
-    },
-    {
-      name: 'Contract Management',
-      href: '/contracts',
-      icon: <FileText size={20} />,
-      roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'CUSTOMER'],
-    },
-
-    // Inventory Management Items
-    {
-      name: 'Inventory Overview',
-      href: '/inventory',
-      icon: <Warehouse size={20} />,
-      roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'LEAD_TECH'],
-    },
-    {
-      name: 'Import Inventory',
-      href: '/inventory/import',
-      icon: <Upload size={20} />,
-      roles: ['STAFF'],
-    },
-    {
-      name: 'Inventory Transactions',
-      href: '/inventory/transactions',
-      icon: <History size={20} />,
-      roles: ['MANAGER', 'STAFF', 'SUPPORT_TEAM', 'LEAD_TECH'],
-    },
-    {
-      name: 'Warehouse Dashboard',
-      href: '/inventory/dashboard',
-      icon: <BarChart3 size={20} />,
-      roles: ['MANAGER', 'LEAD_TECH', 'SUPPORT_TEAM'],
-    },
-
-    // Customer Menu Items
-    {
-      name: 'My Devices',
-      href: '/my-devices',
-      icon: <Package size={20} />,
-      roles: ['CUSTOMER'],
-    },
-    {
-      name: 'Service Requests',
-      href: '/service-requests',
-      icon: <Clock size={20} />,
-      roles: ['CUSTOMER'],
-    },
-    // Other Items
-  ]
-
-  const others: NavItem[] = [
-    {
-      name: 'User Management',
-      href: '/users',
-      icon: <ShieldCheck size={20} />,
-      roles: ['ADMIN', 'SUPER_ADMIN'],
-    },
-    {
-      name: 'Customer User Management',
-      href: '/users/customers',
-      icon: <UsersRound size={20} />,
-      roles: ['ADMIN', 'SUPER_ADMIN'],
-    },
-
-  ]
+  const all: NavItem[] = NAV_ITEMS.map((n: RouteItem) => ({ name: n.name, href: n.href, icon: n.icon, roles: n.roles as string[] | undefined }))
 
   function hasAccess(item: NavItem): boolean {
     if (!mounted) return false
@@ -287,7 +137,7 @@ export default function Sidebar() {
     admin: ['/users', '/users/customers', '/bot']
   }
 
-  const pick = (hrefs: string[]) => (primary.concat(others)).filter(i => hrefs.includes(i.href))
+  const pick = (hrefs: string[]) => all.filter(i => hrefs.includes(i.href))
 
   const groups: Group[] = [
     { id: 'dashboard', title: 'Overview', items: pick(groupBy.dashboard), icon: <LayoutDashboard size={16} /> },
