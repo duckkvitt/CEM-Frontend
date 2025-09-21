@@ -3,8 +3,8 @@
 import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Edit, ArrowLeft, Download, Trash2, Check, ShieldCheck, Loader2, X } from 'lucide-react'
-import { getContractDetails, hideContract, ContractResponse, getSignedDownloadUrl, submitSignature, SignatureRequest, getContractFileBlob, submitDigitalSignature, getContractSignatures, verifySignature, type DigitalSignatureRequest, type DigitalSignatureRecord, type SignatureVerificationResult } from '@/lib/contract-service'
+import { Edit, ArrowLeft, Download, Check, ShieldCheck, Loader2, X } from 'lucide-react'
+import { getContractDetails, ContractResponse, getSignedDownloadUrl, submitSignature, SignatureRequest, getContractFileBlob, submitDigitalSignature, getContractSignatures, verifySignature, type DigitalSignatureRequest, type DigitalSignatureRecord, type SignatureVerificationResult } from '@/lib/contract-service'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils'
 import { getCurrentUserRole } from '@/lib/auth'
 import dynamic from 'next/dynamic';
@@ -110,18 +110,6 @@ export default function ContractDetailPage({ params }: Props) {
   }, [contract]);
 
 
-  // Handle hide contract
-  async function handleHideContract() {
-    if (contract && window.confirm('Are you sure you want to hide this contract?')) {
-      try {
-        await hideContract(contract.id)
-        router.push('/contracts')
-      } catch (err) {
-        console.error('Error hiding contract:', err)
-        setError('Failed to hide contract')
-      }
-    }
-  }
 
   // Handle download file
   const handleDownloadFile = async (fileName: string) => {
@@ -359,15 +347,6 @@ export default function ContractDetailPage({ params }: Props) {
             </button>
           )}
 
-          {isManager && (
-            <button
-              onClick={handleHideContract}
-              className="flex items-center gap-1 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
-            >
-              <Trash2 size={16} />
-              Hide
-            </button>
-          )}
         </div>
       </div>
 
