@@ -48,6 +48,8 @@ export default function DeviceDetailPage () {
   const [notes, setNotes] = useState<DeviceNote[]>([])
   const [loading, setLoading] = useState(false)
   const [noteText, setNoteText] = useState('')
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null)
+  const [editingNoteText, setEditingNoteText] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   // Helper function for authenticated requests
@@ -154,6 +156,33 @@ export default function DeviceDetailPage () {
     }
   }
 
+  const editNote = async (noteId: number) => {
+    if (!editingNoteText.trim()) return
+    try {
+      const res = await authenticatedFetch(`${DEVICE_SERVICE_URL}/devices/${deviceId}/notes/${noteId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ note: editingNoteText.trim() })
+      })
+      const json: ApiResponse<DeviceNote> = await res.json()
+      if (!json.success) throw new Error(json.message || 'Failed to update note')
+      setEditingNoteId(null)
+      setEditingNoteText('')
+      fetchDetails()
+    } catch (err) {
+      alert((err as Error).message)
+    }
+  }
+
+  const startEditNote = (note: DeviceNote) => {
+    setEditingNoteId(note.id)
+    setEditingNoteText(note.note)
+  }
+
+  const cancelEditNote = () => {
+    setEditingNoteId(null)
+    setEditingNoteText('')
+  }
+
   const deleteNote = async (noteId: number) => {
     if (!confirm('Delete this note?')) return
     try {
@@ -230,13 +259,58 @@ export default function DeviceDetailPage () {
         ) : (
           <ul className='space-y-3'>
             {notes.map(n => (
-              <li key={n.id} className='border rounded-md p-3 flex justify-between items-start'>
-                <div>
-                  <p className='text-sm whitespace-pre-line'>{n.note}</p>
-                  <p className='text-xs text-muted-foreground mt-1'>By {n.createdBy || 'Unknown'} on {new Date(n.createdAt).toLocaleString()}</p>
-                </div>
-                {role === 'STAFF' && (
-                  <button onClick={() => deleteNote(n.id)} className='text-red-600 text-xs underline ml-4'>Delete</button>
+              <li key={n.id} className='border rounded-md p-3'>
+                {editingNoteId === n.id ? (
+                  // Edit mode
+                  <div className='space-y-3'>
+                    <textarea
+                      value={editingNoteText}
+                      onChange={e => setEditingNoteText(e.target.value)}
+                      className='w-full border rounded-md px-3 py-2 text-sm resize-none'
+                      rows={3}
+                      placeholder='Edit note...'
+                    />
+                    <div className='flex gap-2 justify-end'>
+                      <Button 
+                        variant='outline' 
+                        size='sm' 
+                        onClick={cancelEditNote}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        size='sm' 
+                        onClick={() => editNote(n.id)}
+                        disabled={!editingNoteText.trim()}
+                      >
+                        Update
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  // View mode
+                  <div className='flex justify-between items-start'>
+                    <div className='flex-1'>
+                      <p className='text-sm whitespace-pre-line'>{n.note}</p>
+                      <p className='text-xs text-muted-foreground mt-1'>By {n.createdBy || 'Unknown'} on {new Date(n.createdAt).toLocaleString()}</p>
+                    </div>
+                    {role === 'STAFF' && (
+                      <div className='flex gap-2 ml-4'>
+                        <button 
+                          onClick={() => startEditNote(n)} 
+                          className='text-blue-600 text-xs underline hover:text-blue-800'
+                        >
+                          Edit
+                        </button>
+                        <button 
+                          onClick={() => deleteNote(n.id)} 
+                          className='text-red-600 text-xs underline hover:text-red-800'
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </li>
             ))}
