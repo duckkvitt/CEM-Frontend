@@ -1,6 +1,5 @@
 'use client'
 
-import Sidebar from '@/components/sidebar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -120,13 +119,11 @@ export default function CustomerUserManagementPage () {
   }
 
   return (
-    <div className="flex min-h-screen w-full">
-      <Sidebar />
-      <main className="ml-60 flex-1 bg-background p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-semibold">Customer User Management</h1>
-        </div>
-        <form onSubmit={handleSearch} className="flex flex-wrap gap-4 mb-6 items-end">
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-semibold">Customer User Management</h1>
+      </div>
+      <form onSubmit={handleSearch} className="flex flex-wrap gap-4 mb-6 items-end">
           <div className="flex flex-col gap-1">
             <Label htmlFor="search">Search</Label>
             <Input id="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Name or email" />
@@ -183,7 +180,6 @@ export default function CustomerUserManagementPage () {
             </Button>
           </div>
         </div>
-      </main>
-    </div>
+    </>
   )
 } 
