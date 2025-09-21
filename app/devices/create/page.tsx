@@ -91,7 +91,8 @@ export default function CreateDevicePage() {
       if (!json.success) throw new Error(json.message || 'Failed to create device')
       
       setSuccess('Device created successfully! Redirecting...')
-      setTimeout(() => router.push('/devices'), 1500)
+      // Add refresh parameter to trigger data reload
+      setTimeout(() => router.push('/devices?refresh=true'), 1500)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unexpected error occurred'
       setError(msg)

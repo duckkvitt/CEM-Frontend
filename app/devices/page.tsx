@@ -7,7 +7,7 @@ import { DEVICE_SERVICE_URL } from '@/lib/api'
 import { getValidAccessToken, getCurrentUserRole, logout } from '@/lib/auth'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 interface Device {
   id: number
@@ -53,6 +53,7 @@ export default function DeviceManagementPage () {
   const [error, setError] = useState<string | null>(null)
   const [role, setRole] = useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     setRole(getCurrentUserRole())
@@ -115,6 +116,19 @@ export default function DeviceManagementPage () {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, size])
 
+  // Handle refresh parameter from create page
+  useEffect(() => {
+    if (searchParams.get('refresh') === 'true') {
+      // Clear the refresh parameter from URL
+      const newUrl = new URL(window.location.href)
+      newUrl.searchParams.delete('refresh')
+      router.replace(newUrl.pathname + newUrl.search, { scroll: false })
+      
+      // Force refresh data
+      fetchDevices()
+    }
+  }, [searchParams, router])
+
   const handleFilter = (e: React.FormEvent) => {
     e.preventDefault()
     setPage(0)
@@ -144,10 +158,18 @@ export default function DeviceManagementPage () {
       }
       
       const json: ApiResponse<string> = await res.json()
-      if (!json.success) throw new Error(json.message || 'Failed')
+      if (!json.success) {
+        // Show specific validation error message from backend
+        const errorMessage = json.message || 'Failed to delete device'
+        alert(`Cannot delete device: ${errorMessage}`)
+        return
+      }
+      
+      // Success - refresh the device list
       fetchDevices()
     } catch (e) {
-      alert((e as Error).message)
+      const errorMessage = (e as Error).message
+      alert(`Error deleting device: ${errorMessage}`)
     }
   }
 

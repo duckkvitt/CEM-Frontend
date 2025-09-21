@@ -31,7 +31,7 @@ export default function CreateUserPage () {
     lastName: '',
     phone: '',
     roleId: '',
-    emailVerified: false
+    emailVerified: true
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -55,12 +55,10 @@ export default function CreateUserPage () {
   }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target as HTMLInputElement | HTMLSelectElement
-    const isCheckbox = type === 'checkbox'
-    const newValue = isCheckbox ? (e.target as HTMLInputElement).checked : value
+    const { name, value } = e.target
     setForm(prev => ({
       ...prev,
-      [name]: newValue
+      [name]: value
     }))
     // Clear field-specific error when user starts editing the field
     if (fieldErrors[name]) {
@@ -154,7 +152,7 @@ export default function CreateUserPage () {
             <select id="roleId" name="roleId" required value={form.roleId} onChange={handleChange} className="h-10 rounded-md border px-3 text-sm w-full">
               <option value="">Select role</option>
               {roles
-                .filter(r => !['USER', 'ADMIN'].includes(r.name.toUpperCase()))
+                .filter(r => !['USER', 'ADMIN', 'CUSTOMER'].includes(r.name.toUpperCase()))
                 .map(r => (
                 <option key={r.id} value={r.id}>{r.name}</option>
               ))}
@@ -162,10 +160,6 @@ export default function CreateUserPage () {
             {fieldErrors.roleId && (
               <p className="text-destructive text-xs mt-1">{Array.isArray(fieldErrors.roleId) ? fieldErrors.roleId.join(', ') : fieldErrors.roleId}</p>
             )}
-          </div>
-          <div className="flex items-center gap-2">
-            <input id="emailVerified" name="emailVerified" type="checkbox" checked={form.emailVerified} onChange={handleChange} />
-            <Label htmlFor="emailVerified">Email Verified</Label>
           </div>
           {error && <p className="text-destructive text-sm">{error}</p>}
           {success && <p className="text-green-600 text-sm">{success}</p>}
