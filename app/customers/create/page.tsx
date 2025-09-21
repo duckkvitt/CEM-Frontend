@@ -35,32 +35,146 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
-// Schema definition using Zod
+// Comprehensive validation schema with business logic
 const formSchema = z.object({
-  email: z.string().email('Invalid email format').max(255),
-  phone: z
-    .string()
-    .min(1, 'Phone number is required')
-    .regex(/^[+]?[0-9]{10,20}$/, 'Invalid phone number format'),
-  address: z.string().max(1000).optional(),
-  companyName: z.string().min(1, 'Company name is required').max(255),
-  companyTaxCode: z.string().min(1, 'Company tax code is required').max(50),
-  companyAddress: z.string().min(1, 'Company address is required').max(1000),
+  // Legal Representative Information
   legalRepresentative: z
     .string()
-    .min(1, 'Legal representative is required')
-    .max(255),
-  title: z.string().min(1, 'Title is required').max(255),
-  identityNumber: z.string().min(1, 'Identity number is required').max(50),
-  identityIssueDate: z.date({
-    required_error: 'Identity issue date is required.',
-  }),
+    .min(1, 'Legal representative name is required')
+    .min(2, 'Legal representative name must be at least 2 characters')
+    .max(255, 'Legal representative name cannot exceed 255 characters')
+    .regex(/^[a-zA-ZÀ-ỹ\s]+$/, 'Legal representative name can only contain letters and spaces')
+    .refine((val) => val.trim().length > 0, 'Legal representative name cannot be empty or only spaces'),
+
+  title: z
+    .string()
+    .min(1, 'Title is required')
+    .min(2, 'Title must be at least 2 characters')
+    .max(255, 'Title cannot exceed 255 characters')
+    .regex(/^[a-zA-ZÀ-ỹ\s]+$/, 'Title can only contain letters and spaces')
+    .refine((val) => val.trim().length > 0, 'Title cannot be empty or only spaces'),
+
+  identityNumber: z
+    .string()
+    .min(1, 'Identity number is required')
+    .min(9, 'Identity number must be at least 9 digits')
+    .max(20, 'Identity number cannot exceed 20 characters')
+    .regex(/^[0-9]+$/, 'Identity number can only contain digits')
+    .refine((val) => val.trim().length > 0, 'Identity number cannot be empty or only spaces'),
+
   identityIssuePlace: z
     .string()
     .min(1, 'Identity issue place is required')
-    .max(255),
-  fax: z.string().max(20).optional(),
-  tags: z.string().optional(),
+    .min(2, 'Identity issue place must be at least 2 characters')
+    .max(255, 'Identity issue place cannot exceed 255 characters')
+    .refine((val) => val.trim().length > 0, 'Identity issue place cannot be empty or only spaces'),
+
+  identityIssueDate: z
+    .date({
+      required_error: 'Identity issue date is required',
+      invalid_type_error: 'Please select a valid date',
+    })
+    .refine((date) => {
+      const today = new Date()
+      const minDate = new Date('1900-01-01')
+      return date <= today && date >= minDate
+    }, 'Identity issue date must be between 1900 and today')
+    .refine((date) => {
+      const today = new Date()
+      const diffTime = Math.abs(today.getTime() - date.getTime())
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      return diffDays <= 36500 // 100 years
+    }, 'Identity issue date cannot be more than 100 years ago'),
+
+  // Contact Information
+  phone: z
+    .string()
+    .min(1, 'Phone number is required')
+    .min(10, 'Phone number must be at least 10 digits')
+    .max(15, 'Phone number cannot exceed 15 digits')
+    .regex(/^(\+84|84|0)[0-9]{9,10}$/, 'Please enter a valid Vietnamese phone number (e.g., +84123456789, 0123456789)')
+    .refine((val) => val.trim().length > 0, 'Phone number cannot be empty or only spaces'),
+
+  email: z
+    .string()
+    .min(1, 'Email address is required')
+    .email('Please enter a valid email address (e.g., user@example.com)')
+    .max(255, 'Email address cannot exceed 255 characters')
+    .toLowerCase()
+    .refine((val) => val.trim().length > 0, 'Email address cannot be empty or only spaces')
+    .refine((val) => {
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+      return emailRegex.test(val)
+    }, 'Please enter a valid email format'),
+
+  address: z
+    .string()
+    .max(1000, 'Address cannot exceed 1000 characters')
+    .optional()
+    .refine((val) => !val || val.trim().length > 0, 'Address cannot be only spaces'),
+
+  // Company Information
+  companyName: z
+    .string()
+    .min(1, 'Company name is required')
+    .min(2, 'Company name must be at least 2 characters')
+    .max(255, 'Company name cannot exceed 255 characters')
+    .refine((val) => val.trim().length > 0, 'Company name cannot be empty or only spaces')
+    .refine((val) => {
+      // Allow letters, numbers, spaces, and common business characters
+      const businessNameRegex = /^[a-zA-ZÀ-ỹ0-9\s\-\.&(),]+$/
+      return businessNameRegex.test(val)
+    }, 'Company name contains invalid characters'),
+
+  companyTaxCode: z
+    .string()
+    .min(1, 'Company tax code is required')
+    .min(10, 'Company tax code must be at least 10 digits')
+    .max(15, 'Company tax code cannot exceed 15 digits')
+    .regex(/^[0-9]+$/, 'Company tax code can only contain digits')
+    .refine((val) => val.trim().length > 0, 'Company tax code cannot be empty or only spaces')
+    .refine((val) => {
+      // Vietnamese tax code validation (usually 10-13 digits)
+      return val.length >= 10 && val.length <= 13
+    }, 'Company tax code must be between 10-13 digits'),
+
+  companyAddress: z
+    .string()
+    .min(1, 'Company address is required')
+    .min(10, 'Company address must be at least 10 characters')
+    .max(1000, 'Company address cannot exceed 1000 characters')
+    .refine((val) => val.trim().length > 0, 'Company address cannot be empty or only spaces')
+    .refine((val) => {
+      // Basic address validation - should contain at least one number and some text
+      const hasNumber = /\d/.test(val)
+      const hasText = /[a-zA-ZÀ-ỹ]/.test(val)
+      return hasNumber && hasText
+    }, 'Please enter a complete address with street number and name'),
+
+  // Optional fields
+  fax: z
+    .string()
+    .max(20, 'Fax number cannot exceed 20 characters')
+    .optional()
+    .refine((val) => !val || val.trim().length > 0, 'Fax number cannot be only spaces')
+    .refine((val) => {
+      if (!val) return true
+      // Basic fax validation - should contain numbers and optional + or -
+      const faxRegex = /^[\+]?[0-9\-\s\(\)]+$/
+      return faxRegex.test(val)
+    }, 'Please enter a valid fax number'),
+
+  tags: z
+    .string()
+    .max(500, 'Tags cannot exceed 500 characters')
+    .optional()
+    .refine((val) => !val || val.trim().length > 0, 'Tags cannot be only spaces')
+    .refine((val) => {
+      if (!val) return true
+      // Validate tag format - should be comma-separated, no special characters
+      const tags = val.split(',').map(tag => tag.trim()).filter(Boolean)
+      return tags.every(tag => /^[a-zA-Z0-9\-\s]+$/.test(tag) && tag.length <= 50)
+    }, 'Tags must be comma-separated and contain only letters, numbers, hyphens, and spaces (max 50 chars per tag)'),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -80,6 +194,8 @@ export default function CreateCustomerPage() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
+    mode: 'onChange', // Enable real-time validation
+    reValidateMode: 'onChange', // Re-validate on change
     defaultValues: {
       email: '',
       phone: '',
@@ -109,20 +225,38 @@ export default function CreateCustomerPage() {
     setLoading(true)
     setError(null)
     setSuccess(null)
+    
     try {
+      // Additional client-side validation before submission
+      if (!values.identityIssueDate) {
+        throw new Error('Identity issue date is required')
+      }
+      
+      // Validate that identity issue date is not in the future
+      if (values.identityIssueDate > new Date()) {
+        throw new Error('Identity issue date cannot be in the future')
+      }
+
       const payload = {
         ...values,
-        name: values.legalRepresentative, // Use legalRepresentative as the main name
+        name: values.legalRepresentative.trim(), // Use legalRepresentative as the main name
         // Format date and handle optional fields
         identityIssueDate: format(values.identityIssueDate, 'yyyy-MM-dd'),
         tags: values.tags
           ? values.tags.split(',').map(t => t.trim()).filter(Boolean)
           : [],
-        address: values.address || undefined,
-        companyName: values.companyName || undefined,
-        companyTaxCode: values.companyTaxCode || undefined,
-        companyAddress: values.companyAddress || undefined,
-        fax: values.fax || undefined,
+        address: values.address?.trim() || undefined,
+        companyName: values.companyName?.trim() || undefined,
+        companyTaxCode: values.companyTaxCode?.trim() || undefined,
+        companyAddress: values.companyAddress?.trim() || undefined,
+        fax: values.fax?.trim() || undefined,
+        // Clean up other fields
+        legalRepresentative: values.legalRepresentative.trim(),
+        title: values.title.trim(),
+        identityNumber: values.identityNumber.trim(),
+        identityIssuePlace: values.identityIssuePlace.trim(),
+        phone: values.phone.trim(),
+        email: values.email.trim().toLowerCase(),
       }
 
       const res = await fetch(`${CUSTOMER_SERVICE_URL}/v1/customers`, {
@@ -141,7 +275,9 @@ export default function CreateCustomerPage() {
       setSuccess('Customer created successfully! Redirecting...')
       setTimeout(() => router.push('/customers'), 2000)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred'
+      setError(errorMessage)
+      console.error('Form submission error:', err)
     } finally {
       setLoading(false)
     }
@@ -161,9 +297,9 @@ export default function CreateCustomerPage() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <Card>
               <CardHeader>
-                <CardTitle>Thông tin Người đại diện</CardTitle>
+                <CardTitle>Legal Representative Information</CardTitle>
                 <CardDescription>
-                  Thông tin cá nhân của người đại diện theo pháp luật.
+                  Personal information of the legal representative according to law.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -172,9 +308,9 @@ export default function CreateCustomerPage() {
                   name="legalRepresentative"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Người đại diện (*)</FormLabel>
+                      <FormLabel>Legal Representative Name *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Nguyễn Văn A" {...field} />
+                        <Input placeholder="John Smith" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -185,9 +321,9 @@ export default function CreateCustomerPage() {
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Chức danh (*)</FormLabel>
+                      <FormLabel>Title/Position *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Giám đốc" {...field} />
+                        <Input placeholder="CEO, Director, Manager" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -198,9 +334,9 @@ export default function CreateCustomerPage() {
                   name="identityNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>CMND/CCCD/Hộ chiếu số (*)</FormLabel>
+                      <FormLabel>ID/Passport Number *</FormLabel>
                       <FormControl>
-                        <Input placeholder="0123456789" {...field} />
+                        <Input placeholder="123456789" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -211,9 +347,9 @@ export default function CreateCustomerPage() {
                   name="identityIssuePlace"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nơi cấp (*)</FormLabel>
+                      <FormLabel>Issued By *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Cục CSQLHC về TTXH" {...field} />
+                        <Input placeholder="Department of Immigration" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -224,7 +360,7 @@ export default function CreateCustomerPage() {
                   name="identityIssueDate"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel>Ngày cấp (*)</FormLabel>
+                      <FormLabel>Issue Date *</FormLabel>
                        <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -238,7 +374,7 @@ export default function CreateCustomerPage() {
                               {field.value ? (
                                 format(field.value, 'PPP')
                               ) : (
-                                <span>Pick a date</span>
+                                <span>Select issue date</span>
                               )}
                               <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                             </Button>
@@ -265,7 +401,7 @@ export default function CreateCustomerPage() {
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Số điện thoại (*)</FormLabel>
+                      <FormLabel>Phone Number *</FormLabel>
                       <FormControl>
                         <Input placeholder="+84123456789" {...field} />
                       </FormControl>
@@ -278,9 +414,9 @@ export default function CreateCustomerPage() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email (*)</FormLabel>
+                      <FormLabel>Email Address *</FormLabel>
                       <FormControl>
-                        <Input placeholder="example@company.com" {...field} />
+                        <Input placeholder="john.smith@company.com" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -291,9 +427,9 @@ export default function CreateCustomerPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Thông tin Doanh nghiệp</CardTitle>
+                <CardTitle>Company Information</CardTitle>
                 <CardDescription>
-                  Thông tin pháp lý và liên lạc của doanh nghiệp (nếu có).
+                  Legal and contact information of the company.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -302,9 +438,9 @@ export default function CreateCustomerPage() {
                   name="companyName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tên Khách hàng/Doanh nghiệp (*)</FormLabel>
+                      <FormLabel>Company Name *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Công ty TNHH ABC" {...field} />
+                        <Input placeholder="ABC Company Ltd." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -315,9 +451,9 @@ export default function CreateCustomerPage() {
                   name="companyTaxCode"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Mã số doanh nghiệp (*)</FormLabel>
+                      <FormLabel>Tax Code *</FormLabel>
                       <FormControl>
-                        <Input placeholder="0102030405" {...field} />
+                        <Input placeholder="0123456789" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -328,9 +464,22 @@ export default function CreateCustomerPage() {
                   name="companyAddress"
                   render={({ field }) => (
                     <FormItem className="md:col-span-2">
-                      <FormLabel>Địa chỉ trụ sở chính (*)</FormLabel>
+                      <FormLabel>Company Address *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Số 1, Đường ABC, Phường XYZ, Quận 1, TP. HCM" {...field} />
+                        <Input placeholder="123 Main Street, District 1, Ho Chi Minh City" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Personal Address (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="456 Personal Street, District 2, Ho Chi Minh City" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -341,7 +490,7 @@ export default function CreateCustomerPage() {
                   name="fax"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Fax</FormLabel>
+                      <FormLabel>Fax Number (Optional)</FormLabel>
                       <FormControl>
                         <Input placeholder="+84-28-12345678" {...field} />
                       </FormControl>
@@ -354,12 +503,12 @@ export default function CreateCustomerPage() {
                   name="tags"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tags</FormLabel>
+                      <FormLabel>Tags (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="vip, new-customer" {...field} />
+                        <Input placeholder="vip, new-customer, priority" {...field} />
                       </FormControl>
                        <FormDescription>
-                        Phân cách bằng dấu phẩy.
+                        Separate multiple tags with commas.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -371,23 +520,43 @@ export default function CreateCustomerPage() {
             {error && <p className='text-destructive text-sm font-medium'>{error}</p>}
             {success && <p className='text-green-600 text-sm font-medium'>{success}</p>}
             
-            {/* Debug info - remove in production */}
+            {/* Validation Summary - Development only */}
             {process.env.NODE_ENV === 'development' && (
-              <div className="text-xs text-muted-foreground">
-                <p>Form valid: {form.formState.isValid ? 'Yes' : 'No'}</p>
-                {Object.keys(form.formState.errors).length > 0 && (
-                  <p>Errors: {Object.keys(form.formState.errors).join(', ')}</p>
-                )}
-              </div>
+              <Card className="border-dashed">
+                <CardHeader>
+                  <CardTitle className="text-sm">Validation Status</CardTitle>
+                </CardHeader>
+                <CardContent className="text-xs text-muted-foreground space-y-1">
+                  <p>Form Valid: {form.formState.isValid ? '✅ Yes' : '❌ No'}</p>
+                  <p>Fields Touched: {Object.keys(form.formState.touchedFields).length}</p>
+                  <p>Fields with Errors: {Object.keys(form.formState.errors).length}</p>
+                  {Object.keys(form.formState.errors).length > 0 && (
+                    <div>
+                      <p className="font-medium text-destructive">Errors:</p>
+                      <ul className="list-disc list-inside ml-2">
+                        {Object.entries(form.formState.errors).map(([field, error]) => (
+                          <li key={field}>
+                            <span className="font-medium">{field}:</span> {error?.message || 'Invalid'}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             )}
 
             <div className="flex justify-end gap-4">
                <Button type="button" variant="outline" onClick={() => router.push('/customers')}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading || !form.formState.isValid}>
+              <Button 
+                type="submit" 
+                disabled={loading || !form.formState.isValid || form.formState.isSubmitting}
+                className="min-w-[140px]"
+              >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Customer
+                {loading ? 'Creating...' : 'Create Customer'}
               </Button>
           </div>
           </form>
