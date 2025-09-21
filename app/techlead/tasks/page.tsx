@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination'
+import { EnhancedPagination } from '@/components/ui/enhanced-pagination'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { 
@@ -72,6 +72,7 @@ const TYPE_COLORS = {
   WARRANTY: 'bg-green-100 text-green-800',
   INSTALLATION: 'bg-purple-100 text-purple-800',
   INSPECTION: 'bg-indigo-100 text-indigo-800',
+  REPAIR: 'bg-orange-100 text-orange-800',
   EMERGENCY_REPAIR: 'bg-red-100 text-red-800',
   PREVENTIVE_MAINTENANCE: 'bg-teal-100 text-teal-800'
 }
@@ -182,6 +183,14 @@ export default function TechLeadTasksPage() {
     setFilters(prev => ({
       ...prev,
       page
+    }))
+  }
+
+  const handlePageSizeChange = (size: number) => {
+    setFilters(prev => ({
+      ...prev,
+      size,
+      page: 0 // Reset to first page when changing page size
     }))
   }
 
@@ -645,44 +654,23 @@ export default function TechLeadTasksPage() {
         )}
       </motion.div>
 
-      {/* Pagination */}
+      {/* Enhanced Pagination */}
       {tasks && tasks.totalPages > 1 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.6 }}
-          className="mt-8"
-        >
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious 
-                  onClick={() => handlePageChange(filters.page - 1)}
-                  className={filters.page === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                />
-              </PaginationItem>
-              
-              {Array.from({ length: tasks.totalPages }, (_, i) => (
-                <PaginationItem key={i}>
-                  <PaginationLink
-                    onClick={() => handlePageChange(i)}
-                    isActive={filters.page === i}
-                    className="cursor-pointer"
-                  >
-                    {i + 1}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
-              
-              <PaginationItem>
-                <PaginationNext 
-                  onClick={() => handlePageChange(filters.page + 1)}
-                  className={filters.page === tasks.totalPages - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </motion.div>
+        <div className="mt-8">
+          <EnhancedPagination
+            currentPage={filters.page}
+            totalPages={tasks.totalPages}
+            totalElements={tasks.totalElements}
+            pageSize={filters.size}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            loading={loading}
+            showPageSizeSelector={true}
+            showJumpToPage={true}
+            showTotalInfo={true}
+            pageSizeOptions={[5, 10, 20, 50, 100]}
+          />
+        </div>
       )}
 
       {/* Assignment Modal */}

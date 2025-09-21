@@ -31,6 +31,7 @@ import {
   XCircle,
   Loader2
 } from 'lucide-react'
+import { EnhancedPagination } from '@/components/ui/enhanced-pagination'
 import { motion } from 'framer-motion'
 import { format } from 'date-fns'
 import { 
@@ -75,7 +76,7 @@ const taskTypeColors = {
 
 export default function SupportTasksPage() {
   const router = useRouter()
-  const [tasks, setTasks] = useState<Task[]>([])
+  const [tasks, setTasks] = useState<{ content: Task[], totalPages: number, totalElements: number, size: number, number: number } | null>(null)
   const [statistics, setStatistics] = useState<TaskStatistics | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -89,7 +90,7 @@ export default function SupportTasksPage() {
   const [sortBy, setSortBy] = useState('createdAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(0)
-  const [size] = useState(10)
+  const [size, setSize] = useState(10)
 
   // Modal states
   const [createModalOpen, setCreateModalOpen] = useState(false)
@@ -136,7 +137,7 @@ export default function SupportTasksPage() {
   useEffect(() => {
     loadTasks()
     loadStatistics()
-  }, [searchTerm, statusFilter, priorityFilter, typeFilter, sortBy, sortOrder, page])
+  }, [searchTerm, statusFilter, priorityFilter, typeFilter, sortBy, sortOrder, page, size])
 
   const loadTasks = async () => {
     try {
@@ -151,7 +152,7 @@ export default function SupportTasksPage() {
         page,
         size
       })
-      setTasks(data.content)
+      setTasks(data)
       setError(null)
     } catch (err) {
       setError('Failed to load tasks')
@@ -277,6 +278,15 @@ export default function SupportTasksPage() {
     setPage(0)
   }
 
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage)
+  }
+
+  const handlePageSizeChange = (newSize: number) => {
+    setSize(newSize)
+    setPage(0) // Reset to first page when changing page size
+  }
+
   // Load customers when create modal opens
   useEffect(() => {
     const loadCustomers = async () => {
@@ -329,7 +339,7 @@ export default function SupportTasksPage() {
     loadDevices(selectedCustomerId)
   }, [selectedCustomerId])
 
-  if (loading && tasks.length === 0) {
+  if (loading && (!tasks || tasks.content.length === 0)) {
     return (
       <div className="flex min-h-screen w-full">
         <main className="ml-64 flex-1 bg-background p-6">
@@ -555,7 +565,7 @@ export default function SupportTasksPage() {
                   <Skeleton key={i} className="h-24" />
                 ))}
               </>
-            ) : tasks.length === 0 ? (
+            ) : !tasks || tasks.content.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Clock className="h-12 w-12 text-muted-foreground mb-4" />
@@ -566,7 +576,7 @@ export default function SupportTasksPage() {
                 </CardContent>
               </Card>
             ) : (
-              tasks.map((task, index) => (
+              tasks.content.map((task, index) => (
                 <motion.div
                   key={task.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -666,6 +676,25 @@ export default function SupportTasksPage() {
               ))
             )}
           </div>
+
+          {/* Enhanced Pagination */}
+          {tasks && tasks.totalPages > 1 && (
+            <div className="mt-8">
+              <EnhancedPagination
+                currentPage={page}
+                totalPages={tasks.totalPages}
+                totalElements={tasks.totalElements}
+                pageSize={size}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+                loading={loading}
+                showPageSizeSelector={true}
+                showJumpToPage={true}
+                showTotalInfo={true}
+                pageSizeOptions={[5, 10, 20, 50, 100]}
+              />
+            </div>
+          )}
         </div>
 
         {/* Create Task Modal */}

@@ -13,10 +13,17 @@ export interface Task {
   serialNumber?: string
   title: string
   description: string
-  type: 'MAINTENANCE' | 'WARRANTY' | 'INSTALLATION' | 'REPAIR' | 'INSPECTION'
-  status: 'PENDING' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'REJECTED' | 'CANCELLED'
+  type: 'MAINTENANCE' | 'WARRANTY' | 'INSTALLATION' | 'REPAIR' | 'INSPECTION' | 'EMERGENCY_REPAIR' | 'PREVENTIVE_MAINTENANCE'
+  status: 'PENDING' | 'ASSIGNED' | 'ACCEPTED' | 'IN_PROGRESS' | 'COMPLETED' | 'REJECTED' | 'CANCELLED'
   priority: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL'
   preferredCompletionDate?: string
+  scheduledDate?: string
+  estimatedDurationHours?: number
+  serviceLocation?: string
+  actualCost?: number
+  estimatedCost?: number
+  rejectionReason?: string
+  assignedTechnicianName?: string
   // cost/attachments removed
   staffNotes?: string
   assignedToId?: number
@@ -114,7 +121,10 @@ export interface RejectServiceRequestRequest {
 }
 
 export interface AssignTaskRequest {
-  assignedToId: number
+  technicianId: number
+  scheduledDate?: string
+  techleadNotes?: string
+  assignedToId?: number
   staffNotes?: string
 }
 
@@ -130,8 +140,12 @@ export interface TechnicianInfo {
   fullName: string
   phone?: string
   specializations?: string[]
+  skills?: string
   currentTaskCount: number
   maxTaskCapacity: number
+  maxConcurrentTasks: number
+  workloadPercentage: number
+  availabilityStatus: string
   isAvailable: boolean
 }
 
