@@ -3,12 +3,16 @@
 import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Edit, ArrowLeft, Download, Check, ShieldCheck, Loader2, X } from 'lucide-react'
+import { Edit, ArrowLeft, Download, Check, ShieldCheck, Loader2, X, FileText, Calendar, User, DollarSign, Clock, AlertCircle, CheckCircle2, FileSignature, Eye, RefreshCw, Sparkles, Zap, Star, Award, TrendingUp, Hash } from 'lucide-react'
 import { getContractDetails, ContractResponse, getSignedDownloadUrl, submitSignature, SignatureRequest, getContractFileBlob, submitDigitalSignature, getContractSignatures, verifySignature, type DigitalSignatureRequest, type DigitalSignatureRecord, type SignatureVerificationResult } from '@/lib/contract-service'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils'
 import { getCurrentUserRole } from '@/lib/auth'
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 
 // Dynamic import for PdfViewer to avoid SSR issues
 const PdfViewer = dynamic(
@@ -274,10 +278,19 @@ export default function ContractDetailPage({ params }: Props) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-2">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <p className="text-muted-foreground">Loading contract details...</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center space-y-6">
+          <div className="relative">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary/20 border-t-primary mx-auto"></div>
+            <div className="absolute inset-0 rounded-full h-16 w-16 border-4 border-transparent border-t-primary/40 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-semibold text-slate-700">Loading Contract Details</h3>
+            <p className="text-slate-500">Please wait while we fetch your contract information...</p>
+          </div>
+          <div className="w-64 mx-auto">
+            <Progress value={66} className="h-2" />
+          </div>
         </div>
       </div>
     )
@@ -285,413 +298,545 @@ export default function ContractDetailPage({ params }: Props) {
 
   if (error || !contract) {
     return (
-      <div className="rounded-md bg-red-50 p-6 text-center">
-        <h3 className="text-lg font-medium text-red-800">Error</h3>
-        <p className="mt-2 text-red-700">{error || 'Contract not found'}</p>
-        <div className="mt-4">
-          <Link 
-            href="/contracts" 
-            className="inline-flex items-center gap-1 rounded-md bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-gray-50"
-          >
-            <ArrowLeft size={16} />
-            Back to contracts
-          </Link>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full border-red-200 shadow-xl">
+          <CardHeader className="text-center pb-4">
+            <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+              <AlertCircle className="w-8 h-8 text-red-600" />
+            </div>
+            <CardTitle className="text-2xl text-red-800">Contract Not Found</CardTitle>
+            <CardDescription className="text-red-600">
+              {error || 'The contract you are looking for could not be found or has been removed.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center">
+            <Button asChild className="w-full">
+              <Link href="/contracts">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Contracts
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      {/* Header with actions */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Link
-            href="/contracts"
-            className="rounded-md p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft size={18} />
-          </Link>
-          <h1 className="text-2xl font-bold">Contract Details</h1>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Actions based on contract status and user role */}
-          {contract.status === 'DRAFT' && canEdit && (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      {/* Hero Section */}
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 opacity-90"></div>
+        <div className="absolute inset-0 opacity-20" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+        }}></div>
+        
+        <div className="relative container mx-auto px-4 py-8">
+          <div className="flex items-center justify-between mb-6">
             <Link
-              href={`/contracts/${contract.id}/edit`}
-              className="flex items-center gap-1 rounded-md bg-primary/10 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/20"
+              href="/contracts"
+              className="group flex items-center gap-2 text-white/90 hover:text-white transition-all duration-300"
             >
-              <Edit size={16} />
-              Edit
+              <div className="p-2 rounded-lg bg-white/10 backdrop-blur-sm group-hover:bg-white/20 transition-all duration-300">
+                <ArrowLeft className="w-5 h-5" />
+              </div>
+              <span className="font-medium">Back to Contracts</span>
             </Link>
-          )}
 
-          {canSign && (
-            <button
-              onClick={() => setSignatureModalOpen(true)}
-              className="flex items-center gap-1 rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
-            >
-              <Check size={16} />
-              Sign Contract
-            </button>
-          )}
+            <div className="flex items-center gap-3">
+              {contract.status === 'DRAFT' && canEdit && (
+                <Button asChild variant="secondary" size="sm" className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20">
+                  <Link href={`/contracts/${contract.id}/edit`}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Link>
+                </Button>
+              )}
 
-          {contract.filePath && (
-            <button
-              onClick={() => contract.filePath && handleDownloadFile(contract.filePath)}
-              className="flex items-center gap-1 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              <Download size={16} />
-              Download
-            </button>
-          )}
+              {canSign && (
+                <Button
+                  onClick={() => setSignatureModalOpen(true)}
+                  size="sm"
+                  className="bg-green-500 hover:bg-green-600 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  <FileSignature className="w-4 h-4 mr-2" />
+                  Sign Contract
+                </Button>
+              )}
 
-        </div>
-      </div>
-
-      {/* Contract Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Contract Summary Card */}
-        <div className="lg:col-span-1 order-last lg:order-first">
-          <div className="mb-4 pb-4 border-b">
-            <h2 className="text-lg font-semibold">{contract.title}</h2>
-            <div className="mt-2 text-sm text-muted-foreground">{contract.description || 'No description'}</div>
+              {contract.filePath && (
+                <Button
+                  onClick={() => contract.filePath && handleDownloadFile(contract.filePath)}
+                  size="sm"
+                  variant="secondary"
+                  className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download PDF
+                </Button>
+              )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Contract Number</div>
-              <div className="mt-1 font-medium">{contract.contractNumber}</div>
+          <div className="text-center space-y-4">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
+              <FileText className="w-5 h-5 text-white" />
+              <span className="text-white font-medium">Contract #{contract.contractNumber}</span>
             </div>
+            
+            <h1 className="text-3xl md:text-5xl font-bold text-white leading-tight">
+              {contract.title}
+            </h1>
+            
+            <p className="text-lg text-white/90 max-w-2xl mx-auto">
+              {contract.description || 'Professional contract management and digital signature solution'}
+            </p>
 
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Status</div>
-              <div className="mt-1">
-                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+            <div className="flex justify-center">
+              <Badge 
+                variant="secondary" 
+                className={`px-4 py-2 text-sm font-semibold ${
                   contract.status === 'DRAFT' || contract.status === 'PENDING_SELLER_SIGNATURE' || contract.status === 'PENDING_CUSTOMER_SIGNATURE' 
-                    ? 'bg-yellow-100 text-yellow-800' 
+                    ? 'bg-yellow-500/20 text-yellow-100 border-yellow-400/30' 
                     : contract.status === 'ACTIVE'
-                      ? 'bg-green-100 text-green-800' 
+                      ? 'bg-green-500/20 text-green-100 border-green-400/30' 
                       : contract.status === 'REJECTED' || contract.status === 'CANCELLED'
-                        ? 'bg-red-100 text-red-800'
+                        ? 'bg-red-500/20 text-red-100 border-red-400/30'
                         : contract.status === 'EXPIRED'
-                          ? 'bg-gray-100 text-gray-800'
-                          : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {contract.status === 'DRAFT'
-                    ? 'Bản nháp'
-                    : contract.status === 'PENDING_SELLER_SIGNATURE' 
-                      ? 'Chờ bên bán ký' 
-                      : contract.status === 'PENDING_CUSTOMER_SIGNATURE'
-                        ? 'Chờ khách hàng ký'
-                        : contract.status === 'ACTIVE'
-                          ? 'Đã ký, có hiệu lực'
-                          : contract.status === 'REJECTED'
-                            ? 'Đã từ chối'
-                            : contract.status === 'CANCELLED'
-                              ? 'Đã hủy'
-                              : contract.status === 'EXPIRED'
-                                ? 'Đã hết hạn'
-                                : contract.status}
-                </span>
-              </div>
+                          ? 'bg-gray-500/20 text-gray-100 border-gray-400/30'
+                          : 'bg-gray-500/20 text-gray-100 border-gray-400/30'
+                }`}
+              >
+                {contract.status === 'DRAFT'
+                  ? 'Draft'
+                  : contract.status === 'PENDING_SELLER_SIGNATURE' 
+                    ? 'Pending Seller Signature' 
+                    : contract.status === 'PENDING_CUSTOMER_SIGNATURE'
+                      ? 'Pending Customer Signature'
+                      : contract.status === 'ACTIVE'
+                        ? 'Active & Signed'
+                        : contract.status === 'REJECTED'
+                          ? 'Rejected'
+                          : contract.status === 'CANCELLED'
+                            ? 'Cancelled'
+                            : contract.status === 'EXPIRED'
+                              ? 'Expired'
+                              : contract.status}
+              </Badge>
             </div>
-
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Customer</div>
-              <div className="mt-1">{contract.customerName || `Customer #${contract.customerId}`}</div>
-            </div>
-
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Staff</div>
-              <div className="mt-1">{contract.staffName || `Staff #${contract.staffId}`}</div>
-            </div>
-
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Created</div>
-              <div className="mt-1">{formatDateTime(contract.createdAt)}</div>
-            </div>
-
-            {contract.signedAt && (
-              <div>
-                <div className="text-sm font-medium text-muted-foreground">Signed</div>
-                <div className="mt-1">{formatDateTime(contract.signedAt)}</div>
-              </div>
-            )}
-
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Period</div>
-              <div className="mt-1">
-                {formatDate(contract.startDate)} - {formatDate(contract.endDate)}
-              </div>
-            </div>
-
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Total Value</div>
-              <div className="mt-1 text-lg font-semibold text-primary">
-                {formatCurrency(contract.totalValue)}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* PDF Viewer */}
-        <div className="lg:col-span-2 order-first lg:order-last">
-          <div className="rounded-lg border bg-white p-2 shadow-sm">
-            {contract.filePath ? (
-              pdfLoading ? (
-                <div className="flex items-center justify-center h-[75vh] bg-gray-50 rounded-md">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-                    <p className="text-sm text-muted-foreground">Loading contract file...</p>
-                  </div>
-                </div>
-              ) : pdfBlobUrl ? (
-                <PdfViewer fileUrl={pdfBlobUrl} />
-              ) : pdfError ? (
-                <div className="flex flex-col items-center justify-center h-[75vh] bg-red-50 rounded-md border border-red-200">
-                  <div className="text-center max-w-md">
-                    <div className="text-red-600 mb-2">
-                      <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-medium text-red-800 mb-2">Contract File Error</h3>
-                    <p className="text-sm text-red-700 mb-4">{pdfError}</p>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="inline-flex items-center px-3 py-2 border border-red-300 shadow-sm text-sm leading-4 font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                    >
-                      Retry Loading
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-[75vh] bg-gray-50 rounded-md">
-                  <p className="text-muted-foreground">Failed to load contract file.</p>
-                </div>
-              )
-            ) : (
-              <div className="flex flex-col items-center justify-center h-[75vh] bg-yellow-50 rounded-md border border-yellow-200">
-                <div className="text-center max-w-md">
-                  <div className="text-yellow-600 mb-2">
-                    <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-medium text-yellow-800 mb-2">No Contract File</h3>
-                  <p className="text-sm text-yellow-700 mb-2">
-                    The PDF contract file has not been generated yet.
-                  </p>
-                  <p className="text-xs text-yellow-600">
-                    This usually happens when there was an error during contract creation. Please contact your administrator.
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
 
-      {/* Contract Details Section */}
-      <div className="rounded-lg border bg-white p-6 shadow-sm">
-        <h3 className="mb-4 font-semibold">Contract Items</h3>
+      {/* Main Content */}
+      <div className="container mx-auto px-4 -mt-6 relative z-10">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+          {/* Summary Cards */}
+          <div className="xl:col-span-1 space-y-4">
+            {/* Contract Overview */}
+            <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <CardTitle className="text-lg">Overview</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-sm text-slate-600">Contract #</span>
+                  <span className="text-sm font-semibold">{contract.contractNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-slate-600">Customer</span>
+                  <span className="text-sm font-semibold">#{contract.customerId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-slate-600">Staff</span>
+                  <span className="text-sm font-semibold">#{contract.staffId}</span>
+                </div>
+              </CardContent>
+            </Card>
 
-        {(!contract.contractDetails || contract.contractDetails.length === 0) ? (
-          <div className="p-4 text-center text-muted-foreground">No contract items found</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b bg-muted/50 text-left text-xs font-medium text-muted-foreground">
-                <tr>
-                  <th className="py-3 px-4">Work Code</th>
-                  <th className="py-3 px-4">Service/Item</th>
-                  <th className="py-3 px-4">Description</th>
-                  <th className="py-3 px-4">Quantity</th>
-                  <th className="py-3 px-4">Unit Price</th>
-                  <th className="py-3 px-4">Total</th>
-                  <th className="py-3 px-4">Warranty</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {contract.contractDetails.map((detail) => (
-                  <tr key={detail.id} className="hover:bg-muted/30">
-                    <td className="py-3 px-4 font-medium">{detail.workCode}</td>
-                    <td className="py-3 px-4">{detail.serviceName}</td>
-                    <td className="py-3 px-4 max-w-xs truncate">
-                      {detail.description || 'No description'}
-                    </td>
-                    <td className="py-3 px-4">{detail.quantity}</td>
-                    <td className="py-3 px-4">{formatCurrency(detail.unitPrice)}</td>
-                    <td className="py-3 px-4 font-medium">{formatCurrency(detail.totalPrice)}</td>
-                    <td className="py-3 px-4">
-                      {detail.warrantyMonths 
-                        ? `${detail.warrantyMonths} month${detail.warrantyMonths > 1 ? 's' : ''}` 
-                        : 'None'}
-                    </td>
-                  </tr>
-                ))}
-                <tr className="bg-muted/10 font-medium">
-                  <td colSpan={5} className="py-3 px-4 text-right">Total:</td>
-                  <td className="py-3 px-4 text-primary">{formatCurrency(contract.totalValue)}</td>
-                  <td></td>
-                </tr>
-              </tbody>
-            </table>
+            {/* Financial Summary */}
+            <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-green-100 text-green-600">
+                    <DollarSign className="w-4 h-4" />
+                  </div>
+                  <CardTitle className="text-lg">Financial</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-center p-3 bg-green-50 rounded-lg">
+                  <div className="text-xl font-bold text-green-800">
+                    {formatCurrency(contract.totalValue)}
+                  </div>
+                  <div className="text-xs text-green-600">Total Value</div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Start</span>
+                    <span className="font-medium">{formatDate(contract.startDate)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">End</span>
+                    <span className="font-medium">{formatDate(contract.endDate)}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Timeline */}
+            <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-orange-100 text-orange-600">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <CardTitle className="text-lg">Timeline</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="text-sm">
+                  <div className="text-slate-600">Created</div>
+                  <div className="font-medium">{formatDateTime(contract.createdAt)}</div>
+                </div>
+                <div className="text-sm">
+                  <div className="text-slate-600">Status</div>
+                  <div className="font-medium">
+                    {contract.status === 'DRAFT' ? 'Draft' :
+                     contract.status === 'PENDING_SELLER_SIGNATURE' ? 'Pending Seller' :
+                     contract.status === 'PENDING_CUSTOMER_SIGNATURE' ? 'Pending Customer' :
+                     contract.status === 'ACTIVE' ? 'Active' :
+                     contract.status === 'REJECTED' ? 'Rejected' :
+                     contract.status === 'CANCELLED' ? 'Cancelled' :
+                     contract.status === 'EXPIRED' ? 'Expired' : contract.status}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        )}
-      </div>
 
-      {/* Signature History */}
-      {contract.signatures && contract.signatures.length > 0 && (
-        <div className="mt-6 rounded-lg border bg-white p-6 shadow-sm">
-          <h3 className="mb-4 font-semibold">Signature History</h3>
-
-          <div className="divide-y">
-            {contract.signatures.map((signature) => (
-              <div key={signature.id} className="py-4">
+          {/* PDF Viewer */}
+          <div className="xl:col-span-3">
+            <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-2xl h-[85vh] flex flex-col">
+              <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50 border-b border-slate-200 rounded-t-lg flex-shrink-0">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">{signature.signerName}</div>
-                    <div className="text-sm text-muted-foreground">{signature.signerEmail}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium">
-                      {signature.signatureType === 'DIGITAL' 
-                        ? 'Digital Signature' 
-                        : signature.signatureType === 'PAPER' 
-                          ? 'Paper Signature' 
-                          : 'Digital Image'}
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                      <Eye className="w-5 h-5" />
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      {formatDateTime(signature.createdAt)}
-                    </div>
-                  </div>
-                </div>
-                {signature.notes && (
-                  <div className="mt-2 rounded bg-muted/50 p-3 text-sm">
-                    {signature.notes}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Digital Signatures Section */}
-      {signatures.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-green-600" />
-            Digital Signatures ({signatures.length})
-          </h3>
-          
-          <div className="space-y-4">
-            {signatures.map((signature) => {
-              const verification = verificationResults.get(signature.id);
-              const isVerifying = loadingVerification.has(signature.id);
-              
-              return (
-                <div key={signature.id} className="border rounded-lg p-4 bg-gray-50">
-                  <div className="flex justify-between items-start mb-2">
                     <div>
-                      <p className="font-medium">{signature.signerName}</p>
-                      <p className="text-sm text-gray-600">{signature.signerEmail}</p>
-                      <p className="text-sm text-gray-500">
-                        Signed: {new Date(signature.signedAt).toLocaleString()}
-                      </p>
-                      {signature.signatureReason && (
-                        <p className="text-sm text-gray-500">Reason: {signature.signatureReason}</p>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        signature.verificationStatus === 'VALID' 
-                          ? 'bg-green-100 text-green-800' 
-                          : signature.verificationStatus === 'INVALID'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {signature.verificationStatus}
-                      </span>
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleVerifySignature(signature.id)}
-                        disabled={isVerifying}
-                        className="text-xs"
-                      >
-                        {isVerifying ? (
-                          <>
-                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                            Verifying...
-                          </>
-                        ) : (
-                          <>
-                            <ShieldCheck className="h-3 w-3 mr-1" />
-                            Verify
-                          </>
-                        )}
-                      </Button>
+                      <CardTitle className="text-xl">Contract Document</CardTitle>
+                      <CardDescription>View and interact with the contract PDF</CardDescription>
                     </div>
                   </div>
-                  
-                  {verification && (
-                    <div className="mt-3 p-3 bg-white rounded border">
-                      <h4 className="font-medium text-sm mb-2">Verification Results:</h4>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className={`flex items-center gap-1 ${verification.signatureValid ? 'text-green-600' : 'text-red-600'}`}>
-                          {verification.signatureValid ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                          Signature Valid
-                        </div>
-                        <div className={`flex items-center gap-1 ${verification.certificateValid ? 'text-green-600' : 'text-red-600'}`}>
-                          {verification.certificateValid ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                          Certificate Valid
-                        </div>
-                        <div className={`flex items-center gap-1 ${verification.documentIntegrityValid ? 'text-green-600' : 'text-red-600'}`}>
-                          {verification.documentIntegrityValid ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                          Document Integrity
-                        </div>
-                        <div className={`flex items-center gap-1 ${verification.timestampValid ? 'text-green-600' : 'text-red-600'}`}>
-                          {verification.timestampValid ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                          Timestamp Valid
+                  {contract.filePath && (
+                    <Button
+                      onClick={() => contract.filePath && handleDownloadFile(contract.filePath)}
+                      size="sm"
+                      variant="outline"
+                      className="hover:bg-blue-50 hover:border-blue-300"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-0 flex-1">
+                {contract.filePath ? (
+                  pdfLoading ? (
+                    <div className="flex items-center justify-center h-full bg-gradient-to-br from-slate-50 to-blue-50">
+                      <div className="text-center space-y-4">
+                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
+                        <div className="space-y-2">
+                          <h3 className="text-lg font-semibold text-slate-700">Loading Document</h3>
+                          <p className="text-slate-500">Preparing contract for viewing...</p>
                         </div>
                       </div>
-                      <p className="text-xs text-gray-500 mt-2">
-                        Verified: {new Date(verification.verificationTime).toLocaleString()}
-                      </p>
                     </div>
-                  )}
-                  
-                  <div className="mt-2 text-xs text-gray-500">
-                    <p>Hash: {signature.signatureHash.substring(0, 16)}...</p>
-                    {signature.certificateFingerprint && (
-                      <p>Certificate: {signature.certificateFingerprint.substring(0, 16)}...</p>
-                    )}
-                    {signature.ipAddress && (
-                      <p>IP: {signature.ipAddress}</p>
-                    )}
+                  ) : pdfBlobUrl ? (
+                    <div className="h-full">
+                      <PdfViewer fileUrl={pdfBlobUrl} />
+                    </div>
+                  ) : pdfError ? (
+                    <div className="flex items-center justify-center h-full bg-gradient-to-br from-red-50 to-orange-50">
+                      <div className="text-center space-y-4">
+                        <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
+                        <div>
+                          <h3 className="text-lg font-semibold text-red-800">Document Error</h3>
+                          <p className="text-red-600">{pdfError}</p>
+                        </div>
+                        <Button onClick={() => window.location.reload()}>
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Retry Loading
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full bg-gradient-to-br from-slate-50 to-blue-50">
+                      <div className="text-center space-y-4">
+                        <FileText className="w-12 h-12 text-slate-400 mx-auto" />
+                        <p className="text-slate-500 font-medium">Failed to load contract file</p>
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <div className="flex items-center justify-center h-full bg-gradient-to-br from-yellow-50 to-orange-50">
+                    <div className="text-center space-y-4">
+                      <FileText className="w-12 h-12 text-yellow-500 mx-auto" />
+                      <div>
+                        <h3 className="text-lg font-semibold text-yellow-800">No Contract File</h3>
+                        <p className="text-yellow-600">The PDF contract file has not been generated yet.</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
-      )}
 
-      {/* Back Button */}
-      <div className="mt-8 flex justify-center">
-        <Link
-          href="/contracts"
-          className="inline-flex items-center gap-1 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted/50"
-        >
-          <ArrowLeft size={16} />
-          Back to Contracts
-        </Link>
+        {/* Contract Items Section */}
+        <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl mt-8">
+          <CardHeader className="bg-gradient-to-r from-slate-50 to-indigo-50 border-b border-slate-200 rounded-t-lg">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Contract Items</CardTitle>
+                <CardDescription>Detailed breakdown of services and products</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {(!contract?.contractDetails || contract.contractDetails.length === 0) ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                  <FileText className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-700 mb-2">No Contract Items</h3>
+                <p className="text-slate-500">No items have been added to this contract yet.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
+                    <tr>
+                      <th className="py-4 px-6 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        <div className="flex items-center gap-2">
+                          <Hash className="w-4 h-4" />
+                          Work Code
+                        </div>
+                      </th>
+                      <th className="py-4 px-6 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        <div className="flex items-center gap-2">
+                          <Star className="w-4 h-4" />
+                          Service/Item
+                        </div>
+                      </th>
+                      <th className="py-4 px-6 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        Description
+                      </th>
+                      <th className="py-4 px-6 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        <div className="flex items-center justify-center gap-2">
+                          <TrendingUp className="w-4 h-4" />
+                          Qty
+                        </div>
+                      </th>
+                      <th className="py-4 px-6 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        Unit Price
+                      </th>
+                      <th className="py-4 px-6 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        <div className="flex items-center justify-end gap-2">
+                          <DollarSign className="w-4 h-4" />
+                          Total
+                        </div>
+                      </th>
+                      <th className="py-4 px-6 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        <div className="flex items-center justify-center gap-2">
+                          <Award className="w-4 h-4" />
+                          Warranty
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {contract.contractDetails.map((detail, index) => (
+                      <tr key={index} className="hover:bg-slate-50/50 transition-colors duration-200 group">
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white text-xs font-bold">
+                              {index + 1}
+                            </div>
+                            <span className="font-semibold text-slate-900">{detail.workCode}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="font-medium text-slate-900">{detail.workCode}</div>
+                        </td>
+                        <td className="py-4 px-6 max-w-xs">
+                          <div className="text-sm text-slate-600 truncate" title={detail.description || 'No description'}>
+                            {detail.description || 'No description'}
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 text-center">
+                          <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-sm font-semibold">
+                            {detail.quantity}
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <div className="font-semibold text-slate-900">{formatCurrency(detail.unitPrice)}</div>
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <div className="font-bold text-slate-900 text-lg">{formatCurrency(detail.quantity * detail.unitPrice)}</div>
+                        </td>
+                        <td className="py-4 px-6 text-center">
+                          {detail.warrantyMonths ? (
+                            <div className="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-800 text-sm font-semibold">
+                              <Award className="w-3 h-3 mr-1" />
+                              {detail.warrantyMonths} month{detail.warrantyMonths > 1 ? 's' : ''}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-sm">None</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="bg-gradient-to-r from-slate-100 to-slate-200 border-t-2 border-slate-300">
+                      <td colSpan={5} className="py-6 px-6 text-right">
+                        <div className="text-lg font-bold text-slate-800">Total Contract Value:</div>
+                      </td>
+                      <td className="py-6 px-6 text-right">
+                        <div className="text-2xl font-bold text-green-600">{formatCurrency(contract?.totalValue || 0)}</div>
+                      </td>
+                      <td className="py-6 px-6"></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Digital Signatures Section */}
+        {signatures.length > 0 && (
+          <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl mt-8">
+            <CardHeader className="bg-gradient-to-r from-slate-50 to-green-50 border-b border-slate-200 rounded-t-lg">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 text-white">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Digital Signatures ({signatures.length})</CardTitle>
+                  <CardDescription>Cryptographically verified digital signatures</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                {signatures.map((signature, index) => {
+                  const verification = verificationResults.get(signature.id);
+                  const isVerifying = loadingVerification.has(signature.id);
+                  
+                  return (
+                    <Card key={signature.id} className="bg-gradient-to-r from-slate-50 to-slate-100 border-slate-200">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-bold">
+                              {index + 1}
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-slate-900">{signature.signerName}</h4>
+                              <p className="text-sm text-slate-600">{signature.signerEmail}</p>
+                              <p className="text-xs text-slate-500">
+                                {new Date(signature.signedAt).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <Badge 
+                              variant="secondary" 
+                              className={`${
+                                signature.verificationStatus === 'VALID' 
+                                  ? 'bg-green-100 text-green-800 border-green-200' 
+                                  : signature.verificationStatus === 'INVALID'
+                                  ? 'bg-red-100 text-red-800 border-red-200'
+                                  : 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                              }`}
+                            >
+                              {signature.verificationStatus}
+                            </Badge>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleVerifySignature(signature.id)}
+                              disabled={isVerifying}
+                            >
+                              {isVerifying ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                  Verifying...
+                                </>
+                              ) : (
+                                <>
+                                  <ShieldCheck className="h-3 w-3 mr-1" />
+                                  Verify
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {verification && (
+                          <div className="mt-3 p-3 bg-white rounded border">
+                            <h5 className="font-medium text-sm mb-2">Verification Results:</h5>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className={`flex items-center gap-1 ${verification.signatureValid ? 'text-green-600' : 'text-red-600'}`}>
+                                {verification.signatureValid ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                                Signature Valid
+                              </div>
+                              <div className={`flex items-center gap-1 ${verification.certificateValid ? 'text-green-600' : 'text-red-600'}`}>
+                                {verification.certificateValid ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                                Certificate Valid
+                              </div>
+                              <div className={`flex items-center gap-1 ${verification.documentIntegrityValid ? 'text-green-600' : 'text-red-600'}`}>
+                                {verification.documentIntegrityValid ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                                Document Integrity
+                              </div>
+                              <div className={`flex items-center gap-1 ${verification.timestampValid ? 'text-green-600' : 'text-red-600'}`}>
+                                {verification.timestampValid ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                                Timestamp Valid
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Back Button */}
+        <div className="mt-8 flex justify-center">
+          <Button asChild variant="outline" size="lg" className="hover:bg-slate-50 hover:scale-105 transition-all duration-300">
+            <Link href="/contracts">
+              <ArrowLeft className="w-5 h-5 mr-2" />
+              Back to Contracts
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <SignatureModal

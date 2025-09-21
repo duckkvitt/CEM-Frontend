@@ -24,7 +24,6 @@ import {
   Shield,
   Eye,
   MessageSquare,
-  DollarSign,
   TrendingUp,
   Star
 } from 'lucide-react'
@@ -153,13 +152,6 @@ export default function ServiceRequestsPage() {
     })
   }
 
-  const formatPrice = (price?: number) => {
-    if (!price) return '-'
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
-    }).format(price)
-  }
 
   const getStatusIcon = (status: string) => {
     const Icon = STATUS_ICONS[status as keyof typeof STATUS_ICONS] || Clock
@@ -452,7 +444,7 @@ export default function ServiceRequestsPage() {
                       </p>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label className="text-sm font-medium text-gray-600">Created</Label>
                         <p className="text-gray-900 mt-1">{formatDate(request.createdAt)}</p>
@@ -464,18 +456,6 @@ export default function ServiceRequestsPage() {
                           <p className="text-gray-900 mt-1">{formatDate(request.preferredDateTime)}</p>
                         </div>
                       )}
-                      
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Cost</Label>
-                        <p className="text-gray-900 mt-1">
-                          {request.actualCost 
-                            ? formatPrice(request.actualCost)
-                            : request.estimatedCost 
-                              ? `Est. ${formatPrice(request.estimatedCost)}`
-                              : 'Not specified'
-                          }
-                        </p>
-                      </div>
                     </div>
 
                     {request.workLocation && (

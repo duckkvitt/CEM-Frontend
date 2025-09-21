@@ -19,7 +19,6 @@ import {
   FileText,
   Download,
   Calendar,
-  DollarSign,
   MessageSquare,
   User,
   AlertCircle,
@@ -144,13 +143,6 @@ export default function ServiceRequestDetailPage() {
     })
   }
 
-  const formatPrice = (price?: number) => {
-    if (!price) return '-'
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
-    }).format(price)
-  }
 
   const getStatusIcon = (status: string) => {
     const Icon = STATUS_ICONS[status as keyof typeof STATUS_ICONS] || Clock
@@ -568,30 +560,6 @@ export default function ServiceRequestDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Cost Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                Cost Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label className="text-sm font-medium text-gray-600">Estimated Cost</Label>
-                <p className="text-gray-900 font-medium">
-                  {serviceRequest.estimatedCost ? formatPrice(serviceRequest.estimatedCost) : 'Not specified'}
-                </p>
-              </div>
-              
-              <div>
-                <Label className="text-sm font-medium text-gray-600">Actual Cost</Label>
-                <p className="text-gray-900 font-medium">
-                  {serviceRequest.actualCost ? formatPrice(serviceRequest.actualCost) : 'Not specified'}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Device Information */}
           <Card>

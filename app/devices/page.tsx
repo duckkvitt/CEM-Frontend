@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { DEVICE_SERVICE_URL } from '@/lib/api'
 import { getValidAccessToken, getCurrentUserRole, logout } from '@/lib/auth'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 interface Device {
@@ -41,7 +41,7 @@ interface Page<T> {
 
 const STATUS_OPTIONS = ['', 'ACTIVE', 'INACTIVE', 'MAINTENANCE', 'BROKEN', 'DISCONTINUED']
 
-export default function DeviceManagementPage () {
+function DeviceManagementContent() {
   const [devices, setDevices] = useState<Device[]>([])
   const [search, setSearch] = useState('')
   // Xóa state của customer
@@ -257,5 +257,13 @@ export default function DeviceManagementPage () {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function DeviceManagementPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DeviceManagementContent />
+    </Suspense>
   )
 } 
