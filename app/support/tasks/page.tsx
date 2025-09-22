@@ -50,28 +50,33 @@ import { getAllCustomers, type CustomerResponse } from '@/lib/customer-service'
 import { DEVICE_SERVICE_URL } from '@/lib/api'
 import { getValidAccessToken } from '@/lib/auth'
 
-const taskStatusColors = {
+const taskStatusColors: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   ASSIGNED: 'bg-blue-100 text-blue-800 border-blue-200',
+  ACCEPTED: 'bg-blue-100 text-blue-800 border-blue-200',
   IN_PROGRESS: 'bg-purple-100 text-purple-800 border-purple-200',
   COMPLETED: 'bg-green-100 text-green-800 border-green-200',
   REJECTED: 'bg-red-100 text-red-800 border-red-200',
   CANCELLED: 'bg-gray-100 text-gray-800 border-gray-200'
 }
 
-const taskPriorityColors = {
+const taskPriorityColors: Record<string, string> = {
   LOW: 'bg-gray-100 text-gray-800 border-gray-200',
   MEDIUM: 'bg-blue-100 text-blue-800 border-blue-200',
+  NORMAL: 'bg-blue-100 text-blue-800 border-blue-200',
   HIGH: 'bg-orange-100 text-orange-800 border-orange-200',
-  URGENT: 'bg-red-100 text-red-800 border-red-200'
+  URGENT: 'bg-red-100 text-red-800 border-red-200',
+  CRITICAL: 'bg-red-100 text-red-800 border-red-200'
 }
 
-const taskTypeColors = {
+const taskTypeColors: Record<string, string> = {
   MAINTENANCE: 'bg-green-100 text-green-800 border-green-200',
   WARRANTY: 'bg-blue-100 text-blue-800 border-blue-200',
   INSTALLATION: 'bg-purple-100 text-purple-800 border-purple-200',
   REPAIR: 'bg-orange-100 text-orange-800 border-orange-200',
-  INSPECTION: 'bg-yellow-100 text-yellow-800 border-yellow-200'
+  INSPECTION: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  EMERGENCY_REPAIR: 'bg-red-100 text-red-800 border-red-200',
+  PREVENTIVE_MAINTENANCE: 'bg-green-100 text-green-800 border-green-200'
 }
 
 export default function SupportTasksPage() {
@@ -109,6 +114,15 @@ export default function SupportTasksPage() {
     priority: 'NORMAL',
     preferredCompletionDate: ''
   })
+  // Field-level errors for Create modal
+  const [createErrors, setCreateErrors] = useState<{
+    title?: string
+    description?: string
+    type?: string
+    customerId?: string
+    customerDeviceId?: string
+    preferredCompletionDate?: string
+  }>({})
 
   const [editForm, setEditForm] = useState<UpdateTaskRequest>({
     title: '',
@@ -171,9 +185,37 @@ export default function SupportTasksPage() {
     }
   }
 
+  // Validate create form mirroring backend (CreateTaskRequest.java)
+  const validateCreateForm = () => {
+    const errs: typeof createErrors = {}
+    const title = (createForm.title || '').trim()
+    const description = (createForm.description || '').trim()
+
+    if (!title) errs.title = 'Title is required'
+    else if (title.length < 5 || title.length > 255) errs.title = 'Title must be between 5 and 255 characters'
+
+    if (!description) errs.description = 'Description is required'
+    else if (description.length < 10 || description.length > 2000) errs.description = 'Description must be between 10 and 2000 characters'
+
+    if (!createForm.type) errs.type = 'Task type is required'
+    if (!selectedCustomerId || selectedCustomerId === 0) errs.customerId = 'Customer is required'
+    if (!createForm.customerDeviceId || createForm.customerDeviceId === 0) errs.customerDeviceId = 'Customer device is required'
+
+    // Datetime format basic check if provided (backend expects LocalDateTime via scheduledDate)
+    if (createForm.preferredCompletionDate) {
+      const d = new Date(createForm.preferredCompletionDate)
+      if (isNaN(d.getTime())) {
+        errs.preferredCompletionDate = 'Invalid date/time'
+      }
+    }
+
+    setCreateErrors(errs)
+    return Object.keys(errs).length === 0
+  }
+
   const handleCreateTask = async () => {
-    if (!createForm.title.trim() || !createForm.description.trim() || selectedCustomerId === 0 || createForm.customerDeviceId === 0) {
-      setError('Title and description are required')
+    if (!validateCreateForm()) {
+      setError('Please fix the highlighted errors')
       return
     }
 
@@ -191,6 +233,7 @@ export default function SupportTasksPage() {
         preferredCompletionDate: ''
       })
       setSelectedCustomerId(0)
+      setCreateErrors({})
       await loadTasks()
       await loadStatistics()
       setError(null)
@@ -258,7 +301,9 @@ export default function SupportTasksPage() {
     setEditForm({
       title: task.title,
       description: task.description,
-      type: task.type,
+      type: (['MAINTENANCE', 'WARRANTY', 'INSTALLATION', 'REPAIR', 'INSPECTION'].includes(task.type as any)
+        ? task.type
+        : 'MAINTENANCE') as any,
       priority: task.priority,
       preferredCompletionDate: ''
     })
@@ -373,10 +418,13 @@ export default function SupportTasksPage() {
                 Manage tasks created from service requests and manual tasks
               </p>
             </div>
+          {/* Create Task button hidden */}
+          {false && (
             <Button onClick={() => setCreateModalOpen(true)} className="gap-2">
               <Plus className="h-4 w-4" />
               Create Task
             </Button>
+          )}
           </div>
 
           {/* Statistics Cards */}
@@ -718,6 +766,9 @@ export default function SupportTasksPage() {
                   onChange={(e) => setCreateForm(prev => ({ ...prev, title: e.target.value }))}
                   className="col-span-3"
                 />
+                {createErrors.title && (
+                  <div className="col-start-2 col-span-3 text-sm text-red-600">{createErrors.title}</div>
+                )}
               </div>
               <div className="grid grid-cols-4 items-start gap-4">
                 <Label htmlFor="create-description" className="text-right">
@@ -730,6 +781,9 @@ export default function SupportTasksPage() {
                   className="col-span-3"
                   rows={3}
                 />
+                {createErrors.description && (
+                  <div className="col-start-2 col-span-3 text-sm text-red-600">{createErrors.description}</div>
+                )}
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="create-type" className="text-right">
@@ -748,6 +802,9 @@ export default function SupportTasksPage() {
                     <SelectItem value="PREVENTIVE_MAINTENANCE">Preventive Maintenance</SelectItem>
                   </SelectContent>
                 </Select>
+                {createErrors.type && (
+                  <div className="col-start-2 col-span-3 text-sm text-red-600">{createErrors.type}</div>
+                )}
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="create-priority" className="text-right">
@@ -788,6 +845,9 @@ export default function SupportTasksPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {createErrors.customerId && (
+                  <div className="col-start-2 col-span-3 text-sm text-red-600">{createErrors.customerId}</div>
+                )}
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="create-device-id" className="text-right">
@@ -809,6 +869,9 @@ export default function SupportTasksPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {createErrors.customerDeviceId && (
+                  <div className="col-start-2 col-span-3 text-sm text-red-600">{createErrors.customerDeviceId}</div>
+                )}
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="create-scheduled-date" className="text-right">
@@ -821,6 +884,9 @@ export default function SupportTasksPage() {
                   onChange={(e) => setCreateForm(prev => ({ ...prev, preferredCompletionDate: e.target.value }))}
                   className="col-span-3"
                 />
+                {createErrors.preferredCompletionDate && (
+                  <div className="col-start-2 col-span-3 text-sm text-red-600">{createErrors.preferredCompletionDate}</div>
+                )}
               </div>
             </div>
 
@@ -834,7 +900,7 @@ export default function SupportTasksPage() {
               </Button>
               <Button
                 onClick={handleCreateTask}
-                disabled={actionLoading || !createForm.title || !createForm.description || selectedCustomerId === 0 || createForm.customerDeviceId === 0}
+                disabled={actionLoading}
                 className="gap-2"
               >
                 {actionLoading && <Loader2 className="h-4 w-4 animate-spin" />}
