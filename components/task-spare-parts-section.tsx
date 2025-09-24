@@ -57,7 +57,14 @@ export function TaskSparePartsSection({
     }
   }
 
-  const totalQuantity = sparePartsUsed.reduce((sum, part) => sum + part.quantity, 0)
+  const totalQuantity = sparePartsUsed.reduce((sum, part) => sum + (part.quantityUsed ?? 0), 0)
+
+  const safeFormatDate = (value?: string, pattern: string = 'MMM dd, yyyy') => {
+    if (!value) return 'N/A'
+    const date = new Date(value)
+    if (isNaN(date.getTime())) return 'N/A'
+    return format(date, pattern)
+  }
 
   if (loading) {
     return (
@@ -193,23 +200,23 @@ export function TaskSparePartsSection({
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h4 className="font-semibold text-gray-900">{part.partName}</h4>
+                          <h4 className="font-semibold text-gray-900">{part.sparePartName}</h4>
                           <Badge variant="outline" className="text-xs font-mono">
-                            {part.partCode}
+                            {part.sparePartCode}
                           </Badge>
                           <Badge variant="secondary" className="text-xs">
-                            Qty: {part.quantity}
+                            Qty: {part.quantityUsed}
                           </Badge>
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
                           <div className="flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-purple-600" />
-                            <span>Exported: <strong>{format(new Date(part.exportedAt), 'MMM dd, yyyy')}</strong></span>
+                            <span>Used: <strong>{safeFormatDate(part.usedAt, 'MMM dd, yyyy')}</strong></span>
                           </div>
                           <div className="flex items-center gap-2">
                             <User className="h-4 w-4 text-blue-600" />
-                            <span>By: <strong>{part.exportedBy}</strong></span>
+                            <span>By: <strong>{part.createdBy}</strong></span>
                           </div>
                         </div>
 
@@ -224,8 +231,8 @@ export function TaskSparePartsSection({
 
                       <div className="flex items-center gap-2 ml-4">
                         <div className="text-right">
-                          <p className="text-xs text-gray-500">Exported by</p>
-                          <p className="text-sm font-medium text-gray-900">{part.exportedBy}</p>
+                          <p className="text-xs text-gray-500">Recorded by</p>
+                          <p className="text-sm font-medium text-gray-900">{part.createdBy}</p>
                         </div>
                         <CheckCircle2 className="h-5 w-5 text-green-600" />
                       </div>

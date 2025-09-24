@@ -25,7 +25,6 @@ import {
   User, 
   AlertCircle,
   FileText,
-  DollarSign,
   Loader2,
   Info,
   Wrench
@@ -101,7 +100,7 @@ export default function TechnicianTasksPage() {
 
   // Form states
   const [actionComment, setActionComment] = useState('')
-  const [actualCost, setActualCost] = useState<number>(0)
+  
 
   // Define loadTasks function first using useCallback
   const loadTasks = useCallback(async () => {
@@ -170,8 +169,7 @@ export default function TechnicianTasksPage() {
     if (!selectedTask || !technicianId) return
 
     const request: TaskActionRequest = {
-      comment: actionComment.trim() || undefined,
-      actualCost: actionType === 'complete' ? actualCost : undefined
+      comment: actionComment.trim() || undefined
     }
 
     try {
@@ -202,7 +200,7 @@ export default function TechnicianTasksPage() {
       setActionModalOpen(false)
       setSelectedTask(null)
       setActionComment('')
-      setActualCost(0)
+      
       await loadTasks()
       setError(null)
     } catch (err) {
@@ -228,7 +226,7 @@ export default function TechnicianTasksPage() {
     setSelectedTask(task)
     setActionType(action)
     setActionComment('')
-    setActualCost(task.estimatedCost || 0)
+    
     setActionModalOpen(true)
   }
 
@@ -454,14 +452,7 @@ export default function TechnicianTasksPage() {
                                 </div>
                               )}
 
-                              {task.estimatedCost && (
-                                <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-600">
-                          Est. Cost: ${task.estimatedCost.toFixed(2)}
-                        </span>
-                                </div>
-                              )}
+                              
                           </div>
 
                   <div className="flex gap-2 mt-4">
@@ -603,20 +594,7 @@ export default function TechnicianTasksPage() {
                   </div>
                 )}
 
-                          <div className="grid grid-cols-2 gap-4">
-                      <div>
-                              <Label className="text-sm font-medium text-gray-700">Estimated Cost</Label>
-                              <p className="text-sm text-gray-900">
-                                {selectedTask.estimatedCost ? `$${selectedTask.estimatedCost.toFixed(2)}` : 'Not specified'}
-                              </p>
-                      </div>
-                      <div>
-                              <Label className="text-sm font-medium text-gray-700">Actual Cost</Label>
-                              <p className="text-sm text-gray-900">
-                                {selectedTask.actualCost ? `$${selectedTask.actualCost.toFixed(2)}` : 'Not specified'}
-                              </p>
-                            </div>
-                          </div>
+                          
                         </div>
                       </CardContent>
                     </Card>
@@ -758,7 +736,7 @@ export default function TechnicianTasksPage() {
                 {actionType === 'accept' && 'Accept this task assignment and start working on it.'}
                 {actionType === 'reject' && 'Reject this task assignment. Please provide a reason.'}
                 {actionType === 'start' && 'Mark this task as in progress and start working on it.'}
-                {actionType === 'complete' && 'Mark this task as completed. Provide any final notes and actual cost.'}
+                {actionType === 'complete' && 'Mark this task as completed. Provide any final notes.'}
                 {actionType === 'update' && 'Update the task status with current progress information.'}
               </DialogDescription>
             </DialogHeader>
@@ -789,19 +767,7 @@ export default function TechnicianTasksPage() {
                 />
               </div>
 
-              {actionType === 'complete' && (
-                <div>
-                  <Label htmlFor="actualCost">Actual Cost</Label>
-                  <Input
-                    id="actualCost"
-                    type="number"
-                    step="0.01"
-                    value={actualCost}
-                    onChange={(e) => setActualCost(parseFloat(e.target.value) || 0)}
-                    placeholder="Enter actual cost"
-                  />
-                </div>
-              )}
+              
             </div>
 
             <DialogFooter>

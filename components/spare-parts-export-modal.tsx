@@ -16,7 +16,7 @@ import { toast } from 'sonner'
 interface SparePartsExportModalProps {
   isOpen: boolean
   onClose: () => void
-  taskId: string
+  taskId: number
   taskTitle: string
   onExportSuccess: () => void
 }
@@ -26,7 +26,6 @@ interface ExportItem {
   partCode: string
   quantity: number
   notes: string
-  unitCost: number
 }
 
 export function SparePartsExportModal({ 
@@ -101,8 +100,7 @@ export function SparePartsExportModal({
         sparePartId: sparePartId,
         partCode: partCode,
         quantity: 1,
-        notes: '',
-        unitCost: sparePart.unitCost || 0
+        notes: ''
       }])
     }
     
@@ -134,9 +132,7 @@ export function SparePartsExportModal({
     ))
   }
 
-  const getTotalExportCost = () => {
-    return exportItems.reduce((total, item) => total + (item.unitCost * item.quantity), 0)
-  }
+  
 
   const handleExport = async () => {
     if (exportItems.length === 0) {
@@ -152,11 +148,9 @@ export function SparePartsExportModal({
         const exportRequest = {
           taskId: taskId,
           sparePartId: item.sparePartId,
-          quantity: item.quantity,
-          notes: item.notes || `Exported for task: ${taskTitle}`,
-          warehouseLocation: 'Main Warehouse'
+          quantityUsed: item.quantity,
+          notes: item.notes || `Exported for task: ${taskTitle}`
         }
-        
         await exportSparePartForTask(exportRequest)
       }
       
@@ -484,11 +478,7 @@ export function SparePartsExportModal({
                           />
                         </div>
 
-                        {/* Cost Info */}
-                        <div className="text-xs text-gray-600">
-                          <p>Unit Cost: ${item.unitCost}</p>
-                          <p>Total: ${(item.unitCost * item.quantity).toFixed(2)}</p>
-                        </div>
+                        
                       </CardContent>
                     </Card>
                   )
@@ -496,18 +486,7 @@ export function SparePartsExportModal({
 
                 <Separator />
 
-                {/* Total Cost */}
-                <div className="bg-white p-4 rounded-lg border">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-medium">Total Export Cost:</span>
-                    <span className="text-lg font-bold text-blue-600">
-                      ${getTotalExportCost().toFixed(2)}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    {exportItems.length} item{exportItems.length !== 1 ? 's' : ''} selected
-                  </p>
-                </div>
+                
 
                 {/* Export Button */}
                 <Button
