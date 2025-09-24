@@ -92,7 +92,7 @@ export default function MyDevicesPage() {
   const [warrantyExpired, setWarrantyExpired] = useState<boolean | null>(null)
   const [contractId, setContractId] = useState<string>('ALL')
   const [page, setPage] = useState(0)
-  const [size] = useState(12)
+  const [size] = useState(3)
   const [totalPages, setTotalPages] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
