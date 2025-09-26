@@ -13,8 +13,6 @@ interface Device {
   name: string
   model?: string
   serialNumber?: string
-  warrantyExpiry?: string
-  quantity?: number
   price?: number
   unit?: string
   status: string
@@ -222,7 +220,6 @@ export default function DeviceDetailPage () {
             <li><strong>Name:</strong> {device.name}</li>
             <li><strong>Model:</strong> {device.model || '-'}</li>
             <li><strong>Serial #:</strong> {device.serialNumber || '-'}</li>
-            <li><strong>Quantity:</strong> {device.quantity ?? '-'}</li>
             <li><strong>Price:</strong> {device.price ? `${device.price.toLocaleString()} VND` : '-'}</li>
             <li><strong>Unit:</strong> {device.unit || '-'}</li>
             <li><strong>Status:</strong> {device.status}</li>
@@ -232,7 +229,6 @@ export default function DeviceDetailPage () {
           <h2 className='font-semibold mb-2'>Additional</h2>
           <ul className='space-y-1 text-sm'>
             {/* Xóa Customer ID */}
-            <li><strong>Warranty Expiry:</strong> {device.warrantyExpiry || '-'}</li>
             <li><strong>Created At:</strong> {device.createdAt || '-'}</li>
             <li><strong>Updated At:</strong> {device.updatedAt || '-'}</li>
           </ul>

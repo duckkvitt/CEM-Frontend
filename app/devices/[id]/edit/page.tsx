@@ -14,8 +14,6 @@ interface Device {
   name: string
   model?: string
   serialNumber?: string
-  warrantyExpiry?: string
-  quantity?: number | string
   price?: number | string
   unit?: string
   status: string
@@ -78,9 +76,7 @@ export default function EditDevicePage () {
     const { name, value } = e.target
     if (!device) return
     let newValue: string | number = value
-    if (name === 'quantity') {
-      newValue = Number(value)
-    } else if (name === 'price') {
+    if (name === 'price') {
       newValue = value ? Number(value) : value
     }
     setDevice({ ...device, [name]: newValue })
@@ -97,8 +93,6 @@ export default function EditDevicePage () {
         name: device.name,
         model: device.model || undefined,
         serialNumber: device.serialNumber || undefined,
-        warrantyExpiry: device.warrantyExpiry || undefined,
-        quantity: device.quantity ? Number(device.quantity) : undefined,
         price: device.price ? Number(device.price) : undefined,
         unit: device.unit || undefined,
         status: device.status || undefined
@@ -149,14 +143,6 @@ export default function EditDevicePage () {
         <div>
           <Label htmlFor='serialNumber'>Serial Number</Label>
           <Input id='serialNumber' name='serialNumber' value={device.serialNumber || ''} onChange={handleChange} />
-        </div>
-        <div>
-          <Label htmlFor='warrantyExpiry'>Warranty Expiry</Label>
-          <Input id='warrantyExpiry' name='warrantyExpiry' type='date' value={device.warrantyExpiry ?? ''} onChange={handleChange} />
-        </div>
-        <div>
-          <Label htmlFor='quantity'>Quantity</Label>
-          <Input id='quantity' name='quantity' type='number' min='0' value={device.quantity ?? ''} onChange={handleChange} />
         </div>
         <div>
           <Label htmlFor='price'>Price</Label>
