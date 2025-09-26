@@ -319,7 +319,7 @@ export function SparePartsExportModal({
               </div>
             ) : (
               <div className="space-y-4">
-                {filteredSpareParts.map((part) => {
+                {filteredSpareParts.map((part, index) => {
                   const sparePartId = part.sparePartId || part.id
                   const partCode = part.partCode || part.sparePartModel
                   const sparePartName = part.sparePartName || part.partName
@@ -328,7 +328,7 @@ export function SparePartsExportModal({
                   
                   return (
                     <motion.div
-                      key={sparePartId}
+                      key={sparePartId ? `sparepart-${sparePartId}` : `sparepart-${index}`}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -405,10 +405,10 @@ export function SparePartsExportModal({
               </div>
             ) : (
               <div className="space-y-4">
-                {exportItems.map((item) => {
+                {exportItems.map((item, index) => {
                   const sparePart = spareParts.find(p => p.sparePartId === item.sparePartId)
                   return (
-                    <Card key={item.sparePartId} className="bg-white">
+                    <Card key={item.sparePartId ? `export-${item.sparePartId}` : `export-${index}`} className="bg-white">
                       <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
                           <CardTitle className="text-sm font-medium">

@@ -480,10 +480,13 @@ export default function SupportServiceRequestsPage() {
               Review, approve, and reject customer service requests
             </p>
           </div>
-          <Button onClick={handleCreateTask} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Create Task
-          </Button>
+          {/* Create Task button hidden */}
+          {false && (
+            <Button onClick={handleCreateTask} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Create Task
+            </Button>
+          )}
         </div>
       </motion.div>
 

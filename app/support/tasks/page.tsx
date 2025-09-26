@@ -407,17 +407,22 @@ export default function SupportTasksPage() {
   }
 
   return (
-    <div className="flex min-h-screen w-full">
-      <main className="ml-64 flex-1 bg-background p-6">
+    <div className="container mx-auto px-4 py-8">
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Task Management</h1>
-              <p className="text-muted-foreground">
-                Manage tasks created from service requests and manual tasks
-              </p>
-            </div>
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-8"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Task Management</h1>
+                <p className="text-gray-600">
+                  Manage tasks created from service requests and manual tasks
+                </p>
+              </div>
           {/* Create Task button hidden */}
           {false && (
             <Button onClick={() => setCreateModalOpen(true)} className="gap-2">
@@ -425,7 +430,8 @@ export default function SupportTasksPage() {
               Create Task
             </Button>
           )}
-          </div>
+            </div>
+          </motion.div>
 
           {/* Statistics Cards */}
           {statistics && (
@@ -1197,7 +1203,6 @@ export default function SupportTasksPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </main>
     </div>
   )
 }

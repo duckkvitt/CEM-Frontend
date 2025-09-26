@@ -316,14 +316,6 @@ export default function InventoryPage() {
     }
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-      minimumFractionDigits: 0
-    }).format(amount)
-  }
-
   // Pagination logic
   const getCurrentItems = () => {
     const items = activeTab === 'devices' ? filteredDevices : filteredSpareParts
@@ -529,13 +521,12 @@ export default function InventoryPage() {
                   <TableHead>Min</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Location</TableHead>
-                  <TableHead>Unit Cost</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {getCurrentItems().map((device) => (
+                {getCurrentItems().map((device, index) => (
                   <motion.tr
-                    key={`${device.deviceId}`}
+                    key={device.deviceId ? `device-${device.deviceId}` : `device-${index}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2 }}
@@ -552,7 +543,6 @@ export default function InventoryPage() {
                       </div>
                     </TableCell>
                     <TableCell>{device.warehouseLocation || '-'}</TableCell>
-                    <TableCell>{device.unitCost ? formatCurrency(device.unitCost) : '-'}</TableCell>
                   </motion.tr>
                 ))}
               </TableBody>
@@ -582,13 +572,12 @@ export default function InventoryPage() {
                   <TableHead>Min</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Location</TableHead>
-                  <TableHead>Unit Cost</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {getCurrentItems().map((part, idx) => (
                   <motion.tr
-                    key={`${part.sparePartId}-${idx}`}
+                    key={part.sparePartId ? `sparepart-${part.sparePartId}` : `sparepart-${idx}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2 }}
@@ -604,7 +593,6 @@ export default function InventoryPage() {
                       </div>
                     </TableCell>
                     <TableCell>{part.warehouseLocation || '-'}</TableCell>
-                    <TableCell>{part.unitCost ? formatCurrency(part.unitCost) : '-'}</TableCell>
                   </motion.tr>
                 ))}
               </TableBody>

@@ -50,6 +50,23 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
   const [uploadingFile, setUploadingFile] = useState(false)
   const [fileError, setFileError] = useState<string | null>(null)
   
+  // Field validation errors for create form
+  const [createErrors, setCreateErrors] = useState<{
+    customerId?: string
+    title?: string
+    startDate?: string
+    endDate?: string
+    contractDetails?: string
+  }>({})
+  
+  // Field validation errors for upload form
+  const [uploadErrors, setUploadErrors] = useState<{
+    customerId?: string
+    title?: string
+    selectedFile?: string
+    contractDetails?: string
+  }>({})
+  
   function createEmptyContractDetail(): ContractDetail {
     return {
       workCode: `WK-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
@@ -105,8 +122,145 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
     if (isOpen) {
       fetchCustomers()
       fetchDevices()
+      // Clear validation errors when modal opens
+      setCreateErrors({})
+      setUploadErrors({})
+      setError(null)
+      setFileError(null)
     }
   }, [isOpen])
+
+  // Validation functions
+  const validateStartDate = (startDate: string): string | null => {
+    if (!startDate) return null
+    
+    const today = new Date()
+    today.setHours(0, 0, 0, 0) // Reset time to start of day
+    
+    const selectedDate = new Date(startDate)
+    
+    if (selectedDate < today) {
+      return 'Start date cannot be in the past'
+    }
+    
+    return null
+  }
+
+  const validateEndDate = (startDate: string, endDate: string): string | null => {
+    if (!endDate) return null
+    if (!startDate) return null
+    
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    
+    if (end < start) {
+      return 'End date cannot be before start date'
+    }
+    
+    return null
+  }
+
+  const validateCreateForm = (): boolean => {
+    const errors: typeof createErrors = {}
+    let isValid = true
+
+    // Validate customer
+    if (!formData.customerId || formData.customerId === 0) {
+      errors.customerId = 'Please select a customer'
+      isValid = false
+    }
+
+    // Validate title
+    if (!formData.title.trim()) {
+      errors.title = 'Contract title is required'
+      isValid = false
+    }
+
+    // Validate start date
+    const startDateError = validateStartDate(formData.startDate)
+    if (startDateError) {
+      errors.startDate = startDateError
+      isValid = false
+    }
+
+    // Validate end date
+    const endDateError = validateEndDate(formData.startDate, formData.endDate)
+    if (endDateError) {
+      errors.endDate = endDateError
+      isValid = false
+    }
+
+    // Validate contract details
+    if (!formData.contractDetails || formData.contractDetails.length === 0) {
+      errors.contractDetails = 'Contract must have at least one detail'
+      isValid = false
+    } else {
+      // Validate each contract detail
+      for (let i = 0; i < formData.contractDetails.length; i++) {
+        const detail = formData.contractDetails[i]
+        if (!detail.workCode?.trim()) {
+          errors.contractDetails = `Work code is required for item ${i + 1}`
+          isValid = false
+          break
+        }
+        if (!detail.quantity || detail.quantity <= 0) {
+          errors.contractDetails = `Quantity must be greater than 0 for item ${i + 1}`
+          isValid = false
+          break
+        }
+      }
+    }
+
+    setCreateErrors(errors)
+    return isValid
+  }
+
+  const validateUploadForm = (): boolean => {
+    const errors: typeof uploadErrors = {}
+    let isValid = true
+
+    // Validate customer
+    if (!uploadFormData.customerId || uploadFormData.customerId === 0) {
+      errors.customerId = 'Please select a customer'
+      isValid = false
+    }
+
+    // Validate title
+    if (!uploadFormData.title.trim()) {
+      errors.title = 'Contract title is required'
+      isValid = false
+    }
+
+    // Validate file
+    if (!uploadFormData.selectedFile) {
+      errors.selectedFile = 'Please select a contract document'
+      isValid = false
+    }
+
+    // Validate contract details
+    if (!uploadFormData.contractDetails || uploadFormData.contractDetails.length === 0) {
+      errors.contractDetails = 'Contract must have at least one detail'
+      isValid = false
+    } else {
+      // Validate each contract detail
+      for (let i = 0; i < uploadFormData.contractDetails.length; i++) {
+        const detail = uploadFormData.contractDetails[i]
+        if (!detail.workCode?.trim()) {
+          errors.contractDetails = `Work code is required for item ${i + 1}`
+          isValid = false
+          break
+        }
+        if (!detail.quantity || detail.quantity <= 0) {
+          errors.contractDetails = `Quantity must be greater than 0 for item ${i + 1}`
+          isValid = false
+          break
+        }
+      }
+    }
+
+    setUploadErrors(errors)
+    return isValid
+  }
 
   // Sync delivery schedule when devices are loaded or contract details change
   useEffect(() => {
@@ -197,11 +351,48 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
+    
+    // Clear error for this field when user starts typing
+    if (createErrors[name as keyof typeof createErrors]) {
+      setCreateErrors(prev => ({ ...prev, [name]: undefined }))
+    }
+    
+    // Real-time validation for date fields
+    if (name === 'startDate') {
+      const startDateError = validateStartDate(value)
+      if (startDateError) {
+        setCreateErrors(prev => ({ ...prev, startDate: startDateError }))
+      }
+      
+      // Also re-validate end date if it exists
+      if (formData.endDate) {
+        const endDateError = validateEndDate(value, formData.endDate)
+        if (endDateError) {
+          setCreateErrors(prev => ({ ...prev, endDate: endDateError }))
+        } else {
+          setCreateErrors(prev => ({ ...prev, endDate: undefined }))
+        }
+      }
+    }
+    
+    if (name === 'endDate') {
+      const endDateError = validateEndDate(formData.startDate, value)
+      if (endDateError) {
+        setCreateErrors(prev => ({ ...prev, endDate: endDateError }))
+      } else {
+        setCreateErrors(prev => ({ ...prev, endDate: undefined }))
+      }
+    }
   }
 
   function handleUploadInputChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const { name, value } = e.target
     setUploadFormData(prev => ({ ...prev, [name]: value }))
+    
+    // Clear error for this field when user starts typing
+    if (uploadErrors[name as keyof typeof uploadErrors]) {
+      setUploadErrors(prev => ({ ...prev, [name]: undefined }))
+    }
   }
   
   function handleDetailChange(index: number, field: string, value: string | number) {
@@ -368,6 +559,11 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
     const files = e.target.files
     setFileError(null)
     
+    // Clear file validation error when user selects a file
+    if (uploadErrors.selectedFile) {
+      setUploadErrors(prev => ({ ...prev, selectedFile: undefined }))
+    }
+    
     if (!files || files.length === 0) {
       setUploadFormData(prev => ({ ...prev, filePath: '', selectedFile: null }))
       return
@@ -506,13 +702,10 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
     setError(null)
     
     try {
-      // Validate required fields
-      if (!formData.customerId) {
-        throw new Error('Please select a customer')
-      }
-      
-      if (!formData.title) {
-        throw new Error('Contract title is required')
+      // Validate form before submission
+      if (!validateCreateForm()) {
+        setLoading(false)
+        return
       }
       
       // Upload file if provided
@@ -559,17 +752,10 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
     setError(null)
     
     try {
-      // Validate required fields
-      if (!uploadFormData.customerId) {
-        throw new Error('Please select a customer')
-      }
-      
-      if (!uploadFormData.title) {
-        throw new Error('Contract title is required')
-      }
-      
-      if (!uploadFormData.selectedFile) {
-        throw new Error('Please select a contract document')
+      // Validate form before submission
+      if (!validateUploadForm()) {
+        setLoading(false)
+        return
       }
       
       // Upload file to Google Drive first
@@ -674,7 +860,9 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                   name="customerId"
                   value={formData.customerId}
                   onChange={handleInputChange}
-                  className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary"
+                  className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-primary ${
+                    createErrors.customerId ? 'border-red-500' : ''
+                  }`}
                   required
                   disabled={customersLoading}
                 >
@@ -685,6 +873,9 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                     </option>
                   ))}
                 </select>
+                {createErrors.customerId && (
+                  <p className="text-sm text-red-500 mt-1">{createErrors.customerId}</p>
+                )}
                 {customersLoading && (
                   <p className="text-sm text-muted-foreground mt-1">Loading customers...</p>
                 )}
@@ -699,10 +890,15 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                     name="title"
                     value={formData.title}
                     onChange={handleInputChange}
-                    className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary"
+                    className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-primary ${
+                      createErrors.title ? 'border-red-500' : ''
+                    }`}
                     required
                     placeholder="Contract title"
                   />
+                  {createErrors.title && (
+                    <p className="text-sm text-red-500 mt-1">{createErrors.title}</p>
+                  )}
                 </div>
                 
                 <div className="col-span-1 md:col-span-2">
@@ -723,8 +919,13 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                     name="startDate"
                     value={formData.startDate}
                     onChange={handleInputChange}
-                    className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary"
+                    className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-primary ${
+                      createErrors.startDate ? 'border-red-500' : ''
+                    }`}
                   />
+                  {createErrors.startDate && (
+                    <p className="text-sm text-red-500 mt-1">{createErrors.startDate}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -734,8 +935,13 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                     name="endDate"
                     value={formData.endDate}
                     onChange={handleInputChange}
-                    className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary"
+                    className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-primary ${
+                      createErrors.endDate ? 'border-red-500' : ''
+                    }`}
                   />
+                  {createErrors.endDate && (
+                    <p className="text-sm text-red-500 mt-1">{createErrors.endDate}</p>
+                  )}
                 </div>
                 
 
@@ -915,6 +1121,9 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                     <Plus size={16} /> Add Item
                   </button>
                 </div>
+                {createErrors.contractDetails && (
+                  <p className="text-sm text-red-500 mb-2">{createErrors.contractDetails}</p>
+                )}
                 
                 {formData.contractDetails?.map((detail, index) => (
                   <div key={index} className="border rounded-md p-4 mb-4">
@@ -1052,7 +1261,9 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                     name="customerId"
                     value={uploadFormData.customerId}
                     onChange={handleUploadInputChange}
-                    className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary"
+                    className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-primary ${
+                      uploadErrors.customerId ? 'border-red-500' : ''
+                    }`}
                     required
                     disabled={customersLoading}
                   >
@@ -1063,6 +1274,9 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                       </option>
                     ))}
                   </select>
+                  {uploadErrors.customerId && (
+                    <p className="text-sm text-red-500 mt-1">{uploadErrors.customerId}</p>
+                  )}
                   {customersLoading && (
                     <p className="text-sm text-muted-foreground mt-1">Loading customers...</p>
                   )}
@@ -1077,10 +1291,15 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                       name="title"
                       value={uploadFormData.title}
                       onChange={handleUploadInputChange}
-                      className="w-full border rounded-md p-2 focus:ring-2 focus:ring-primary"
+                      className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-primary ${
+                        uploadErrors.title ? 'border-red-500' : ''
+                      }`}
                       required
                       placeholder="Contract title"
                     />
+                    {uploadErrors.title && (
+                      <p className="text-sm text-red-500 mt-1">{uploadErrors.title}</p>
+                    )}
                   </div>
                   
                   <div className="col-span-1 md:col-span-2">
@@ -1137,6 +1356,9 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                     </div>
                     {fileError && (
                       <p className="text-sm text-red-500 mt-1">{fileError}</p>
+                    )}
+                    {uploadErrors.selectedFile && (
+                      <p className="text-sm text-red-500 mt-1">{uploadErrors.selectedFile}</p>
                     )}
                   </div>
                 </div>
@@ -1243,6 +1465,9 @@ export function CreateContractModal({ isOpen, onClose, onSuccess }: CreateContra
                       <Plus size={16} /> Add Item
                     </button>
                   </div>
+                  {uploadErrors.contractDetails && (
+                    <p className="text-sm text-red-500 mb-2">{uploadErrors.contractDetails}</p>
+                  )}
                   
                   {uploadFormData.contractDetails?.map((detail, index) => (
                     <div key={index} className="border rounded-md p-4 mb-4">
