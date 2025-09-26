@@ -23,6 +23,7 @@ import { format } from 'date-fns'
 interface TaskSparePartsSectionProps {
   taskId: number
   taskTitle: string
+  taskStatus?: string // Add task status to conditionally show export button
   onExportClick: () => void
   refreshTrigger?: number // Thêm trigger để refresh data
 }
@@ -30,6 +31,7 @@ interface TaskSparePartsSectionProps {
 export function TaskSparePartsSection({ 
   taskId, 
   taskTitle, 
+  taskStatus,
   onExportClick,
   refreshTrigger
 }: TaskSparePartsSectionProps) {
@@ -103,13 +105,16 @@ export function TaskSparePartsSection({
               Track spare parts exported for this task
             </CardDescription>
           </div>
-          <Button 
-            onClick={onExportClick}
-            className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Export Parts
-          </Button>
+          {/* Only show export button if task is not completed */}
+          {taskStatus !== 'COMPLETED' && (
+            <Button 
+              onClick={onExportClick}
+              className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export Parts
+            </Button>
+          )}
         </div>
       </CardHeader>
 

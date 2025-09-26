@@ -665,6 +665,7 @@ export default function TechnicianTasksPage() {
                     <TaskSparePartsSection
                       taskId={selectedTask.id}
                       taskTitle={selectedTask.title}
+                      taskStatus={selectedTask.status}
                       onExportClick={openExportModal}
                       refreshTrigger={refreshTrigger}
                     />
