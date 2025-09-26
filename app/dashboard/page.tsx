@@ -85,7 +85,6 @@ export default function DashboardPage() {
       case 'STAFF':
         return <StaffDashboard user={user} />
       case 'LEAD_TECH':
-      case 'TECH_LEAD':
         return <TechLeadDashboard user={user} />
       case 'TECHNICIAN':
         return <TechnicianDashboard user={user} />

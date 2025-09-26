@@ -60,7 +60,7 @@ function DeviceManagementContent() {
   }, [])
 
   useEffect(() => {
-    if (role && !['STAFF', 'MANAGER', 'SUPPORT_TEAM', 'TECH_LEAD', 'TECHNICIAN'].includes(role)) {
+    if (role && !['STAFF', 'MANAGER', 'SUPPORT_TEAM', 'LEAD_TECH', 'TECHNICIAN'].includes(role)) {
       router.replace('/dashboard')
     }
   }, [role])

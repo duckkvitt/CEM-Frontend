@@ -83,7 +83,7 @@ export default function DeviceDetailPage () {
 
   // Allow staff, managers, and customers to access this page
   useEffect(() => {
-    if (role && !['STAFF', 'MANAGER', 'SUPPORT_TEAM', 'TECH_LEAD', 'TECHNICIAN', 'CUSTOMER'].includes(role)) {
+    if (role && !['STAFF', 'MANAGER', 'SUPPORT_TEAM', 'LEAD_TECH', 'TECHNICIAN', 'CUSTOMER'].includes(role)) {
       router.replace('/dashboard')
     }
   }, [role, router])
@@ -134,7 +134,7 @@ export default function DeviceDetailPage () {
   }
 
   useEffect(() => {
-    if (role && ['STAFF', 'MANAGER', 'SUPPORT_TEAM', 'TECH_LEAD', 'TECHNICIAN', 'CUSTOMER'].includes(role)) {
+    if (role && ['STAFF', 'MANAGER', 'SUPPORT_TEAM', 'LEAD_TECH', 'TECHNICIAN', 'CUSTOMER'].includes(role)) {
       fetchDetails()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
