@@ -396,12 +396,6 @@ export default function DeviceDetailPage() {
                 <FileText className="h-4 w-4 mr-2" />
                 View Service Requests
               </Button>
-              <Button className="w-full" variant="outline">
-                View Documentation
-              </Button>
-              <Button className="w-full" variant="outline">
-                Download Invoice
-              </Button>
             </CardContent>
           </Card>
 

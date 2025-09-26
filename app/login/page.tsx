@@ -255,13 +255,13 @@ export default function LoginPage() {
                       checked={remember}
                       onChange={e => setRemember(e.target.checked)}
                     />
-                    <span>Secure Session</span>
+                    <span>Remember Me</span>
                   </label>
                   <Link
                     href="/forgot-password"
                     className="font-medium text-cyan-400 hover:text-cyan-300 hover:underline transition-colors"
                   >
-                    Auth Failure?
+                    Forgot Password?
                   </Link>
                 </div>
 
