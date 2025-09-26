@@ -113,6 +113,10 @@ export default function TechLeadTasksPage() {
     scheduledDate: '',
     techleadNotes: ''
   })
+  const [formErrors, setFormErrors] = useState<{
+    technicianId?: string
+    scheduledDate?: string
+  }>({})
 
   const router = useRouter()
 
@@ -201,17 +205,49 @@ export default function TechLeadTasksPage() {
       scheduledDate: task.scheduledDate || '',
       techleadNotes: ''
     })
+    setFormErrors({})
     setAssignModalOpen(true)
+  }
+
+  const validateForm = () => {
+    const errors: { technicianId?: string; scheduledDate?: string } = {}
+    
+    // Validate technician selection
+    if (assignForm.technicianId === 0) {
+      errors.technicianId = 'Please select a technician'
+    }
+    
+    // Validate scheduled date
+    if (!assignForm.scheduledDate) {
+      errors.scheduledDate = 'Scheduled date is required'
+    } else {
+      const selectedDate = new Date(assignForm.scheduledDate)
+      const now = new Date()
+      
+      // Check if the date is in the past (allowing for current minute)
+      if (selectedDate < now) {
+        errors.scheduledDate = 'Scheduled date cannot be in the past'
+      }
+    }
+    
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
   }
 
   const submitAssignment = async () => {
     if (!selectedTask) return
+    
+    // Validate form before submission
+    if (!validateForm()) {
+      return
+    }
     
     setSubmitting(true)
     try {
       await assignTask(selectedTask.id, assignForm)
       setAssignModalOpen(false)
       setSelectedTask(null)
+      setFormErrors({})
       fetchData()
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to assign task'
@@ -686,13 +722,19 @@ export default function TechLeadTasksPage() {
             <div className="px-6 py-6 space-y-6 md:max-w-2xl md:pr-8">
               <div className="space-y-2">
                 <Label htmlFor="technician" className="text-sm font-medium text-muted-foreground">
-                  Technician
+                  Technician <span className="text-red-500">*</span>
                 </Label>
                 <Select
                   value={assignForm.technicianId.toString()}
-                  onValueChange={(value) => setAssignForm(prev => ({ ...prev, technicianId: parseInt(value) }))}
+                  onValueChange={(value) => {
+                    setAssignForm(prev => ({ ...prev, technicianId: parseInt(value) }))
+                    // Clear error when user selects a technician
+                    if (formErrors.technicianId) {
+                      setFormErrors(prev => ({ ...prev, technicianId: undefined }))
+                    }
+                  }}
                 >
-                  <SelectTrigger className="w-full items-start text-left gap-2 py-3 pl-4 pr-10 min-h-[74px] [&>span]:line-clamp-none [&>span]:whitespace-normal">
+                  <SelectTrigger className={`w-full items-start text-left gap-2 py-3 pl-4 pr-10 min-h-[74px] [&>span]:line-clamp-none [&>span]:whitespace-normal ${formErrors.technicianId ? 'border-red-500' : ''}`}>
                     <SelectValue placeholder="Select a technician" />
                   </SelectTrigger>
                   <SelectContent>
@@ -730,19 +772,32 @@ export default function TechLeadTasksPage() {
                     )}
                   </SelectContent>
                 </Select>
+                {formErrors.technicianId && (
+                  <p className="text-sm text-red-500 mt-1">{formErrors.technicianId}</p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="scheduled-date" className="text-sm font-medium text-muted-foreground">
-                  Scheduled Date
+                  Scheduled Date <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="scheduled-date"
                   type="datetime-local"
                   value={assignForm.scheduledDate}
-                  onChange={(e) => setAssignForm(prev => ({ ...prev, scheduledDate: e.target.value }))}
-                  className="w-full"
+                  onChange={(e) => {
+                    setAssignForm(prev => ({ ...prev, scheduledDate: e.target.value }))
+                    // Clear error when user changes the date
+                    if (formErrors.scheduledDate) {
+                      setFormErrors(prev => ({ ...prev, scheduledDate: undefined }))
+                    }
+                  }}
+                  className={`w-full ${formErrors.scheduledDate ? 'border-red-500' : ''}`}
+                  min={new Date().toISOString().slice(0, 16)} // Prevent selecting past dates
                 />
+                {formErrors.scheduledDate && (
+                  <p className="text-sm text-red-500 mt-1">{formErrors.scheduledDate}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -844,7 +899,7 @@ export default function TechLeadTasksPage() {
             </Button>
             <Button
               onClick={submitAssignment}
-              disabled={submitting || assignForm.technicianId === 0}
+              disabled={submitting || assignForm.technicianId === 0 || !assignForm.scheduledDate}
               className="sm:ml-auto"
             >
               {submitting ? 'Assigning...' : 'Assign Task'}
